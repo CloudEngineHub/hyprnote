@@ -252,7 +252,7 @@ export function SearchBar() {
       >
         <SearchIcon className="h-4 w-4 text-neutral-500 flex-shrink-0" />
 
-        <div className="flex flex-1 items-center gap-1.5 flex-wrap overflow-hidden">
+        <div className="flex flex-1 items-center gap-1.5 flex-nowrap overflow-x-auto scrollbar-none">
           {badges.map((badge, index) => (
             <SearchBadge
               key={badge.id}
@@ -264,7 +264,6 @@ export function SearchBar() {
               }}
             />
           ))}
-
           <input
             ref={searchInputRef}
             type="text"
@@ -274,6 +273,7 @@ export function SearchBar() {
             onClick={handleInputClick}
             placeholder={badges.length === 0 ? "Search... (@ for mentions, # for tags)" : ""}
             className="flex-1 min-w-[50px] bg-transparent outline-none text-xs"
+            style={{ minWidth: "4rem" }}
           />
         </div>
 
