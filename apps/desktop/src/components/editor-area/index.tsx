@@ -14,8 +14,8 @@ import Editor, { TiptapEditor } from "@hypr/tiptap/editor";
 import Renderer from "@hypr/tiptap/renderer";
 import { cn } from "@hypr/ui/lib/utils";
 import { modelProvider, smoothStream, streamText } from "@hypr/utils/ai";
-import { NoteHeader } from "./note-header";
 import { EnhanceButton } from "./enhance-button";
+import { NoteHeader } from "./note-header";
 
 interface EditorAreaProps {
   editable: boolean;
@@ -42,11 +42,11 @@ export default function EditorArea({ editable, sessionId }: EditorAreaProps) {
   useEffect(() => {
     if (sessionStore.session?.id) {
       setEditorKey(`${sessionStore.session.id}-${showRaw ? "raw" : "enhanced"}-${Date.now()}`);
-      
+
       const content = showRaw
         ? sessionStore.session?.raw_memo_html
         : sessionStore.session?.enhanced_memo_html;
-      
+
       setInitialContent(content ?? "");
     }
   }, [sessionStore.session?.id, showRaw]);

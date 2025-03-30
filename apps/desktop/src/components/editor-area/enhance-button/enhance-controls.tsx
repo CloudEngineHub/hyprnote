@@ -1,5 +1,5 @@
-import { AlignLeft, Loader2, Zap } from "lucide-react";
 import { cn } from "@hypr/ui/lib/utils";
+import { AlignLeft, Loader2, Zap } from "lucide-react";
 
 interface EnhanceControlsProps {
   showRaw: boolean;
