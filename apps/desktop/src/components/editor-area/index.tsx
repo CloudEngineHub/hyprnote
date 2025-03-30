@@ -36,19 +36,21 @@ export default function EditorArea({ editable, sessionId }: EditorAreaProps) {
     persistSession: s.persistSession,
   }));
 
+  const editorRef = useRef<{ editor: TiptapEditor | null }>(null);
+
   const [initialContent, setInitialContent] = useState("");
   const [editorKey, setEditorKey] = useState(sessionStore.session?.id || "default");
 
   useEffect(() => {
-    const content = showRaw
-      ? sessionStore.session?.raw_memo_html
-      : sessionStore.session?.enhanced_memo_html;
-
     if (sessionStore.session?.id) {
-      setEditorKey(sessionStore.session.id + (showRaw ? "-raw" : "-enhanced"));
+      setEditorKey(`${sessionStore.session.id}-${showRaw ? "raw" : "enhanced"}-${Date.now()}`);
+      
+      const content = showRaw
+        ? sessionStore.session?.raw_memo_html
+        : sessionStore.session?.enhanced_memo_html;
+      
+      setInitialContent(content ?? "");
     }
-
-    setInitialContent(content ?? "");
   }, [sessionStore.session?.id, showRaw]);
 
   const enhance = useMutation({
@@ -131,16 +133,20 @@ export default function EditorArea({ editable, sessionId }: EditorAreaProps) {
     setShowRaw(false);
   }, [enhance, setShowRaw]);
 
-  const editorRef = useRef<{ editor: TiptapEditor }>(null);
+  const safelyFocusEditor = useCallback(() => {
+    if (editorRef.current?.editor && editorRef.current.editor.isEditable) {
+      requestAnimationFrame(() => {
+        editorRef.current?.editor?.commands.focus();
+      });
+    }
+  }, []);
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
       <NoteHeader
         sessionId={sessionId}
         editable={editable}
-        onNavigateToEditor={() => {
-          editorRef.current?.editor?.commands?.focus();
-        }}
+        onNavigateToEditor={safelyFocusEditor}
       />
 
       <div
@@ -152,7 +158,7 @@ export default function EditorArea({ editable, sessionId }: EditorAreaProps) {
         ])}
         onClick={(e) => {
           e.stopPropagation();
-          editorRef.current?.editor?.commands?.focus();
+          safelyFocusEditor();
         }}
       >
         <div>
@@ -168,6 +174,7 @@ export default function EditorArea({ editable, sessionId }: EditorAreaProps) {
             )
             : (
               <Renderer
+                key={editorKey}
                 ref={editorRef}
                 initialContent={initialContent}
               />
