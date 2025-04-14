@@ -88,7 +88,10 @@ export default function ListenButton({ sessionId }: ListenButtonProps) {
   });
 
   useEffect(() => {
-    if (ongoingSessionStatus === "running_active" && prevOngoingSessionStatus === "inactive") {
+    if (
+      ongoingSessionStatus === "running_active"
+      && prevOngoingSessionStatus === "inactive"
+    ) {
       toast({
         id: "recording-consent",
         title: "Recording Started",
@@ -156,7 +159,9 @@ export default function ListenButton({ sessionId }: ListenButtonProps) {
             onClick={handleStartSession}
             className={clsx([
               "w-9 h-9 rounded-full border-2 transition-all hover:scale-95  cursor-pointer outline-none p-0 flex items-center justify-center",
-              !modelDownloaded.data ? "bg-neutral-200 border-neutral-400" : "bg-red-500 border-neutral-400",
+              !modelDownloaded.data
+                ? "bg-neutral-200 border-neutral-400"
+                : "bg-red-500 border-neutral-400",
             ])}
             style={{
               boxShadow: "0 0 0 2px rgba(255, 255, 255, 0.8) inset",
@@ -183,7 +188,7 @@ export default function ListenButton({ sessionId }: ListenButtonProps) {
         <PopoverTrigger asChild>
           <button
             onClick={handleStartSession}
-            className="w-14 h-9 rounded-full bg-red-100 border-2 transition-all hover:scale-95 border-red-400 cursor-pointer outline-none p-0 flex items-center justify-center"
+            className="w-14 h-9 rounded-full bg-red-100 border-2 transition-all border-red-400 cursor-pointer outline-none p-0 flex items-center justify-center"
             style={{
               boxShadow: "0 0 0 2px rgba(255, 255, 255, 0.8) inset",
             }}
