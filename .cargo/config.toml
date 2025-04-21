@@ -1,7 +1,6 @@
-[target.x86_64-pc-windows-msvc]
+[target]
 rustflags = ["-Ctarget-feature=+crt-static"]
-env = { CFLAGS = "/MT", CXXFLAGS = "/MT" }
 
-[target.aarch64-pc-windows-msvc]
-rustflags = ["-Ctarget-feature=+crt-static"]
-env = { CFLAGS = "/MT", CXXFLAGS = "/MT" }
+[env]
+CFLAGS = "/MT"
+CXXFLAGS = "/MT"
