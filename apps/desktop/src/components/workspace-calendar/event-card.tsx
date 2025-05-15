@@ -75,7 +75,7 @@ export function EventCard({
       safeNavigate({ type: "main" }, url);
     } else {
       const props = {
-        to: "/app/new",
+        to: "/app/meeting/new",
         search: { calendarEventId: event.id },
       } as const satisfies LinkProps;
 

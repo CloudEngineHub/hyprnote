@@ -116,7 +116,7 @@ function EventItem({
         params: { id: event.session.id },
       });
     } else {
-      navigate({ to: "/app/new", search: { calendarEventId: event.id } });
+      navigate({ to: "/app/meeting/new", search: { calendarEventId: event.id } });
     }
   };
 

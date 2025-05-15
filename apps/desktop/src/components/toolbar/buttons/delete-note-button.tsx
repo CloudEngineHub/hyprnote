@@ -34,7 +34,7 @@ function DeleteNoteButtonInNote() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       miscCommands.deleteSessionFolder(param.id).then(() => {
-        navigate({ to: "/app/new" });
+        navigate({ to: "/app/daily/today" });
       });
     },
   });

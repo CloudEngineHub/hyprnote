@@ -98,8 +98,10 @@ impl<T: tauri::Manager<tauri::Wry>> TrayPluginExt<tauri::Wry> for T {
                     HyprMenuItem::TrayStart => {
                         use tauri_plugin_windows::{HyprWindow, WindowsPluginExt};
                         if let Ok(_) = app.window_show(HyprWindow::Main) {
-                            let _ =
-                                app.window_emit_navigate(HyprWindow::Main, "/app/new?record=true");
+                            let _ = app.window_emit_navigate(
+                                HyprWindow::Main,
+                                "/app/meeting/new?record=true",
+                            );
                         }
                     }
                     HyprMenuItem::TrayQuit => {
@@ -108,7 +110,7 @@ impl<T: tauri::Manager<tauri::Wry>> TrayPluginExt<tauri::Wry> for T {
                     HyprMenuItem::AppNew => {
                         use tauri_plugin_windows::{HyprWindow, WindowsPluginExt};
                         if let Ok(_) = app.window_show(HyprWindow::Main) {
-                            let _ = app.window_emit_navigate(HyprWindow::Main, "/app/new");
+                            let _ = app.window_emit_navigate(HyprWindow::Main, "/app/meeting/new");
                         }
                     }
                 }

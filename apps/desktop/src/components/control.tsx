@@ -42,7 +42,7 @@ export const ErrorComponent: ErrorRouteComponent = ({ error }) => {
       <img src="/assets/sorry.png" alt="error" className="w-1/2" />
 
       <div className="flex gap-2">
-        <Link to="/app/new">
+        <Link to="/app/daily/today">
           <Button variant="ghost">Back to home</Button>
         </Link>
         <Button variant="ghost" onClick={() => open("https://hyprnote.com/discord")}>

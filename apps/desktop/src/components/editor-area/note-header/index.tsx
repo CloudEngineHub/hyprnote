@@ -12,9 +12,10 @@ interface NoteHeaderProps {
   editable?: boolean;
   sessionId: string;
   hashtags?: string[];
+  isMeeting: boolean;
 }
 
-export function NoteHeader({ onNavigateToEditor, editable, sessionId, hashtags = [] }: NoteHeaderProps) {
+export function NoteHeader({ onNavigateToEditor, editable, sessionId, hashtags = [], isMeeting }: NoteHeaderProps) {
   const updateTitle = useSession(sessionId, (s) => s.updateTitle);
   const sessionTitle = useSession(sessionId, (s) => s.session.title);
 
@@ -25,6 +26,19 @@ export function NoteHeader({ onNavigateToEditor, editable, sessionId, hashtags =
   const noteMatch = useMatch({ from: "/app/note/$id", shouldThrow: false });
   const windowLabel = getCurrentWebviewWindowLabel();
   const isInNoteMain = windowLabel === "main" && noteMatch;
+
+  if (!isMeeting) {
+    return (
+      <div className="flex items-center w-full pl-8 pr-6 pb-4 gap-4">
+        <div className="flex-1 space-y-1">
+          <TitleInput
+            editable={false}
+            value={sessionTitle}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center w-full pl-8 pr-6 pb-4 gap-4">

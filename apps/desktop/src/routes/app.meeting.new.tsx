@@ -5,16 +5,15 @@ import { z } from "zod";
 import { commands as dbCommands, type Session } from "@hypr/plugin-db";
 
 const schema = z.object({
-  meeting: z.boolean().default(true),
   record: z.boolean().optional(),
   calendarEventId: z.string().optional(),
 });
 
-export const Route = createFileRoute("/app/new")({
+export const Route = createFileRoute("/app/meeting/new")({
   validateSearch: zodValidator(schema),
   beforeLoad: async ({
     context: { queryClient, ongoingSessionStore, sessionsStore, userId },
-    search: { meeting, record, calendarEventId },
+    search: { record, calendarEventId },
   }) => {
     try {
       const sessionId = crypto.randomUUID();
@@ -29,18 +28,10 @@ export const Route = createFileRoute("/app/new")({
         raw_memo_html: "",
         enhanced_memo_html: null,
         conversations: [],
-        is_meeting: meeting,
+        is_meeting: true,
       };
 
       const constructSession = async () => {
-        if (!meeting) {
-          return {
-            ...base,
-            title: new Date().toLocaleDateString("en-CA").replace(/-/g, ""),
-            is_meeting: false,
-          };
-        }
-
         if (calendarEventId) {
           const event = await queryClient.fetchQuery({
             queryKey: ["event", calendarEventId],

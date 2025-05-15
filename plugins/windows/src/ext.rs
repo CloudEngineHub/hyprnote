@@ -250,7 +250,7 @@ impl HyprWindow {
             Some(window) => (window, false),
             None => {
                 let url = match self {
-                    Self::Main => "/app/new",
+                    Self::Main => "/app/daily/today",
                     Self::Note(id) => &format!("/app/note/{}", id),
                     Self::Human(id) => &format!("/app/human/{}", id),
                     Self::Organization(id) => &format!("/app/organization/{}", id),

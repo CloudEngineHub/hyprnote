@@ -1,10 +1,9 @@
-import { Trans } from "@lingui/react/macro";
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type LinkProps, useMatch, useNavigate } from "@tanstack/react-router";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { endOfMonth, startOfMonth, subMonths } from "date-fns";
-import { AppWindowMacIcon, ArrowUpRight, CalendarDaysIcon, TrashIcon } from "lucide-react";
+import { AppWindowMacIcon, ArrowUpRight, CalendarDaysIcon, CalendarFoldIcon, TrashIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -45,8 +44,10 @@ export default function NotesList({ ongoingSessionId, filter }: NotesListProps) 
   }));
 
   const { userId } = useHypr();
+  const navigate = useNavigate();
+
   const sessions = useInfiniteQuery({
-    queryKey: ["sessions"],
+    queryKey: ["sessions", "grouped", userId],
     queryFn: async ({ pageParam: { monthOffset } }) => {
       const now = new Date();
       const [from, to] = [startOfMonth(now), endOfMonth(now)]
@@ -117,6 +118,13 @@ export default function NotesList({ ongoingSessionId, filter }: NotesListProps) 
 
   const { params: { id: activeSessionId } } = noteMatch;
 
+  const handleClickHeader = (date: string) => {
+    navigate({
+      to: "/app/daily/$date",
+      params: { date },
+    });
+  };
+
   return (
     <>
       {sessions.data?.pages.map((page, pageIndex) =>
@@ -130,11 +138,22 @@ export default function NotesList({ ongoingSessionId, filter }: NotesListProps) 
             if (filteredItems.length === 0) {
               return null;
             }
+            const dateString = new Date(items[0].created_at).toLocaleDateString("en-CA").replace(/-/g, "");
 
             return (
               <section key={`${key}-${pageIndex}`}>
-                <h2 className="font-bold text-neutral-600 mb-1">
-                  {key}
+                <h2
+                  onClick={() => handleClickHeader(dateString)}
+                  className={cn([
+                    "group",
+                    "flex items-center justify-between",
+                    "font-bold text-neutral-600",
+                    "p-0.5 rounded-lg mb-1",
+                    "hover:bg-neutral-100 cursor-pointer",
+                  ])}
+                >
+                  <span>{key}</span>
+                  <CalendarFoldIcon size={16} className="mr-1 opacity-0 group-hover:opacity-100" />
                 </h2>
 
                 <motion.div layout>
@@ -204,7 +223,7 @@ function NoteItem({
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       miscCommands.deleteSessionFolder(currentSessionId).then(() => {
         if (isActive) {
-          navigate({ to: "/app/new" });
+          navigate({ to: "/app/daily/today" });
         }
       });
     },
@@ -266,7 +285,7 @@ function NoteItem({
           onClick={handleClick}
           disabled={isActive}
           className={cn(
-            "group flex items-start gap-3 py-2 w-full text-left transition-all rounded-lg px-2",
+            "group flex items-start gap-3 w-full text-left transition-all p-2 rounded-lg",
             isActive ? "bg-neutral-200" : "hover:bg-neutral-100",
           )}
         >

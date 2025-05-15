@@ -128,7 +128,7 @@ function EventMatch({ match }: { match: SearchMatch & { type: "event" } }) {
   const event = match.item;
 
   const handleClick = () => {
-    navigate({ to: "/app/new", search: { calendarEventId: event.id } });
+    navigate({ to: "/app/meeting/new", search: { calendarEventId: event.id } });
   };
 
   return (

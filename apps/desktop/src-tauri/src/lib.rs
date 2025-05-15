@@ -127,8 +127,8 @@ pub async fn main() {
                 let app_clone = app.clone();
 
                 // TODO: currently we only use deeplinks for notifications, so we've hardcoded
-                // `/app/new?record=true` here
-                let dest = "/app/new?record=true";
+                // `/app/meeting/new?record=true` here
+                let dest = "/app/meeting/new?record=true";
 
                 app.deep_link().on_open_url(move |event| {
                     if let Some(_) = event.urls().first() {

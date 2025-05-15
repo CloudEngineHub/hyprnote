@@ -39,9 +39,9 @@ export function PastNotes({ human }: { human: Human }) {
 
   const handleCreateNote = () => {
     if (isMain) {
-      navigate({ to: "/app/new" });
+      navigate({ to: "/app/meeting/new" });
     } else {
-      const params = { to: "/app/new" } as const satisfies LinkProps;
+      const params = { to: "/app/meeting/new" } as const satisfies LinkProps;
 
       windowsCommands.windowEmitNavigate({ type: "main" }, params.to).then(() => {
         windowsCommands.windowDestroy({ type: "human", value: human.id });

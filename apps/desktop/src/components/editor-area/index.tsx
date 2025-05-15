@@ -1,4 +1,3 @@
-import { toast } from "@hypr/ui/components/ui/toast";
 import { useMutation } from "@tanstack/react-query";
 import usePreviousValue from "beautiful-react-hooks/usePreviousValue";
 import { motion } from "motion/react";
@@ -14,6 +13,7 @@ import { commands as templateCommands } from "@hypr/plugin-template";
 import Editor, { type TiptapEditor } from "@hypr/tiptap/editor";
 import Renderer from "@hypr/tiptap/renderer";
 import { extractHashtags } from "@hypr/tiptap/shared";
+import { toast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/ui/lib/utils";
 import { markdownTransform, modelProvider, smoothStream, streamText } from "@hypr/utils/ai";
 import { useOngoingSession, useSession } from "@hypr/utils/contexts";
@@ -29,6 +29,7 @@ export default function EditorArea({
   sessionId: string;
 }) {
   const showRaw = useSession(sessionId, (s) => s.showRaw);
+  const isMeeting = useSession(sessionId, (s) => s.session.is_meeting);
 
   const [rawContent, setRawContent] = useSession(sessionId, (s) => [
     s.session?.raw_memo_html ?? "",
@@ -93,6 +94,7 @@ export default function EditorArea({
   return (
     <div className="relative flex h-full flex-col w-full">
       <NoteHeader
+        isMeeting={isMeeting}
         sessionId={sessionId}
         editable={editable}
         onNavigateToEditor={safelyFocusEditor}

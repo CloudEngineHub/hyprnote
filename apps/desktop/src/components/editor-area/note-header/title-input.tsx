@@ -3,7 +3,7 @@ import { type ChangeEvent, type KeyboardEvent } from "react";
 
 interface TitleInputProps {
   value: string;
-  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
   onNavigateToEditor?: () => void;
   editable?: boolean;
 }
