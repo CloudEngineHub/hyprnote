@@ -91,11 +91,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - run: |
-          if [ -d target/release ]; then
-            echo "target/release already exists"
-          else
-            mkdir -p target/release
-          fi
+          mkdir -p target/release
           find target/${{ matrix.target }}/release -type f -not -path "*/\.*" -exec cp {} target/release/ \;
         shell: bash
         working-directory: ./apps/desktop/src-tauri
