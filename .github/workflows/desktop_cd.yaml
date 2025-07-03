@@ -80,10 +80,8 @@ jobs:
           apple-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
       - if: ${{ matrix.platform == 'windows' }}
-        run: |
-          mkdir -p .cargo
-          cp ./apps/desktop/src-tauri/.cargo/debug-config.toml ./.cargo/config.toml
-        working-directory: ./apps/desktop
+        run: cp ./.cargo/debug-config.toml ./.cargo/config.toml
+        working-directory: ./apps/desktop/src-tauri
       - run: pnpm -F desktop tauri build --target ${{ matrix.target }} --config ${{ env.TAURI_CONF_PATH }} --verbose
         env:
           # https://github.com/tauri-apps/tauri-action/issues/740
