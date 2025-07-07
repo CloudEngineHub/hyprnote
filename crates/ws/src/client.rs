@@ -43,41 +43,111 @@ impl WebSocketClient {
 
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
-        let _send_task = tokio::spawn(async move {
-            while let Some(data) = audio_stream.next().await {
-                let input = T::to_input(data);
-                let msg = T::to_message(input);
+        let send_task = tokio::spawn(async move {
+            let mut audio_stream = audio_stream.fuse();
+            let mut ping_interval = tokio::time::interval(std::time::Duration::from_secs(15));
+            let mut send_end_marker = true;
 
-                if let Err(e) = ws_sender.send(msg).await {
-                    tracing::error!("ws_send_failed: {:?}", e);
-                    break;
+            loop {
+                tokio::select! {
+                    biased; // Prioritize draining the audio stream over sending pings.
+
+                    // Handle next audio chunk.
+                    data = audio_stream.next() => {
+                        if let Some(data) = data {
+                            let input = T::to_input(data);
+                            let msg = T::to_message(input);
+
+                            if let Err(e) = ws_sender.send(msg).await {
+                                use tokio_tungstenite::tungstenite::{error::ProtocolError, Error as WsError};
+
+                                let is_normal_close = matches!(
+                                    e,
+                                    WsError::AlreadyClosed |
+                                    WsError::ConnectionClosed |
+                                    WsError::Protocol(ProtocolError::SendAfterClosing)
+                                ) || matches!(e, WsError::Io(ref io_err) if io_err.kind() == std::io::ErrorKind::BrokenPipe);
+
+                                if is_normal_close {
+                                    tracing::debug!("ws_send_closed: {:?}", e);
+                                } else {
+                                    tracing::error!("ws_send_failed: {:?}", e);
+                                }
+                                send_end_marker = false;
+                                break;
+                            }
+                        } else {
+                            // Audio stream ended, exit loop.
+                            break;
+                        }
+                    },
+                    // Send a ping to keep the connection alive.
+                    _ = ping_interval.tick() => {
+                        if let Err(e) = ws_sender.send(Message::Ping(vec![].into())).await {
+                            tracing::debug!("ws_ping_failed: {:?}", e);
+                            send_end_marker = false;
+                            break;
+                        }
+                    }
                 }
             }
 
-            // We shouldn't send a 'Close' message, as it would prevent receiving remaining transcripts from the server.
-            let _ = ws_sender.send(T::to_message(T::Input::default())).await;
+            if send_end_marker {
+                // We shouldn't send a 'Close' message, as it would prevent receiving remaining transcripts from the server.
+                let _ = ws_sender.send(T::to_message(T::Input::default())).await;
+            }
+
+            // Gracefully close the sender side of the websocket.
+            if let Err(e) = ws_sender.close().await {
+                tracing::debug!("ws_sender.close() failed: {:?}", e);
+            }
         });
 
         let output_stream = async_stream::stream! {
-            while let Some(msg_result) = ws_receiver.next().await {
-                match msg_result {
-                    Ok(msg) => {
-                        match msg {
-                            Message::Text(_) | Message::Binary(_) => {
-                            if let Some(output) = T::from_message(msg) {
-                                yield output;
+            // This struct ensures that the send_task is aborted when the stream is dropped.
+            struct AbortOnDrop(tokio::task::JoinHandle<()>);
+            impl Drop for AbortOnDrop {
+                fn drop(&mut self) {
+                    self.0.abort();
+                }
+            }
+            let _guard = AbortOnDrop(send_task);
+
+            loop {
+                const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+                match tokio::time::timeout(TIMEOUT, ws_receiver.next()).await {
+                    Ok(Some(msg_result)) => {
+                        match msg_result {
+                            Ok(msg) => {
+                                match msg {
+                                    Message::Text(_) | Message::Binary(_) => {
+                                        if let Some(output) = T::from_message(msg) {
+                                            yield output;
+                                        }
+                                    },
+                                    Message::Ping(_) => continue, // tungstenite handles pongs automatically.
+                                    Message::Pong(_) => continue, // We sent the pings, no action needed for pongs.
+                                    Message::Frame(_) => continue,
+                                    Message::Close(_) => break,
+                                }
                             }
-                        },
-                        Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => continue,
-                            Message::Close(_) => break,
+                            Err(e) => {
+                                if let tokio_tungstenite::tungstenite::Error::Protocol(tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake) = e {
+                                    tracing::debug!("ws_receiver_failed: {:?}", e);
+                                } else {
+                                    tracing::error!("ws_receiver_failed: {:?}", e);
+                                }
+                                break;
+                            }
                         }
+                    },
+                    Ok(None) => {
+                        // Stream closed by server.
+                        break;
                     }
-                    Err(e) => {
-                        if let tokio_tungstenite::tungstenite::Error::Protocol(tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake) = e {
-                            tracing::debug!("ws_receiver_failed: {:?}", e);
-                        } else {
-                            tracing::error!("ws_receiver_failed: {:?}", e);
-                        }
+                    Err(_) => {
+                        // Timeout.
+                        tracing::warn!("WebSocket receiver timed out after {}s of inactivity.", TIMEOUT.as_secs());
                         break;
                     }
                 }
