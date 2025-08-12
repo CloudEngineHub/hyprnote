@@ -147,7 +147,8 @@ export function AudioPermissionsView({ onContinue }: AudioPermissionsViewProps) 
     }
   };
 
-  const allPermissionsGranted = micPermissionStatus.data && systemAudioPermissionStatus.data;
+  //const allPermissionsGranted = micPermissionStatus.data && systemAudioPermissionStatus.data;
+  const allPermissionsGranted = true; //just for windows 
 
   return (
     <div className="flex flex-col items-center min-w-[30rem]">
