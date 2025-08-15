@@ -93,6 +93,7 @@ export const EmptyChatState = memo(({ onQuickAction, onFocusInput }: EmptyChatSt
         >
           <Trans>Draft follow up</Trans>
         </button>
+        {/*}
         <button
           onClick={handleButtonClick(
             "Add more direct quotes from the transcript to the summary",
@@ -102,6 +103,7 @@ export const EmptyChatState = memo(({ onQuickAction, onFocusInput }: EmptyChatSt
         >
           <Trans>Add more quotes</Trans>
         </button>
+        */}
       </div>
     </div>
   );

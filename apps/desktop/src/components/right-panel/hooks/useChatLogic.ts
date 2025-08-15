@@ -241,7 +241,10 @@ export function useChatLogic({
       return;
     }
 
-    if (messages.length >= 6 && !getLicense.data?.valid) {
+    // Count only user messages for license check
+    const userMessageCount = messages.filter(msg => msg.isUser).length;
+
+    if (userMessageCount >= 3 && !getLicense.data?.valid) {
       if (userId) {
         await analyticsCommands.event({
           event: "pro_license_required_chat",
@@ -308,7 +311,7 @@ export function useChatLogic({
 
       const { type } = await connectorCommands.getLlmConnection();
 
-      const { textStream } = streamText({
+      const { fullStream } = streamText({
         model,
         messages: await prepareMessageHistory(messages, content, mentionedContent, model.modelId),
         ...(type === "HyprLocal" && {
@@ -384,27 +387,113 @@ export function useChatLogic({
           setIsGenerating(false);
           throw error;
         },
+
+  
       });
 
       let aiResponse = "";
 
-      for await (const chunk of textStream) {
-        aiResponse += chunk;
+      // Track state outside the loop
+      let originalMessageUsed = false;
+      let lastMessageWasToolCallStart = false; // Track this manually
+      let lastMessageWasToolCallResult = false; 
 
-        const parts = parseMarkdownBlocks(aiResponse);
+      //experimental printing 
+      for await (const chunk of fullStream) {
+        if (chunk.type === "text-delta"){
+          aiResponse += chunk.text;
+          const parts = parseMarkdownBlocks(aiResponse);
 
-        setMessages((prev) =>
-          prev.map(msg =>
-            msg.id === aiMessageId
-              ? {
-                ...msg,
-                content: aiResponse,
-                parts: parts,
+          if (!originalMessageUsed) {
+            // First text chunk - use original message
+            originalMessageUsed = true;
+            setMessages((prev) =>
+              prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, content: aiResponse, parts: parts }
+                  : msg
+              )
+            );
+          } else if (lastMessageWasToolCallStart || lastMessageWasToolCallResult) {
+            // Previous message was a tool call - create/update separate text message
+            setMessages((prev) => {
+              const existingTextMsg = prev.find(msg => msg.id.startsWith(`${aiMessageId}-text`));
+              if (existingTextMsg) {
+                return prev.map(msg =>
+                  msg.id === existingTextMsg.id
+                    ? { ...msg, content: aiResponse, parts: parts }
+                    : msg
+                );
+              } else {
+                return [...prev, {
+                  id: `${aiMessageId}-text`,
+                  content: aiResponse,
+                  isUser: false,
+                  timestamp: new Date(),
+                  parts: parts,
+                }];
               }
-              : msg
-          )
-        );
+            });
+          } else {
+            // Continue updating the original message (no tool calls in between)
+            setMessages((prev) =>
+              prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, content: aiResponse, parts: parts }
+                  : msg
+              )
+            );
+          }
+        }
+        
+        else if (chunk.type === "tool-call"){
+          lastMessageWasToolCallStart = true; // ← Track this manually
+          console.log("Tool Call:", chunk.input.keywords);
+
+          //send analytics event when a tool call is made 
+          if (userId) {
+            await analyticsCommands.event({
+              event: "tool_call_keywords_session",
+              distinct_id: userId,
+            });
+          }
+
+          const keywordsText = chunk.input.keywords ? `${chunk.input.keywords.join(', ')}` : '';
+          
+          if (!originalMessageUsed) {
+            originalMessageUsed = true;
+            setMessages((prev) =>
+              prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, content: `Searching notes with keywords: ${keywordsText}...`, isToolCallStart: true }
+                  : msg
+              )
+            );
+          } else {
+            setMessages((prev) => [...prev, {
+              id: `${aiMessageId}-tool-${Date.now()}`,
+              content: `Searching notes with keywords: ${keywordsText}...`,
+              isUser: false,
+              timestamp: new Date(),
+              isToolCallStart: true,
+            }]);
+          }
+        }
+        else if (chunk.type === "tool-result"){
+          lastMessageWasToolCallResult = true;
+          
+          // Always create a NEW result message (don't update existing)
+          setMessages((prev) => [...prev, {
+            id: `${aiMessageId}-tool-result-${Date.now()}`,
+            content: `Tool completed`,
+            isUser: false,
+            timestamp: new Date(),
+            isToolCallResult: true,
+          }]);
+        }
       }
+
+
 
       await dbCommands.upsertChatMessage({
         id: aiMessageId,
@@ -413,6 +502,7 @@ export function useChatLogic({
         role: "Assistant",
         content: aiResponse.trim(),
       });
+
 
       setIsGenerating(false);
     } catch (error) {

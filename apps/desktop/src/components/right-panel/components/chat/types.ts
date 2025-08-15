@@ -10,6 +10,8 @@ export interface Message {
   parts?: MessagePart[];
   isUser: boolean;
   timestamp: Date;
+  isToolCallStart?: boolean;
+  isToolCallResult?: boolean;
 }
 
 export type ChatSession = {

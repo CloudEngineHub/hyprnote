@@ -3,6 +3,7 @@ import Renderer from "@hypr/tiptap/renderer";
 import { useEffect, useState } from "react";
 import { MarkdownCard } from "./markdown-card";
 import { Message } from "./types";
+import { Search } from "lucide-react";
 
 interface MessageContentProps {
   message: Message;
@@ -149,6 +150,28 @@ export function MessageContent({ message, sessionTitle, hasEnhancedNote, onApply
         </div>
       </>
     );
+  }
+
+  // Tool call start styling
+  if (message.isToolCallStart) {
+    return (
+      <div style={{ 
+        color: "rgb(115 115 115)", // Same gray as "Thinking" text
+        fontSize: "0.875rem",
+        padding: "4px 0",
+        display: "flex",
+        alignItems: "center",
+        gap: "4px"
+      }}>
+        <Search size={12} style={{ flexShrink: 0 }} />
+        {message.content}
+      </div>
+    );
+  }
+
+  // Tool call result styling - HIDDEN
+  if (message.isToolCallResult) {
+    return <></>; // Empty fragment - also takes no space
   }
 
   if (!message.parts || message.parts.length === 0) {
