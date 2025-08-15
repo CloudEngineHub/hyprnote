@@ -171,17 +171,20 @@ fn build_whisper_cpp_service(
 fn build_moonshine_service(
     config: &owhisper_config::MoonshineModelConfig,
 ) -> anyhow::Result<hypr_transcribe_moonshine::TranscribeService> {
-    let mut files = std::fs::read_dir(&config.assets_dir)?;
+    let files: Vec<_> = std::fs::read_dir(&config.assets_dir)?.filter_map(Result::ok).collect();
 
     let tokenizer = files
-        .find(|f| f.is_ok() && f.as_ref().unwrap().file_name() == "tokenizer.json")
-        .ok_or(anyhow::anyhow!("tokenizer.json not found"))??;
+        .iter()
+        .find(|f| f.file_name() == "tokenizer.json")
+        .ok_or(anyhow::anyhow!("tokenizer.json not found"))?;
     let encoder = files
-        .find(|f| f.is_ok() && f.as_ref().unwrap().file_name() == "encoder_model.onnx")
-        .ok_or(anyhow::anyhow!("encoder_model.onnx not found"))??;
+        .iter()
+        .find(|f| f.file_name() == "encoder_model.onnx")
+        .ok_or(anyhow::anyhow!("encoder_model.onnx not found"))?;
     let decoder = files
-        .find(|f| f.is_ok() && f.as_ref().unwrap().file_name() == "decoder_model_merged.onnx")
-        .ok_or(anyhow::anyhow!("decoder_model_merged.onnx not found"))??;
+        .iter()
+        .find(|f| f.file_name() == "decoder_model_merged.onnx")
+        .ok_or(anyhow::anyhow!("decoder_model_merged.onnx not found"))?;
 
     Ok(hypr_transcribe_moonshine::TranscribeService::builder()
         .model_size(config.size.clone())
@@ -418,7 +421,7 @@ mod tests {
         .to_i16_le_chunks(16000, 512);
         let input = audio.map(|chunk| owhisper_interface::MixedMessage::Audio(chunk));
 
-        let stream = client.from_realtime_audio(input).await.unwrap();
+        let (stream, _) = client.from_realtime_audio(input).await.unwrap();
         futures_util::pin_mut!(stream);
 
         while let Some(result) = stream.next().await {
