@@ -349,8 +349,8 @@ msgid "Add members"
 msgstr "Add members"
 
 #: src/components/right-panel/components/chat/empty-chat-state.tsx:103
-msgid "Add more quotes"
-msgstr "Add more quotes"
+#~ msgid "Add more quotes"
+#~ msgstr "Add more quotes"
 
 #: src/components/editor-area/note-header/chips/participants-chip.tsx:340
 msgid "Add participant"

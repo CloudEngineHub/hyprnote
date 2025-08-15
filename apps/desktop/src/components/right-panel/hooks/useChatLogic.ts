@@ -387,8 +387,6 @@ export function useChatLogic({
           setIsGenerating(false);
           throw error;
         },
-
-  
       });
 
       let aiResponse = "";
@@ -396,11 +394,11 @@ export function useChatLogic({
       // Track state outside the loop
       let originalMessageUsed = false;
       let lastMessageWasToolCallStart = false; // Track this manually
-      let lastMessageWasToolCallResult = false; 
+      let lastMessageWasToolCallResult = false;
 
-      //experimental printing 
+      // experimental printing
       for await (const chunk of fullStream) {
-        if (chunk.type === "text-delta"){
+        if (chunk.type === "text-delta") {
           aiResponse += chunk.text;
           const parts = parseMarkdownBlocks(aiResponse);
 
@@ -444,13 +442,11 @@ export function useChatLogic({
               )
             );
           }
-        }
-        
-        else if (chunk.type === "tool-call"){
+        } else if (chunk.type === "tool-call") {
           lastMessageWasToolCallStart = true; // ← Track this manually
           console.log("Tool Call:", chunk.input.keywords);
 
-          //send analytics event when a tool call is made 
+          // send analytics event when a tool call is made
           if (userId) {
             await analyticsCommands.event({
               event: "tool_call_keywords_session",
@@ -458,8 +454,8 @@ export function useChatLogic({
             });
           }
 
-          const keywordsText = chunk.input.keywords ? `${chunk.input.keywords.join(', ')}` : '';
-          
+          const keywordsText = chunk.input.keywords ? `${chunk.input.keywords.join(", ")}` : "";
+
           if (!originalMessageUsed) {
             originalMessageUsed = true;
             setMessages((prev) =>
@@ -478,10 +474,9 @@ export function useChatLogic({
               isToolCallStart: true,
             }]);
           }
-        }
-        else if (chunk.type === "tool-result"){
+        } else if (chunk.type === "tool-result") {
           lastMessageWasToolCallResult = true;
-          
+
           // Always create a NEW result message (don't update existing)
           setMessages((prev) => [...prev, {
             id: `${aiMessageId}-tool-result-${Date.now()}`,
@@ -493,8 +488,6 @@ export function useChatLogic({
         }
       }
 
-
-
       await dbCommands.upsertChatMessage({
         id: aiMessageId,
         group_id: groupId,
@@ -502,7 +495,6 @@ export function useChatLogic({
         role: "Assistant",
         content: aiResponse.trim(),
       });
-
 
       setIsGenerating(false);
     } catch (error) {
