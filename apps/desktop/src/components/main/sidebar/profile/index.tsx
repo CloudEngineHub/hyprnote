@@ -1,4 +1,5 @@
 import { commands as windowsCommands } from "@hypr/plugin-windows";
+import { Kbd, KbdGroup } from "@hypr/ui/components/ui/kbd";
 
 import { clsx } from "clsx";
 import { Calendar, ChevronUpIcon, FolderOpen, Settings, Users } from "lucide-react";
@@ -116,64 +117,73 @@ export function ProfileSection() {
     { icon: FolderOpen, label: "Folders", onClick: handleClickFolders },
     { icon: Users, label: "Contacts", onClick: handleClickContacts },
     { icon: Calendar, label: "Calendar", onClick: handleClickCalendar },
-    { icon: Settings, label: "Settings", onClick: handleClickSettings },
+    {
+      icon: Settings,
+      label: "Settings",
+      onClick: handleClickSettings,
+      badge: (
+        <KbdGroup>
+          <Kbd className="bg-neutral-200">⌘</Kbd>
+          <Kbd className="bg-neutral-200">,</Kbd>
+        </KbdGroup>
+      ),
+    },
   ];
 
   return (
-    <div ref={profileRef}>
-      <div
-        className={clsx(
-          "bg-neutral-50 rounded-lg overflow-hidden",
-        )}
-      >
-        <div
-          className={clsx(
-            "grid transition-all duration-300 ease-in-out",
-            isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-          )}
-        >
+    <div ref={profileRef} className="relative">
+      <AnimatePresence>
+        {isExpanded && (
           <motion.div
-            className="overflow-hidden py-1.5"
-            layout
-            transition={{ duration: 0.3, ease: "easeInOut" }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="absolute bottom-full left-0 right-0 mb-1"
           >
-            <AnimatePresence mode="wait">
-              {currentView === "main"
-                ? (
-                  <motion.div
-                    key="main"
-                    initial={{ x: -20, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: -20, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    ref={mainViewRef}
-                  >
-                    <NotificationsMenuHeader onClick={handleClickNotifications} />
-                    <UpdateChecker />
+            <div className="bg-neutral-50 rounded-lg overflow-hidden shadow-lg border">
+              <div className="pt-1.5">
+                <AnimatePresence mode="wait">
+                  {currentView === "main"
+                    ? (
+                      <motion.div
+                        key="main"
+                        initial={{ x: 0, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        ref={mainViewRef}
+                      >
+                        <NotificationsMenuHeader onClick={handleClickNotifications} />
+                        <UpdateChecker />
 
-                    <div className="my-1.5 border-t border-neutral-100" />
+                        <div className="my-1.5 border-t border-neutral-100" />
 
-                    {menuItems.map((item) => <MenuItem key={item.label} {...item} />)}
+                        {menuItems.map((item) => <MenuItem key={item.label} {...item} />)}
 
-                    <TryProBanner isDismissed={isBannerDismissed} onDismiss={handleDismissBanner} />
-                  </motion.div>
-                )
-                : (
-                  <motion.div
-                    key="notifications"
-                    initial={{ x: 20, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: 20, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    style={mainViewHeight ? { height: mainViewHeight } : undefined}
-                  >
-                    <NotificationsMenuContent onBack={handleBackToMain} />
-                  </motion.div>
-                )}
-            </AnimatePresence>
+                        <TryProBanner isDismissed={isBannerDismissed} onDismiss={handleDismissBanner} />
+                      </motion.div>
+                    )
+                    : (
+                      <motion.div
+                        key="notifications"
+                        initial={{ x: 20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 20, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        style={mainViewHeight ? { height: mainViewHeight } : undefined}
+                      >
+                        <NotificationsMenuContent onBack={handleBackToMain} />
+                      </motion.div>
+                    )}
+                </AnimatePresence>
+              </div>
+            </div>
           </motion.div>
-        </div>
+        )}
+      </AnimatePresence>
 
+      <div className="bg-neutral-50 rounded-lg overflow-hidden">
         <ProfileButton isExpanded={isExpanded} onClick={() => setIsExpanded(!isExpanded)} />
       </div>
     </div>
@@ -188,7 +198,7 @@ function ProfileButton({ isExpanded, onClick }: { isExpanded: boolean; onClick: 
         "px-4 py-2",
         "text-left",
         "transition-all duration-300",
-        "hover:bg-gray-100",
+        "hover:bg-neutral-100",
         isExpanded && "bg-neutral-50 border-t border-neutral-100",
       )}
       onClick={onClick}
@@ -197,7 +207,7 @@ function ProfileButton({ isExpanded, onClick }: { isExpanded: boolean; onClick: 
         className={clsx(
           "flex size-8 flex-shrink-0 items-center justify-center",
           "overflow-hidden rounded-full",
-          "border border-white/60 border-t border-gray-400",
+          "border border-white/60 border-t border-neutral-400",
           "bg-gradient-to-br from-indigo-400 to-purple-500",
           "shadow-sm",
           "transition-transform duration-300",

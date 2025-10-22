@@ -1,10 +1,11 @@
+import { type StreamResponse } from "@hypr/plugin-listener";
+import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
+import { Spinner } from "@hypr/ui/components/ui/spinner";
+
 import { Icon } from "@iconify-icon/react";
 import useMediaQuery from "beautiful-react-hooks/useMediaQuery";
 import { useCallback, useEffect, useState } from "react";
 
-import { type StreamResponse } from "@hypr/plugin-listener";
-import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
-import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { useListener } from "../../../../../contexts/listener";
 import { useSTTConnection } from "../../../../../hooks/useSTTConnection";
 import * as persisted from "../../../../../store/tinybase/persisted";
@@ -15,7 +16,8 @@ import { FloatingButton, formatTime } from "./shared";
 type RemoteMeeting =
   | { type: "zoom"; url: string | null }
   | { type: "google-meet"; url: string | null }
-  | { type: "webex"; url: string | null };
+  | { type: "webex"; url: string | null }
+  | { type: "teams"; url: string | null };
 
 export function ListenButton({ tab }: { tab: Extract<Tab, { type: "sessions" }> }) {
   const { status, loading, stop } = useListener((state) => ({
@@ -52,7 +54,7 @@ function BeforeMeeingButton({ tab }: { tab: Extract<Tab, { type: "sessions" }> }
     return (
       <FloatingButton
         onClick={handleClick}
-        icon={<img src="/assets/zoom.png" alt="Zoom" className="w-5 h-5" />}
+        icon={<Icon icon="logos:zoom-icon" className="w-5 h-5" />}
       >
         {isNarrow ? "Join & Listen" : "Join Zoom & Start listening"}
       </FloatingButton>
@@ -63,7 +65,7 @@ function BeforeMeeingButton({ tab }: { tab: Extract<Tab, { type: "sessions" }> }
     return (
       <FloatingButton
         onClick={handleClick}
-        icon={<img src="/assets/meet.png" alt="Google Meet" className="w-5 h-5" />}
+        icon={<Icon icon="logos:google-meet" className="w-5 h-5" />}
       >
         {isNarrow ? "Join & Listen" : "Join Google Meet & Start listening"}
       </FloatingButton>
@@ -74,9 +76,20 @@ function BeforeMeeingButton({ tab }: { tab: Extract<Tab, { type: "sessions" }> }
     return (
       <FloatingButton
         onClick={handleClick}
-        icon={<img src="/assets/webex.png" alt="Webex" className="w-5 h-5" />}
+        icon={<Icon icon="simple-icons:webex" className="w-5 h-5" />}
       >
         {isNarrow ? "Join & Listen" : "Join Webex & Start listening"}
+      </FloatingButton>
+    );
+  }
+
+  if (remote?.type === "teams") {
+    return (
+      <FloatingButton
+        onClick={handleClick}
+        icon={<Icon icon="logos:microsoft-teams" className="w-5 h-5" />}
+      >
+        {isNarrow ? "Join & Listen" : "Join Teams & Start listening"}
       </FloatingButton>
     );
   }
@@ -119,22 +132,21 @@ function DuringMeetingButton() {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {hovered
-        ? <span>Stop listening</span>
-        : (
-          <div className="flex flex-row items-center gap-3">
-            <span className="text-gray-500 text-sm tabular-nums">{formatTime(seconds)}</span>
-            <SoundIndicator value={[amplitude.mic, amplitude.speaker]} color="#ef4444" />
-          </div>
-        )}
+      <span>
+        {hovered
+          ? "Stop listening"
+          : (
+            <div className="flex flex-row items-center gap-4">
+              <span className="text-neutral-500 text-sm">{formatTime(seconds)}</span>
+              <SoundIndicator value={[amplitude.mic, amplitude.speaker]} color="#ef4444" />
+            </div>
+          )}
+      </span>
     </FloatingButton>
   );
 }
 
-function useRemoteMeeting(sessionId: string): RemoteMeeting | null {
-  const note = persisted.UI.useCell("sessions", sessionId, "raw_md", persisted.STORE_ID);
-  console.log(note);
-
+function useRemoteMeeting(_sessionId: string): RemoteMeeting | null {
   const remote = {
     type: "google-meet",
     url: null,
