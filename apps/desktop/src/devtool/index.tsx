@@ -31,6 +31,7 @@ export function Devtool() {
     if (!persistedStore) {
       return;
     }
+
     const api = {
       seed: (id?: string) => {
         const target = id ? seeds.find(item => item.id === id) : seeds[0];

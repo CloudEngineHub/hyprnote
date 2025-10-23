@@ -1,4 +1,3 @@
-import { type StreamResponse } from "@hypr/plugin-listener";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 
@@ -7,10 +6,8 @@ import useMediaQuery from "beautiful-react-hooks/useMediaQuery";
 import { useCallback, useEffect, useState } from "react";
 
 import { useListener } from "../../../../../contexts/listener";
-import { useSTTConnection } from "../../../../../hooks/useSTTConnection";
-import * as persisted from "../../../../../store/tinybase/persisted";
+import { useStartListening } from "../../../../../hooks/useStartListening";
 import { type Tab } from "../../../../../store/zustand/tabs";
-import { id } from "../../../../../utils";
 import { FloatingButton, formatTime } from "./shared";
 
 type RemoteMeeting =
@@ -48,13 +45,13 @@ function BeforeMeeingButton({ tab }: { tab: Extract<Tab, { type: "sessions" }> }
   const remote = useRemoteMeeting(tab.id);
   const isNarrow = useMediaQuery("(max-width: 870px)");
 
-  const handleClick = useStartSession(tab.id);
+  const handleClick = useStartListening(tab.id);
 
   if (remote?.type === "zoom") {
     return (
       <FloatingButton
         onClick={handleClick}
-        icon={<Icon icon="logos:zoom-icon" className="w-5 h-5" />}
+        icon={<Icon icon="logos:zoom-icon" size={20} />}
       >
         {isNarrow ? "Join & Listen" : "Join Zoom & Start listening"}
       </FloatingButton>
@@ -65,7 +62,7 @@ function BeforeMeeingButton({ tab }: { tab: Extract<Tab, { type: "sessions" }> }
     return (
       <FloatingButton
         onClick={handleClick}
-        icon={<Icon icon="logos:google-meet" className="w-5 h-5" />}
+        icon={<Icon icon="logos:google-meet" size={20} />}
       >
         {isNarrow ? "Join & Listen" : "Join Google Meet & Start listening"}
       </FloatingButton>
@@ -76,7 +73,7 @@ function BeforeMeeingButton({ tab }: { tab: Extract<Tab, { type: "sessions" }> }
     return (
       <FloatingButton
         onClick={handleClick}
-        icon={<Icon icon="simple-icons:webex" className="w-5 h-5" />}
+        icon={<Icon icon="simple-icons:webex" size={20} />}
       >
         {isNarrow ? "Join & Listen" : "Join Webex & Start listening"}
       </FloatingButton>
@@ -87,7 +84,7 @@ function BeforeMeeingButton({ tab }: { tab: Extract<Tab, { type: "sessions" }> }
     return (
       <FloatingButton
         onClick={handleClick}
-        icon={<Icon icon="logos:microsoft-teams" className="w-5 h-5" />}
+        icon={<Icon icon="logos:microsoft-teams" size={20} />}
       >
         {isNarrow ? "Join & Listen" : "Join Teams & Start listening"}
       </FloatingButton>
@@ -95,9 +92,7 @@ function BeforeMeeingButton({ tab }: { tab: Extract<Tab, { type: "sessions" }> }
   }
 
   return (
-    <FloatingButton
-      onClick={handleClick}
-    >
+    <FloatingButton onClick={handleClick}>
       Start listening
     </FloatingButton>
   );
@@ -153,73 +148,4 @@ function useRemoteMeeting(_sessionId: string): RemoteMeeting | null {
   } as RemoteMeeting | null;
 
   return remote;
-}
-
-function useStartSession(sessionId: string) {
-  const start = useListener((state) => state.start);
-  const append = useAppendTranscript(sessionId);
-  const conn = useSTTConnection();
-
-  const handleClick = useCallback(() => {
-    if (!conn) {
-      console.log("no connection");
-      return;
-    }
-
-    start({
-      session_id: sessionId,
-      languages: ["en"],
-      onboarding: false,
-      record_enabled: false,
-      model: conn.model,
-      base_url: conn.baseUrl,
-      api_key: conn.apiKey,
-    }, (response) => {
-      append(response);
-    });
-  }, [conn, sessionId, start]);
-
-  return handleClick;
-}
-
-function useAppendTranscript(sessionId: string) {
-  const store = persisted.UI.useStore(persisted.STORE_ID);
-  const transcriptIds = persisted.UI.useSliceRowIds(
-    persisted.INDEXES.transcriptsBySession,
-    sessionId,
-    persisted.STORE_ID,
-  );
-
-  const handler = useCallback((res: StreamResponse) => {
-    if (store && res.type === "Results") {
-      let transcriptId = transcriptIds?.[0];
-
-      if (!transcriptId) {
-        transcriptId = id();
-        store.setRow("transcripts", transcriptId, {
-          session_id: sessionId,
-          user_id: "",
-          created_at: new Date().toISOString(),
-        });
-      }
-
-      const { channel: { alternatives: [{ words }] }, channel_index } = res;
-
-      words.forEach((w) => {
-        const word: persisted.Word = {
-          transcript_id: transcriptId,
-          text: w.word,
-          start_ms: Math.round(w.start * 1000),
-          end_ms: Math.round(w.end * 1000),
-          channel: channel_index[0],
-          user_id: "",
-          created_at: new Date().toISOString(),
-        };
-
-        store.setRow("words", id(), word);
-      });
-    }
-  }, [store, sessionId, transcriptIds]);
-
-  return handler;
 }
