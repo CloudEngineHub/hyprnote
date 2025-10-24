@@ -5,17 +5,14 @@ import { type Tab } from "../../../store/zustand/tabs";
 import { StandardTabWrapper } from "./index";
 import { type TabItem, TabItemBase } from "./shared";
 
-export const TabItemHuman: TabItem = ({
+export const TabItemHuman: TabItem<Extract<Tab, { type: "humans" }>> = ({
   tab,
+  tabIndex,
   handleCloseThis,
   handleSelectThis,
   handleCloseOthers,
   handleCloseAll,
 }) => {
-  if (tab.type !== "humans") {
-    throw new Error("non_human_tab");
-  }
-
   const title = persisted.UI.useCell("humans", tab.id, "name", persisted.STORE_ID);
 
   return (
@@ -23,6 +20,7 @@ export const TabItemHuman: TabItem = ({
       icon={<UserIcon className="w-4 h-4" />}
       title={title ?? "Human"}
       active={tab.active}
+      tabIndex={tabIndex}
       handleCloseThis={() => handleCloseThis(tab)}
       handleSelectThis={() => handleSelectThis(tab)}
       handleCloseOthers={handleCloseOthers}
@@ -31,11 +29,7 @@ export const TabItemHuman: TabItem = ({
   );
 };
 
-export function TabContentHuman({ tab }: { tab: Tab }) {
-  if (tab.type !== "humans") {
-    throw new Error("non_human_tab");
-  }
-
+export function TabContentHuman({ tab: _ }: { tab: Extract<Tab, { type: "humans" }> }) {
   return (
     <StandardTabWrapper>
       <div>Human</div>

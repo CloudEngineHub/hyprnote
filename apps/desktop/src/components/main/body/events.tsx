@@ -5,9 +5,10 @@ import { rowIdfromTab, type Tab } from "../../../store/zustand/tabs";
 import { StandardTabWrapper } from "./index";
 import { type TabItem, TabItemBase } from "./shared";
 
-export const TabItemEvent: TabItem = (
+export const TabItemEvent: TabItem<Extract<Tab, { type: "events" }>> = (
   {
     tab,
+    tabIndex,
     handleCloseThis,
     handleSelectThis,
     handleCloseOthers,
@@ -21,6 +22,7 @@ export const TabItemEvent: TabItem = (
       icon={<CalendarIcon className="w-4 h-4" />}
       title={title ?? ""}
       active={tab.active}
+      tabIndex={tabIndex}
       handleCloseThis={() => handleCloseThis(tab)}
       handleSelectThis={() => handleSelectThis(tab)}
       handleCloseOthers={handleCloseOthers}
@@ -29,7 +31,7 @@ export const TabItemEvent: TabItem = (
   );
 };
 
-export function TabContentEvent({ tab }: { tab: Tab }) {
+export function TabContentEvent({ tab }: { tab: Extract<Tab, { type: "events" }> }) {
   const id = rowIdfromTab(tab);
   const event = persisted.UI.useRow("events", id, persisted.STORE_ID);
 

@@ -1,13 +1,14 @@
-import { FolderIcon, StickyNoteIcon } from "lucide-react";
+import { FolderIcon, FoldersIcon, PlusIcon, StickyNoteIcon } from "lucide-react";
 
-import * as persisted from "../../../store/tinybase/persisted";
-import { type Tab } from "../../../store/zustand/tabs";
-import { useTabs } from "../../../store/zustand/tabs";
-import { StandardTabWrapper } from "./index";
-import { type TabItem, TabItemBase } from "./shared";
-import { FolderBreadcrumb } from "./shared/folder-breadcrumb";
+import { cn } from "@hypr/utils";
+import * as persisted from "../../../../store/tinybase/persisted";
+import { type Tab, useTabs } from "../../../../store/zustand/tabs";
+import { StandardTabWrapper } from "../index";
+import { type TabItem, TabItemBase } from "../shared";
+import { FolderBreadcrumb, useFolderChain } from "../shared/folder-breadcrumb";
+import { Section } from "./shared";
 
-export const TabItemFolder: TabItem = (props) => {
+export const TabItemFolder: TabItem<Extract<Tab, { type: "folders" }>> = (props) => {
   if (props.tab.type === "folders" && props.tab.id === null) {
     return <TabItemFolderAll {...props} />;
   }
@@ -19,9 +20,10 @@ export const TabItemFolder: TabItem = (props) => {
   return null;
 };
 
-const TabItemFolderAll: TabItem = (
+const TabItemFolderAll: TabItem<Extract<Tab, { type: "folders" }>> = (
   {
     tab,
+    tabIndex,
     handleCloseThis: handleCloseThis,
     handleSelectThis: handleSelectThis,
     handleCloseAll,
@@ -30,9 +32,10 @@ const TabItemFolderAll: TabItem = (
 ) => {
   return (
     <TabItemBase
-      icon={<FolderIcon className="w-4 h-4" />}
-      title={"Folder"}
+      icon={<FoldersIcon className="w-4 h-4" />}
+      title={"Folders"}
       active={tab.active}
+      tabIndex={tabIndex}
       handleCloseThis={() => handleCloseThis(tab)}
       handleSelectThis={() => handleSelectThis(tab)}
       handleCloseOthers={handleCloseOthers}
@@ -41,24 +44,24 @@ const TabItemFolderAll: TabItem = (
   );
 };
 
-const TabItemFolderSpecific: TabItem = ({
+const TabItemFolderSpecific: TabItem<Extract<Tab, { type: "folders" }>> = ({
   tab,
+  tabIndex,
   handleCloseThis,
   handleSelectThis,
   handleCloseOthers,
   handleCloseAll,
 }) => {
-  if (tab.type !== "folders" || tab.id === null) {
-    return null;
-  }
-
-  const folderName = persisted.UI.useCell("folders", tab.id, "name", persisted.STORE_ID);
+  const folders = useFolderChain(tab?.id ?? "");
+  const name = persisted.UI.useCell("folders", tab?.id ?? "", "name", persisted.STORE_ID);
+  const title = " .. / ".repeat(folders.length - 1) + name;
 
   return (
     <TabItemBase
       icon={<FolderIcon className="w-4 h-4" />}
-      title={folderName ?? ""}
+      title={title}
       active={tab.active}
+      tabIndex={tabIndex}
       handleCloseThis={() => handleCloseThis(tab)}
       handleSelectThis={() => handleSelectThis(tab)}
       handleCloseOthers={handleCloseOthers}
@@ -87,11 +90,22 @@ function TabContentFolderTopLevel() {
   );
 
   return (
-    <div className="flex flex-col gap-4 h-full">
-      <h2 className="text-lg font-semibold">All Folders</h2>
-      <div className="grid grid-cols-4 gap-4">
-        {topLevelFolderIds?.map((folderId) => <FolderCard key={folderId} folderId={folderId} />)}
-      </div>
+    <div className="flex flex-col gap-6">
+      <Section
+        icon={<FolderIcon className="w-4 h-4" />}
+        title="Folders"
+        action={
+          <button className="p-1 hover:bg-muted rounded">
+            <PlusIcon className="w-4 h-4" />
+          </button>
+        }
+      >
+        {(topLevelFolderIds?.length ?? 0) > 0 && (
+          <div className="grid grid-cols-4 gap-4">
+            {topLevelFolderIds!.map((folderId) => <FolderCard key={folderId} folderId={folderId} />)}
+          </div>
+        )}
+      </Section>
     </div>
   );
 }
@@ -116,7 +130,10 @@ function FolderCard({ folderId }: { folderId: string }) {
 
   return (
     <div
-      className="flex flex-col items-center justify-center gap-2 p-6 border rounded-lg hover:bg-muted cursor-pointer"
+      className={cn([
+        "flex flex-col items-center justify-center",
+        "gap-2 p-6 border rounded-lg hover:bg-muted cursor-pointer",
+      ])}
       onClick={() => openCurrent({ type: "folders", id: folderId })}
     >
       <FolderIcon className="w-12 h-12 text-muted-foreground" />
@@ -139,32 +156,44 @@ function TabContentFolderSpecific({ folderId }: { folderId: string }) {
     persisted.STORE_ID,
   );
 
+  const isEmpty = (childFolderIds?.length ?? 0) === 0 && (sessionIds?.length ?? 0) === 0;
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <TabContentFolderBreadcrumb folderId={folderId} />
 
-      {(childFolderIds?.length ?? 0) > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Folders</h3>
+      <Section
+        icon={<FolderIcon className="w-4 h-4" />}
+        title="Folders"
+        action={
+          <button className="p-1 hover:bg-muted rounded">
+            <PlusIcon className="w-4 h-4" />
+          </button>
+        }
+      >
+        {(childFolderIds?.length ?? 0) > 0 && (
           <div className="grid grid-cols-4 gap-4">
             {childFolderIds!.map((childId) => <FolderCard key={childId} folderId={childId} />)}
           </div>
-        </div>
-      )}
+        )}
+      </Section>
 
-      {(sessionIds?.length ?? 0) > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Notes</h3>
-          <div className="space-y-2">
-            {sessionIds!.map((sessionId) => <FolderSessionItem key={sessionId} sessionId={sessionId} />)}
-          </div>
-        </div>
-      )}
-
-      {(childFolderIds?.length ?? 0) === 0 && (sessionIds?.length ?? 0) === 0 && (
-        <div className="text-center text-muted-foreground py-8">
-          This folder is empty
-        </div>
+      {!isEmpty && (
+        <Section
+          icon={<StickyNoteIcon className="w-4 h-4" />}
+          title="Notes"
+          action={
+            <button className="p-1 hover:bg-muted rounded">
+              <PlusIcon className="w-4 h-4" />
+            </button>
+          }
+        >
+          {(sessionIds?.length ?? 0) > 0 && (
+            <div className="space-y-2">
+              {sessionIds!.map((sessionId) => <FolderSessionItem key={sessionId} sessionId={sessionId} />)}
+            </div>
+          )}
+        </Section>
       )}
     </div>
   );
@@ -181,7 +210,7 @@ function TabContentFolderBreadcrumb({ folderId }: { folderId: string }) {
           onClick={() => openCurrent({ type: "folders", id: null })}
           className="hover:text-foreground"
         >
-          Root
+          <FoldersIcon className="w-4 h-4" />
         </button>
       )}
       renderCrumb={({ id, name, isLast }) => (
@@ -206,7 +235,7 @@ function FolderSessionItem({ sessionId }: { sessionId: string }) {
       onClick={() => openCurrent({ type: "sessions", id: sessionId, state: { editor: "raw" } })}
     >
       <StickyNoteIcon className="w-4 h-4 text-muted-foreground" />
-      <span className="text-sm">{session.title}</span>
+      <span className="text-sm">{session.title || "Untitled"}</span>
     </div>
   );
 }
