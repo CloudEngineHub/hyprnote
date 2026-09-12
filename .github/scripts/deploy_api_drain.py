@@ -24,6 +24,7 @@ import subprocess
 import sys
 import time
 import tomllib
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -189,11 +190,11 @@ def get_machine(app: str, machine_id: str) -> dict[str, Any]:
     return machine
 
 
-def destroy_machine(app: str, machine_id: str) -> None:
+def destroy_machine(app: str, machine_id: str, *, force: bool = True) -> None:
     api_request(
         "DELETE",
         machine_path(app, machine_id),
-        query={"force": "true"},
+        query={"force": str(force).lower()},
     )
 
 
@@ -395,6 +396,7 @@ def replacement_config(
     image: str,
     desired_stop_config: dict[str, str],
     runtime_config: dict[str, Any] | None = None,
+    drain_supported: bool = False,
 ) -> dict[str, Any]:
     host_status = machine.get("host_status")
     if host_status not in {None, "ok"}:
@@ -422,7 +424,9 @@ def replacement_config(
     metadata.pop("fly_cordoned", None)
     if runtime_config is not None:
         metadata["fly_process_group"] = "app"
-    metadata[DRAIN_PROTOCOL_METADATA_KEY] = DRAIN_PROTOCOL_METADATA_VALUE
+    metadata.pop(DRAIN_PROTOCOL_METADATA_KEY, None)
+    if drain_supported:
+        metadata[DRAIN_PROTOCOL_METADATA_KEY] = DRAIN_PROTOCOL_METADATA_VALUE
     return replacement
 
 
@@ -432,10 +436,11 @@ def create_replacement_machine(
     image: str,
     desired_stop_config: dict[str, str],
     runtime_config: dict[str, Any] | None = None,
+    drain_supported: bool = False,
 ) -> str:
     payload: dict[str, Any] = {
         "config": replacement_config(
-            machine, image, desired_stop_config, runtime_config
+            machine, image, desired_stop_config, runtime_config, drain_supported
         ),
         "skip_service_registration": True,
     }
@@ -521,6 +526,7 @@ def cut_over(
     old_ids: list[str],
     new_ids: list[str],
     propagation_seconds: float = PROXY_PROPAGATION_SECONDS,
+    verified_drain_ids: set[str] | None = None,
 ) -> None:
     attempted_new_ids: list[str] = []
     attempted_old_ids: list[str] = []
@@ -565,7 +571,13 @@ def cut_over(
                     file=sys.stderr,
                 )
             try:
-                signal_machine(app, machine_id)
+                if machine_id in (verified_drain_ids or set()):
+                    signal_machine(app, machine_id)
+                else:
+                    print(
+                        f"leaving unverified replacement {machine_id} cordoned",
+                        file=sys.stderr,
+                    )
             except Exception as rollback_error:
                 print(
                     f"failed to signal replacement {machine_id} during rollback: {rollback_error}",
@@ -623,24 +635,80 @@ def drain_old_machines(app: str, machine_ids: list[str]) -> None:
         )
 
 
+def rollback_health_config(config: str, machine: dict[str, Any]) -> str:
+    paths = {
+        check.get("path")
+        for service in machine.get("config", {}).get("services", [])
+        for check in service.get("checks", [])
+        if check.get("type") == "http"
+    }
+    if len(paths) != 1 or not all(
+        isinstance(path, str) and path.startswith("/health") for path in paths
+    ):
+        raise DeployError("Rollback needs one verified original HTTP health path")
+    # Older images may not expose role readiness. Retain current capacity and worker
+    # ownership while restoring the health endpoint actually supported by that image.
+    text, count = re.subn(
+        r"(?m)^path\s*=.*$",
+        lambda _: "path = " + json.dumps(paths.pop()),
+        Path(config).read_text(),
+        count=1,
+    )
+    if count != 1:
+        raise DeployError("Rollback profile has no HTTP health path")
+    return text
+
+
 def bootstrap_deploy(
-    app: str, config: str, dockerfile: str, version: str, image: str | None = None
+    app: str,
+    config: str,
+    dockerfile: str,
+    version: str,
+    image: str | None = None,
+    drain_supported: bool = False,
 ) -> None:
     if image:
         fly("deploy", "--app", app, "--config", config, "--image", image, "--ha=true")
-        return
-    fly(
-        "deploy",
-        "--app",
-        app,
-        "--config",
-        config,
-        "--dockerfile",
-        dockerfile,
-        "--remote-only",
-        "--build-arg",
-        f"APP_VERSION={version}",
+    else:
+        fly(
+            "deploy",
+            "--app",
+            app,
+            "--config",
+            config,
+            "--dockerfile",
+            dockerfile,
+            "--remote-only",
+            "--build-arg",
+            f"APP_VERSION={version}",
+        )
+    for machine in list_machines(app):
+        wait_until_healthy(app, machine["id"])
+        if image is None or drain_supported:
+            mark_drain_supported(app, machine["id"])
+
+
+def mark_drain_supported(app: str, machine_id: str) -> None:
+    api_request(
+        "POST",
+        f"{machine_path(app, machine_id)}/metadata/{DRAIN_PROTOCOL_METADATA_KEY}",
+        {"value": DRAIN_PROTOCOL_METADATA_VALUE},
     )
+
+
+def adopt_drain_image(app: str, digest: str, candidate: str | None = None) -> None:
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        raise DeployError("Drain adoption requires a verified image digest")
+    matched = False
+    for machine in list_machines(app):
+        image = machine.get("image_ref") or {}
+        if image.get("digest") == digest:
+            mark_drain_supported(app, machine["id"])
+            matched = True
+    if not matched and (candidate is None or candidate.rsplit("@", 1)[-1] != digest):
+        raise DeployError(
+            "No machines or candidate match the verified drain image digest"
+        )
 
 
 def build_and_push_image(app: str, config: str, dockerfile: str, version: str) -> str:
@@ -670,6 +738,7 @@ def deploy(
     dockerfile: str,
     version: str,
     image_override: str | None = None,
+    verified_image_digest: str | None = None,
 ) -> None:
     if image_override:
         if not re.fullmatch(
@@ -680,13 +749,31 @@ def deploy(
                 "Existing image must be an immutable digest from an API application"
             )
     runtime_config = desired_runtime_config(app, config)
+    # Capture verified rollback images before stopped machines are removed.
+    drain_supported = (
+        image_override is None
+        or (
+            verified_image_digest is not None
+            and image_override.rsplit("@", 1)[-1] == verified_image_digest
+        )
+        or any(
+            supports_session_drain(machine)
+            and (machine.get("image_ref") or {}).get("digest")
+            == image_override.split("@", 1)[1]
+            for machine in list_machines(app)
+        )
+    )
+    if not drain_supported:
+        raise DeployError("Existing image has no verified session drain support")
     destroy_drained_machines(app)
     resume_draining_machines(app)
     machines = list_machines(app)
     serving = serving_machines(machines)
     if not machines:
         print("no machines present; running a bootstrap fly deploy", file=sys.stderr)
-        bootstrap_deploy(app, config, dockerfile, version, image_override)
+        bootstrap_deploy(
+            app, config, dockerfile, version, image_override, drain_supported
+        )
         return
 
     if not serving:
@@ -708,7 +795,12 @@ def deploy(
         for machine in sources:
             replacement_ids.append(
                 create_replacement_machine(
-                    app, machine, image, desired_stop_config, runtime_config
+                    app,
+                    machine,
+                    image,
+                    desired_stop_config,
+                    runtime_config,
+                    drain_supported,
                 )
             )
         for machine_id in replacement_ids:
@@ -718,10 +810,48 @@ def deploy(
         destroy_replacements(app, replacement_ids)
         raise
 
-    cut_over(app, old_ids, replacement_ids)
+    cut_over(app, old_ids, replacement_ids, verified_drain_ids=set(replacement_ids))
     drain_old_machines(app, old_ids)
     destroy_drained_machines(app)
     print("deployed new machines; old meetings will keep their current connections")
+
+
+def retire_idle_stripe_machine(machine_id: str) -> None:
+    retire_idle_legacy_machine("hyprnote-stripe", machine_id)
+
+
+def retire_idle_legacy_machine(app: str, machine_id: str) -> None:
+    """Retire an explicitly verified idle legacy runtime without a forced-kill deadline."""
+    if app not in {"hyprnote-stripe", "hyprnote-ai"}:
+        raise DeployError("Idle legacy retirement is restricted to legacy applications")
+    machines = list_machines(app)
+    target = next(
+        (machine for machine in machines if machine["id"] == machine_id), None
+    )
+    if target is None:
+        print(f"legacy {app} machine {machine_id} is already removed")
+        return
+    if not is_cordoned(target):
+        raise DeployError("Legacy retirement requires an existing cordoned machine")
+    serving = serving_machines(machines)
+    if len(serving) < 2 or not all(
+        checks_passing(get_machine(app, machine["id"])) for machine in serving
+    ):
+        raise DeployError("Legacy retirement requires two healthy serving machines")
+    if is_stopped(target):
+        destroy_machine(app, machine_id, force=False)
+        return
+    api_request(
+        "POST", f"{machine_path(app, machine_id)}/signal", {"signal": "SIGTERM"}
+    )
+    deadline = time.monotonic() + 180
+    while time.monotonic() < deadline:
+        if is_stopped(get_machine(app, machine_id)):
+            print(f"legacy {app} machine {machine_id} exited after worker shutdown")
+            destroy_machine(app, machine_id, force=False)
+            return
+        time.sleep(5)
+    raise DeployError("Legacy worker is still finishing; no forced stop was sent")
 
 
 def main() -> None:
@@ -731,8 +861,31 @@ def main() -> None:
     parser.add_argument("--dockerfile", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--image")
+    parser.add_argument("--adopt-drain-image")
+    parser.add_argument("--retire-idle-stripe-machine")
+    parser.add_argument("--retire-idle-legacy-api-machine")
     args = parser.parse_args()
-    deploy(args.app, args.config, args.dockerfile, args.version, args.image)
+    if args.retire_idle_stripe_machine and args.app != "hyprnote-stripe":
+        raise DeployError("Idle Stripe retirement cannot target another application")
+    if args.retire_idle_legacy_api_machine and args.app != "hyprnote-ai":
+        raise DeployError(
+            "Idle legacy API retirement cannot target another application"
+        )
+    if args.adopt_drain_image:
+        desired_runtime_config(args.app, args.config)
+        adopt_drain_image(args.app, args.adopt_drain_image, args.image)
+    deploy(
+        args.app,
+        args.config,
+        args.dockerfile,
+        args.version,
+        args.image,
+        args.adopt_drain_image,
+    )
+    if args.retire_idle_stripe_machine:
+        retire_idle_stripe_machine(args.retire_idle_stripe_machine)
+    if args.retire_idle_legacy_api_machine:
+        retire_idle_legacy_machine(args.app, args.retire_idle_legacy_api_machine)
 
 
 if __name__ == "__main__":

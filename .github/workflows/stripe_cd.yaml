@@ -1,5 +1,10 @@
 on:
   workflow_dispatch:
+    inputs:
+      retire_idle_machine:
+        description: Optional cordoned legacy machine verified to have no active HTTP requests; await its worker on SIGTERM
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -35,10 +40,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
       - uses: $/.github/actions/infisical_install
-      - name: Infisical OIDC login
-        run: |
+      - run: |
           set -euo pipefail
           oidc_jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}" | jq -r '.value')
@@ -89,7 +96,9 @@ jobs:
             --stage \
             --app hyprnote-stripe
 
-          python3 .github/scripts/deploy_api_drain.py \
+          args=()
+          if [ -n "$RETIRE_IDLE_MACHINE" ]; then args+=(--retire-idle-stripe-machine "$RETIRE_IDLE_MACHINE"); fi
+          python3 .github/scripts/deploy_api_drain.py "${args[@]}" \
             --app hyprnote-stripe \
             --config apps/stripe/fly.toml \
             --dockerfile apps/stripe/Dockerfile \
@@ -124,6 +133,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           STRIPE_VERSION: ${{ needs.compute-version.outputs.version }}
+          RETIRE_IDLE_MACHINE: ${{ inputs.retire_idle_machine }}
 
   tag:
     needs: [compute-version, deploy]
