@@ -602,6 +602,22 @@ def test_desired_runtime_replaces_stale_machine_settings():
     assert desired["env"]["PORT"] == "3001"
 
 
+def test_stripe_replacement_migrates_process_group_and_keeps_capacity():
+    desired = deploy_api_drain.desired_runtime_config(
+        "hyprnote-stripe", "apps/stripe/fly.toml"
+    )
+    old = {"config": {"metadata": {"fly_process_group": "web", "custom": "keep"}}}
+    result = replacement_config(old, "new", {"signal": "SIGTERM"}, desired)
+    assert result["metadata"]["fly_process_group"] == "app"
+    assert result["metadata"]["custom"] == "keep"
+    assert old["config"]["metadata"]["fly_process_group"] == "web"
+    (service,) = result["services"]
+    assert service["internal_port"] == 8080
+    assert service["min_machines_running"] == 2
+    assert service["autostop"] == "off"
+    assert service["checks"][0]["path"] == "/health"
+
+
 def test_invalid_config_fails_before_any_machine_mutation():
     base = Path("apps/api/fly.toml").read_text()
     invalid_configs = [
@@ -665,7 +681,61 @@ def test_cutover_preflight_rechecks_candidate_readiness():
             raise AssertionError("unhealthy candidate was accepted")
 
 
+def test_deploy_restores_minimum_primary_region_capacity():
+    old = {"id": "old", "region": "nrt", "cordoned": False, "config": {"image": "old"}}
+    regions = []
+
+    def create(_app, machine, _image, _stop, _runtime):
+        regions.append(machine["region"])
+        return f"new-{len(regions)}"
+
+    with (
+        patch.object(deploy_api_drain, "destroy_drained_machines"),
+        patch.object(deploy_api_drain, "resume_draining_machines"),
+        patch.object(deploy_api_drain, "list_machines", return_value=[old]),
+        patch.object(deploy_api_drain, "build_and_push_image", return_value="new"),
+        patch.object(
+            deploy_api_drain, "create_replacement_machine", side_effect=create
+        ),
+        patch.object(deploy_api_drain, "wait_until_healthy"),
+        patch.object(deploy_api_drain, "validate_serving_set"),
+        patch.object(deploy_api_drain, "cut_over") as cutover,
+        patch.object(deploy_api_drain, "drain_old_machines"),
+    ):
+        deploy_api_drain.deploy(
+            "anarlog-sync", "apps/api/fly.sync.toml", "Dockerfile", "test"
+        )
+    assert regions == ["nrt", "sjc", "sjc"]
+    cutover.assert_called_once_with(
+        "anarlog-sync", ["old"], ["new-1", "new-2", "new-3"]
+    )
+
+
+def test_rollback_requires_an_immutable_api_image_before_mutating_machines():
+    for image in [
+        "registry.fly.io/anarlog-sync:latest",
+        "registry.fly.io/unrelated@sha256:" + "a" * 64,
+    ]:
+        with patch.object(deploy_api_drain, "api_request") as api:
+            try:
+                deploy_api_drain.deploy(
+                    "anarlog-sync",
+                    "apps/api/fly.sync.toml",
+                    "Dockerfile",
+                    "test",
+                    image,
+                )
+            except DeployError as error:
+                assert "immutable digest" in str(error)
+            else:
+                raise AssertionError("unsafe rollback image accepted")
+            api.assert_not_called()
+
+
 if __name__ == "__main__":
+    test_stripe_replacement_migrates_process_group_and_keeps_capacity()
+    test_rollback_requires_an_immutable_api_image_before_mutating_machines()
+    test_deploy_restores_minimum_primary_region_capacity()
     test_cutover_preflight_rechecks_candidate_readiness()
     test_standalone_profiles_have_role_checks_and_no_duplicate_cleanup()
     test_desired_runtime_replaces_stale_machine_settings()
