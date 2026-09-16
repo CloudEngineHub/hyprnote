@@ -73,7 +73,30 @@ vi.mock("~/audio-player/provider", () => ({
 }));
 
 vi.mock("./selection-menu", () => ({
-  SelectionMenu: () => null,
+  SelectionMenu: ({
+    onChangeSpeaker,
+  }: {
+    onChangeSpeaker?: (selection: TranscriptWordSelection) => void;
+  }) =>
+    onChangeSpeaker && (
+      <button
+        onClick={() =>
+          onChangeSpeaker?.({
+            text: "Transcript word",
+            startMs: 0,
+            groups: [
+              {
+                transcriptId: "1",
+                segmentKey: { channel: "RemoteParty", speaker_index: 1 },
+                wordIds: ["word-1"],
+              },
+            ],
+          })
+        }
+      >
+        Change speaker from here
+      </button>
+    ),
   MultiSelectionBar: ({
     entryCount,
     selection,
@@ -412,6 +435,47 @@ describe("TranscriptViewer", () => {
     });
     expect(screen.getByTestId("multi-selection-bar").textContent).toBe("1");
     fireEvent.keyUp(editor, { key: "ArrowUp", code: "ArrowUp" });
+  });
+
+  it("routes selected text to the editor speaker split at the selection start", () => {
+    const onEditModeChange = vi.fn();
+    render(
+      <TranscriptViewer
+        transcriptIds={["1"]}
+        liveSegments={[]}
+        currentActive={false}
+        editMode
+        onEditModeChange={onEditModeChange}
+        scrollRef={createRef()}
+      />,
+    );
+    const editor = screen.getByTestId("editor-1");
+    const onEnter = vi.fn((event: Event) => {
+      expect((event as KeyboardEvent).key).toBe("Enter");
+      expect(window.getSelection()?.isCollapsed).toBe(true);
+      expect(window.getSelection()?.anchorOffset).toBe(0);
+    });
+    editor.addEventListener("keydown", onEnter);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change speaker from here" }),
+    );
+    expect(onEditModeChange).toHaveBeenCalledWith(true);
+    expect(onEnter).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not offer the speaker picker without an edit-mode callback", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["1"]}
+        liveSegments={[]}
+        currentActive={false}
+        editMode
+        scrollRef={createRef()}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Change speaker from here" }),
+    ).toBeNull();
   });
 
   it("saves removal of selected blocks across transcripts", async () => {
