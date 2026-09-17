@@ -418,7 +418,7 @@ export type FloatingBarState = {
   transcriptBubbles?: FloatingTranscriptBubble[] | null;
   layout?: FloatingBarOverlayLayout | null;
 };
-export type FloatingBarStatus = "recording" | "error";
+export type FloatingBarStatus = "recording" | "reconnecting" | "error";
 export type FloatingBarStop = Record<string, never>;
 export type FloatingTranscriptBubble = {
   id: string;

@@ -236,6 +236,9 @@ struct FloatingBarView: View {
               .font(.system(size: 12, weight: .semibold))
           }
           .foregroundStyle(stopColor)
+        } else if model.status == .reconnecting {
+          ProgressView().controlSize(.small)
+            .accessibilityHidden(true)
         } else if model.status == .error {
           ErrorMark(color: errorAccentColor)
             .frame(
@@ -258,7 +261,12 @@ struct FloatingBarView: View {
       .contentShape(shape)
     }
     .buttonStyle(.plain)
-    .accessibilityLabel("Stop listening")
+    .accessibilityLabel(
+      model.status == .reconnecting
+        ? "Reconnecting live transcription; stop listening"
+        : model.status == .error
+          ? "Transcription unavailable; stop listening" : "Stop listening"
+    )
     .onHover { isStopHovered = $0 }
   }
 

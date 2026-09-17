@@ -8,7 +8,9 @@ import {
   ArrowsInSimple,
   ArrowsOutSimple,
   CaretDown,
+  CircleNotch,
   Square,
+  WarningCircle,
 } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { cn } from "@anlg/utils";
@@ -268,7 +270,13 @@ function StopControl({
     <button
       type="button"
       data-tauri-drag-region="false"
-      aria-label="Stop listening"
+      aria-label={
+        state.status === "reconnecting"
+          ? "Reconnecting live transcription; stop listening"
+          : state.status === "error"
+            ? "Transcription unavailable; stop listening"
+            : "Stop listening"
+      }
       onClick={onStop}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -286,6 +294,10 @@ function StopControl({
           <Square size={9} />
           Stop
         </span>
+      ) : state.status === "reconnecting" ? (
+        <CircleNotch size={20} className="animate-spin" aria-hidden="true" />
+      ) : state.status === "error" ? (
+        <WarningCircle size={20} aria-hidden="true" />
       ) : (
         <DancingSticks
           color={colors.accent}
