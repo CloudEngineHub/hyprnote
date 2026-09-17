@@ -337,6 +337,7 @@ export const commands = {
 /** user-defined events **/
 
 export const events = __makeEvents__<{
+  floatingBarDictationAction: FloatingBarDictationAction;
   floatingBarOpenMain: FloatingBarOpenMain;
   floatingBarOverlayAmplitude: FloatingBarOverlayAmplitude;
   floatingBarOverlayState: FloatingBarOverlayState;
@@ -349,6 +350,7 @@ export const events = __makeEvents__<{
   webviewHealthCheck: WebviewHealthCheck;
   windowDestroyed: WindowDestroyed;
 }>({
+  floatingBarDictationAction: "plugin:windows:floating-bar-dictation-action",
   floatingBarOpenMain: "plugin:windows:floating-bar-open-main",
   floatingBarOverlayAmplitude: "plugin:windows:floating-bar-overlay-amplitude",
   floatingBarOverlayState: "plugin:windows:floating-bar-overlay-state",
@@ -381,6 +383,7 @@ export type ContactsSelection =
   | { type: "person"; id: string }
   | { type: "organization"; id: string };
 export type ContactsState = { selected: ContactsSelection | null };
+export type DictationPanelAction = "finish" | "cancel" | "togglePreview";
 export type EditorView =
   | { type: "raw" }
   | { type: "transcript" }
@@ -388,6 +391,10 @@ export type EditorView =
   | { type: "attachments" };
 export type ExtensionsState = { selectedExtension: string | null };
 export type FloatingBarColorScheme = "light" | "dark";
+export type FloatingBarDictationAction = {
+  sessionId: string;
+  action: DictationPanelAction;
+};
 export type FloatingBarOpenMain = Record<string, never>;
 export type FloatingBarOverlayAmplitude = { amplitude: number };
 export type FloatingBarOverlayLayout = {
@@ -404,6 +411,7 @@ export type FloatingBarSettingsChange = {
   liveCaptionMinimized: boolean | null;
 };
 export type FloatingBarState = {
+  dictation?: FloatingDictationState | null;
   amplitude: number;
   title: string;
   status: FloatingBarStatus;
@@ -420,6 +428,15 @@ export type FloatingBarState = {
 };
 export type FloatingBarStatus = "recording" | "reconnecting" | "error";
 export type FloatingBarStop = Record<string, never>;
+export type FloatingDictationState = {
+  sessionId: string;
+  phase: string;
+  microphone: string;
+  text: string;
+  partial: string;
+  previewEnabled: boolean;
+  previewUnavailable: boolean;
+};
 export type FloatingTranscriptBubble = {
   id: string;
   speakerLabel: string;

@@ -31,6 +31,7 @@ final class FloatingBarManager {
 
   func show() {
     commandCoalescer.enqueueShow()
+    commandCoalescer.flush()
   }
 
   func hide() {
@@ -62,7 +63,7 @@ final class FloatingBarManager {
 
   private func applyShow() {
     if let panel {
-      position(panel, force: true)
+      position(panel, force: true, followsPointer: model.dictation != nil)
       startObservingDisplayChanges()
       panel.orderFrontRegardless()
       return
@@ -92,7 +93,7 @@ final class FloatingBarManager {
     hostingView.autoresizingMask = [.width, .height]
 
     panel.contentView = hostingView
-    position(panel, force: true)
+    position(panel, force: true, followsPointer: model.dictation != nil)
     panel.orderFrontRegardless()
     self.panel = panel
     startObservingDisplayChanges()
@@ -109,6 +110,12 @@ final class FloatingBarManager {
 
   private func applyUpdate(_ state: FloatingBarStatePayload) {
     isApplyingExternalState = true
+    let startsDictation =
+      state.dictation?.sessionId != model.dictation?.sessionId && state.dictation != nil
+    if startsDictation { placement.clearPinnedOrigin() }
+    if state.dictation != nil, panel?.isKeyWindow == true { panel?.resignKey() }
+    model.dictation = state.dictation
+    (panel as? FloatingBarPanel)?.dictationMode = state.dictation != nil
     if model.status != state.status {
       model.status = state.status
     }
@@ -128,14 +135,19 @@ final class FloatingBarManager {
       model.transcriptBubbles = transcriptBubbles
     }
     settingsModel.apply(floatingBarState: state)
-    let isExpanded =
-      state.liveCaptionToggleVisible && !settingsModel.liveCaptionMinimized
+    let minimized =
+      state.dictation == nil ? settingsModel.liveCaptionMinimized : state.liveCaptionMinimized
+    let isExpanded = state.liveCaptionToggleVisible && !minimized
     if model.isExpanded != isExpanded {
       model.isExpanded = isExpanded
     }
     isApplyingExternalState = false
     if let panel {
-      resize(panel)
+      if startsDictation {
+        position(panel, force: true, followsPointer: true)
+      } else {
+        resize(panel)
+      }
     }
   }
 
@@ -146,7 +158,7 @@ final class FloatingBarManager {
   }
 
   private func createPanel() -> NSPanel {
-    let panel = NSPanel(
+    let panel = FloatingBarPanel(
       contentRect: NSRect(
         x: 0,
         y: 0,
@@ -157,6 +169,7 @@ final class FloatingBarManager {
       defer: false
     )
 
+    panel.dictationMode = model.dictation != nil
     panel.level = .floating
     panel.isFloatingPanel = true
     panel.hidesOnDeactivate = false
@@ -174,6 +187,7 @@ final class FloatingBarManager {
   private func position(
     _ panel: NSPanel,
     force: Bool = false,
+    followsPointer: Bool = false,
     layout targetLayout: FloatingBarWindowLayout? = nil
   ) {
     let layout = targetLayout ?? currentLayout
@@ -183,7 +197,7 @@ final class FloatingBarManager {
       force: force,
       size: size,
       anchorOffset: controlAnchorOffset(for: layout),
-      followsPointer: false
+      followsPointer: followsPointer
     ) { screen, size in
       let frame = screen.visibleFrame
       let x = frame.midX - size.width / 2
@@ -228,14 +242,16 @@ final class FloatingBarManager {
   private func layout(isExpanded: Bool) -> FloatingBarWindowLayout {
     FloatingBarWindowLayout(
       isExpanded: isExpanded,
-      showsExpand: model.liveCaptionToggleVisible
+      showsExpand: model.liveCaptionToggleVisible,
+      isDictation: model.dictation != nil
     )
   }
 
   private func size(for layout: FloatingBarWindowLayout) -> NSSize {
     FloatingBarLayout.containerSize(
       isExpanded: layout.isExpanded,
-      showsExpand: layout.showsExpand
+      showsExpand: layout.showsExpand,
+      isDictation: layout.isDictation
     )
   }
 
@@ -255,7 +271,7 @@ final class FloatingBarManager {
       queue: .main
     ) { [weak self] _ in
       guard let self, let panel = self.panel else { return }
-      self.position(panel, force: true)
+      self.position(panel, force: true, followsPointer: self.model.dictation != nil)
     }
   }
 
@@ -271,4 +287,11 @@ final class FloatingBarManager {
 private struct FloatingBarWindowLayout {
   let isExpanded: Bool
   let showsExpand: Bool
+  let isDictation: Bool
+}
+
+final class FloatingBarPanel: NSPanel {
+  var dictationMode = false
+  override var canBecomeKey: Bool { !dictationMode && super.canBecomeKey }
+  override var canBecomeMain: Bool { false }
 }

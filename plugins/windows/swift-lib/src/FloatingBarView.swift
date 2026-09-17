@@ -31,29 +31,27 @@ enum FloatingBarLayout {
   static let hoverHandleHorizontalPadding: CGFloat = 8
   static let dragClickThreshold: CGFloat = 4
 
-  static func compactControlsWidth(showsExpand: Bool) -> CGFloat {
-    if showsExpand {
-      return compactStopWidth + compactGap + compactIconSize
-    }
-
-    return compactSoloStopWidth
+  static func compactControlsWidth(showsExpand: Bool, isDictation: Bool = false) -> CGFloat {
+    let recordingControls =
+      showsExpand ? compactStopWidth + compactGap + compactIconSize : compactSoloStopWidth
+    return recordingControls + (isDictation ? compactIconSize + compactGap : 0)
   }
 
-  static func compactWidth(showsExpand: Bool) -> CGFloat {
-    compactControlsWidth(showsExpand: showsExpand) + compactHorizontalPadding * 2
+  static func compactWidth(showsExpand: Bool, isDictation: Bool = false) -> CGFloat {
+    compactControlsWidth(showsExpand: showsExpand, isDictation: isDictation)
+      + compactHorizontalPadding * 2
   }
 
-  static func containerSize(isExpanded: Bool, showsExpand: Bool) -> NSSize {
-    if isExpanded {
-      return NSSize(
-        width: expandedWidth + inset * 2,
-        height: expandedHeight + hoverHandleReservedHeight + inset * 2)
-    }
-
-    return NSSize(
-      width: compactWidth(showsExpand: showsExpand) + inset * 2,
-      height: compactHeight + hoverHandleReservedHeight + inset * 2)
+  static func containerSize(isExpanded: Bool, showsExpand: Bool, isDictation: Bool = false)
+    -> NSSize
+  {
+    NSSize(
+      width: (isExpanded
+        ? expandedWidth : compactWidth(showsExpand: showsExpand, isDictation: isDictation)) + inset
+        * 2,
+      height: (isExpanded ? expandedHeight : compactHeight) + hoverHandleReservedHeight + inset * 2)
   }
+
 }
 
 struct FloatingBarView: View {
@@ -97,7 +95,7 @@ struct FloatingBarView: View {
         floatingControls(isExpanded: model.isExpanded)
           .frame(
             width: FloatingBarLayout.compactControlsWidth(
-              showsExpand: model.liveCaptionToggleVisible),
+              showsExpand: model.liveCaptionToggleVisible, isDictation: model.dictation != nil),
             height: FloatingBarLayout.compactHeight
           )
           .position(
@@ -135,11 +133,14 @@ struct FloatingBarView: View {
   private var expandedPanel: some View {
     VStack(spacing: 12) {
       HStack {
-        Text(model.title)
-          .font(.system(size: 13, weight: .semibold))
-          .foregroundStyle(primaryContentColor)
-          .lineLimit(1)
-          .truncationMode(.tail)
+        Text(
+          model.dictation?.phase == "transcribing"
+            ? "Finishing…" : model.dictation?.phase == "starting" ? "Starting…" : model.title
+        )
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(primaryContentColor)
+        .lineLimit(1)
+        .truncationMode(.tail)
 
         Spacer(minLength: 12)
       }
@@ -151,14 +152,18 @@ struct FloatingBarView: View {
         ZStack(alignment: .bottom) {
           ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 8) {
-              ForEach(Array(model.transcriptBubbles.enumerated()), id: \.element.id) {
-                index, bubble in
-                TranscriptBubbleView(
-                  bubble: bubble,
-                  showsSpeakerLabel: showsSpeakerLabel(at: index),
-                  colorScheme: model.colorScheme
-                )
-                .id(bubble.id)
+              if let dictation = model.dictation {
+                DictationTranscript(dictation: dictation, color: primaryContentColor)
+              } else {
+                ForEach(Array(model.transcriptBubbles.enumerated()), id: \.element.id) {
+                  index, bubble in
+                  TranscriptBubbleView(
+                    bubble: bubble,
+                    showsSpeakerLabel: showsSpeakerLabel(at: index),
+                    colorScheme: model.colorScheme
+                  )
+                  .id(bubble.id)
+                }
               }
               Color.clear
                 .frame(height: FloatingBarLayout.expandedPadding)
@@ -175,12 +180,17 @@ struct FloatingBarView: View {
               scrollTranscriptToBottom(proxy)
             }
           }
+          .onChange(of: model.dictation) { _, _ in
+            if shouldAutoScrollTranscript { scrollTranscriptToBottom(proxy) }
+          }
           .onAppear {
             shouldAutoScrollTranscript = true
             scrollTranscriptToBottom(proxy)
           }
 
-          if !shouldAutoScrollTranscript, model.transcriptBubbles.last?.id != nil {
+          if !shouldAutoScrollTranscript,
+            model.dictation != nil || model.transcriptBubbles.last?.id != nil
+          {
             transcriptBottomChip {
               performClick {
                 scrollTranscriptToBottom(proxy, animated: true)
@@ -193,6 +203,7 @@ struct FloatingBarView: View {
         }
         .animation(.easeOut(duration: 0.12), value: shouldAutoScrollTranscript)
       }
+      .id(model.dictation?.sessionId)
       .padding(.horizontal, FloatingBarLayout.expandedPadding)
       .padding(.bottom, FloatingBarLayout.expandedPadding)
     }
@@ -200,6 +211,13 @@ struct FloatingBarView: View {
 
   private func floatingControls(isExpanded: Bool) -> some View {
     HStack(spacing: FloatingBarLayout.compactGap) {
+      if model.dictation != nil {
+        FloatingIconButton(
+          systemName: "xmark", accessibilityLabel: "Cancel dictation",
+          color: primaryContentColor, hoverFill: controlHoverFill,
+          size: FloatingBarLayout.compactIconSize,
+          action: { performClick { dictationAction("cancel") } })
+      }
       audioControl(
         width: model.liveCaptionToggleVisible
           ? FloatingBarLayout.compactStopWidth : FloatingBarLayout.compactSoloStopWidth,
@@ -226,13 +244,19 @@ struct FloatingBarView: View {
       style: .continuous
     )
 
-    return Button(action: { performClick(RustBridge.stopListening) }) {
+    return Button(action: {
+      performClick {
+        if model.dictation != nil { dictationAction("finish") } else { RustBridge.stopListening() }
+      }
+    }) {
       Group {
-        if isStopHovered {
+        if model.dictation?.phase == "transcribing" {
+          ProgressView().controlSize(.small)
+        } else if isStopHovered {
           HStack(spacing: 6) {
             Image(systemName: "stop.fill")
               .font(.system(size: FloatingBarLayout.stopSquareSize, weight: .bold))
-            Text("Stop")
+            Text(model.dictation == nil ? "Stop" : "Done")
               .font(.system(size: 12, weight: .semibold))
           }
           .foregroundStyle(stopColor)
@@ -261,11 +285,13 @@ struct FloatingBarView: View {
       .contentShape(shape)
     }
     .buttonStyle(.plain)
+    .disabled(model.dictation?.phase == "transcribing")
     .accessibilityLabel(
-      model.status == .reconnecting
-        ? "Reconnecting live transcription; stop listening"
-        : model.status == .error
-          ? "Transcription unavailable; stop listening" : "Stop listening"
+      model.dictation != nil
+        ? "Finish dictation"
+        : model.status == .reconnecting
+          ? "Reconnecting live transcription; stop listening"
+          : model.status == .error ? "Transcription unavailable; stop listening" : "Stop listening"
     )
     .onHover { isStopHovered = $0 }
   }
@@ -274,7 +300,8 @@ struct FloatingBarView: View {
     model.placement?.frame.size
       ?? FloatingBarLayout.containerSize(
         isExpanded: model.isExpanded,
-        showsExpand: model.liveCaptionToggleVisible
+        showsExpand: model.liveCaptionToggleVisible,
+        isDictation: model.dictation != nil
       )
   }
 
@@ -397,8 +424,22 @@ struct FloatingBarView: View {
   }
 
   private func setExpanded(_ expanded: Bool) {
-    model.isExpanded = expanded
-    settings.setLiveCaptionMinimized(!expanded)
+    if model.dictation != nil {
+      dictationAction("togglePreview")
+    } else {
+      model.isExpanded = expanded
+      settings.setLiveCaptionMinimized(!expanded)
+    }
+  }
+
+  private func dictationAction(_ action: String) {
+    guard let dictation = model.dictation else { return }
+    let payload = ["sessionId": dictation.sessionId, "action": action]
+    if let data = try? JSONSerialization.data(withJSONObject: payload),
+      let json = String(data: data, encoding: .utf8)
+    {
+      json.withCString { rust_on_floating_bar_dictation_action($0) }
+    }
   }
 
   private func showsSpeakerLabel(at index: Int) -> Bool {
@@ -722,7 +763,7 @@ private struct ErrorMark: View {
   }
 }
 
-private struct DancingBars: View {
+struct DancingBars: View {
   let color: Color
   let amplitude: Double
 

@@ -1,3 +1,5 @@
+import type { FloatingDictationState } from "@anlg/plugin-windows";
+
 import {
   DEFAULT_FLOATING_OVERLAY_SETTINGS,
   type FloatingOverlaySettings,
@@ -25,6 +27,7 @@ export type FloatingTranscriptBubble = {
 };
 
 export type FloatingRouteState = {
+  dictation?: FloatingDictationState | null;
   sessionId: string;
   title: string;
   amplitude: number;
@@ -312,6 +315,14 @@ export function isSameFloatingRouteState(
     left?.liveCaptionMinimized === right?.liveCaptionMinimized &&
     left?.liveCaptionToggleVisible === right?.liveCaptionToggleVisible &&
     left?.title === right?.title &&
+    left?.dictation?.sessionId === right?.dictation?.sessionId &&
+    left?.dictation?.phase === right?.dictation?.phase &&
+    left?.dictation?.microphone === right?.dictation?.microphone &&
+    left?.dictation?.text === right?.dictation?.text &&
+    left?.dictation?.partial === right?.dictation?.partial &&
+    left?.dictation?.previewEnabled === right?.dictation?.previewEnabled &&
+    left?.dictation?.previewUnavailable ===
+      right?.dictation?.previewUnavailable &&
     isSameFloatingTranscriptBubbles(
       left?.transcriptBubbles,
       right?.transcriptBubbles,
