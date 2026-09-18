@@ -6,8 +6,10 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { open as selectFiles } from "@tauri-apps/plugin-dialog";
+import { motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect, useRef } from "react";
 
+import type { ConnectionItem } from "@anlg/api-client";
 import { commands as importerCommands } from "@anlg/plugin-importer";
 import {
   ArrowsClockwise,
@@ -72,21 +74,39 @@ const IMPORT_EXTENSIONS = [
 
 function ImportSplitButtonGroup({
   signedIn,
+  syncing = false,
   children,
 }: {
   signedIn: boolean;
+  syncing?: boolean;
   children: ReactNode;
 }) {
+  const { t } = useLingui();
+  const reducedMotion = useReducedMotion();
   const ref = useSquircleRef<HTMLDivElement>();
   return (
     <div
       ref={ref}
       className={cn([
-        "focus-within:ring-ring/50 w-fit overflow-hidden focus-within:ring-[3px]",
+        "focus-within:ring-ring/50 relative w-56 shrink-0 overflow-hidden focus-within:ring-[3px]",
         signedIn ? "bg-primary" : "border-input border",
       ])}
     >
-      <ButtonGroup>{children}</ButtonGroup>
+      {syncing && (
+        <motion.span
+          role="progressbar"
+          aria-label={t`Sync now`}
+          className={cn([
+            "bg-primary-foreground/20 pointer-events-none absolute inset-y-0 left-0",
+            reducedMotion ? "w-full" : "w-1/3",
+          ])}
+          animate={reducedMotion ? undefined : { x: ["-100%", "300%"] }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+        />
+      )}
+      <ButtonGroup className="relative w-full [&>button:first-child]:min-w-0 [&>button:first-child]:flex-1 [&>button:last-child]:shrink-0">
+        {children}
+      </ButtonGroup>
     </div>
   );
 }
@@ -230,7 +250,8 @@ export function MeetingImportScreen({
 
       const filesResult = await importerCommands.readTextFiles(paths);
       if (filesResult.status === "error") throw new Error(filesResult.error);
-      return importMeetingFiles(provider.id, filesResult.data);
+      const result = await importMeetingFiles(provider.id, filesResult.data);
+      return { ...result, completedAt: Date.now() };
     },
   });
 
@@ -263,9 +284,15 @@ export function MeetingImportScreen({
     onSuccess: async (result) => {
       if (!result) return;
       if ("connection_id" in result) {
-        await queryClient.invalidateQueries({
-          queryKey: ["integration-status"],
-        });
+        const queryKey = ["integration-status", auth.session?.user.id];
+        await queryClient.cancelQueries({ queryKey });
+        queryClient.setQueryData<ConnectionItem[]>(queryKey, (connections) => [
+          result,
+          ...(connections ?? []).filter(
+            (connection) => connection.connection_id !== result.connection_id,
+          ),
+        ]);
+        await queryClient.invalidateQueries({ queryKey, refetchType: "none" });
         return;
       }
       queryClient.setQueryData(
@@ -324,15 +351,7 @@ export function MeetingImportScreen({
     },
   });
 
-  const connectedError =
-    credentialQueries.find((query) => query.error)?.error ??
-    connectionsQuery.error ??
-    signInMutation.error ??
-    connectMutation.error ??
-    cancelConnectMutation.error ??
-    disconnectMutation.error ??
-    syncQueries.find((query) => query.error)?.error ??
-    nangoSyncQueries.find((query) => query.error)?.error;
+  const connectedError = connectionsQuery.error ?? signInMutation.error;
   const latestResult =
     fileImportMutation.data ??
     syncQueries.find((query) => query.data)?.data?.result ??
@@ -352,39 +371,9 @@ export function MeetingImportScreen({
         </p>
       ) : null}
 
-      {fileImportMutation.error ? (
-        <p className="text-destructive text-sm">
-          {fileImportMutation.error.message}
-        </p>
-      ) : null}
       {connectedError ? (
         <p className="text-destructive text-sm">{connectedError.message}</p>
       ) : null}
-      {latestResult ? (
-        <div className="border-border bg-card rounded-xl border px-4 py-3 text-sm">
-          {latestResult.imported > 0 ? (
-            <Trans>
-              Brought in {latestResult.imported} new meetings.{" "}
-              {latestResult.matched} were already here.
-            </Trans>
-          ) : latestResult.errors > 0 || latestResult.conflicts > 0 ? (
-            <Trans>
-              Nothing new was imported. {latestResult.conflicts} meetings need
-              review and {latestResult.errors} could not be imported.
-            </Trans>
-          ) : (
-            <Trans>Everything is already here.</Trans>
-          )}
-        </div>
-      ) : null}
-      {syncQueries
-        .flatMap((query) => query.data?.warnings ?? [])
-        .concat(nangoSyncQueries.flatMap((query) => query.data?.warnings ?? []))
-        .map((warning) => (
-          <p key={warning} className="text-muted-foreground text-xs">
-            {warning}
-          </p>
-        ))}
 
       {displayedProviders.length > 0 || detectionSettled ? (
         <div className="border-border bg-card overflow-hidden rounded-2xl border">
@@ -448,9 +437,34 @@ export function MeetingImportScreen({
                   (run) => run.providerId === provider.id,
                 );
 
+                const result =
+                  fileImportMutation.variables?.id === provider.id &&
+                  fileImportMutation.data &&
+                  fileImportMutation.data.completedAt >=
+                    (syncQuery?.dataUpdatedAt ?? 0)
+                    ? fileImportMutation.data
+                    : syncQuery?.data?.result;
+                const error =
+                  credentialsQuery?.error ??
+                  syncQuery?.error ??
+                  (fileImportMutation.variables?.id === provider.id
+                    ? fileImportMutation.error
+                    : null) ??
+                  (connectMutation.variables?.id === provider.id
+                    ? connectMutation.error
+                    : null) ??
+                  (cancelConnectMutation.variables === provider.id
+                    ? cancelConnectMutation.error
+                    : null) ??
+                  (disconnectMutation.variables?.providerId === provider.id
+                    ? disconnectMutation.error
+                    : null);
+
                 return (
                   <div
                     key={provider.id}
+                    role="group"
+                    aria-label={provider.name}
                     className="flex min-h-16 items-center gap-3 px-4 py-3"
                   >
                     <span className="flex size-8 shrink-0 items-center justify-center">
@@ -475,7 +489,7 @@ export function MeetingImportScreen({
                             </Trans>
                           )}
                         </p>
-                      ) : lastRun ? (
+                      ) : lastRun && !result ? (
                         <p className="text-muted-foreground mt-1 text-xs">
                           <Trans>
                             Last import: {lastRun.imported} added,{" "}
@@ -494,18 +508,62 @@ export function MeetingImportScreen({
                           </Trans>
                         </p>
                       )}
+                      {result ? (
+                        <p
+                          className="text-muted-foreground mt-1 text-xs"
+                          role="status"
+                        >
+                          {result.errors > 0 || result.conflicts > 0 ? (
+                            <Trans>
+                              Imported: {result.imported}. Unchanged:{" "}
+                              {result.matched}. Needs review: {result.conflicts}
+                              . Failed: {result.errors}.
+                            </Trans>
+                          ) : (
+                            <Trans>
+                              Last import: {result.imported} added,{" "}
+                              {result.matched} unchanged
+                            </Trans>
+                          )}
+                        </p>
+                      ) : null}
+                      {syncQuery?.data?.warnings.map((warning) => (
+                        <p
+                          key={warning}
+                          className="text-muted-foreground mt-1 text-xs"
+                          role="status"
+                        >
+                          {warning}
+                        </p>
+                      ))}
+                      {error ? (
+                        <p
+                          className="text-destructive mt-1 text-xs"
+                          role="alert"
+                        >
+                          {error.message}
+                        </p>
+                      ) : null}
                     </div>
                     {connectedProvider ? (
                       <div className="flex shrink-0 items-center gap-1">
                         {connected ? (
-                          <ImportSplitButtonGroup signedIn>
+                          <ImportSplitButtonGroup
+                            signedIn
+                            syncing={syncQuery?.isFetching}
+                          >
                             <Button
                               type="button"
                               size="sm"
                               smoothCorners={false}
                               className="hover:bg-primary-foreground/10 rounded-none border-0 bg-transparent shadow-none"
                               disabled={syncQuery?.isFetching || disconnecting}
-                              onClick={() => void syncQuery?.refetch()}
+                              aria-busy={syncQuery?.isFetching}
+                              onClick={() =>
+                                void syncQuery?.refetch({
+                                  cancelRefetch: false,
+                                })
+                              }
                             >
                               {syncQuery?.isFetching ? (
                                 <CircleNotch className="size-3.5 animate-spin" />
@@ -521,6 +579,9 @@ export function MeetingImportScreen({
                                   size="sm"
                                   smoothCorners={false}
                                   aria-label={t`More options`}
+                                  disabled={
+                                    syncQuery?.isFetching || disconnecting
+                                  }
                                   className={cn([
                                     "relative w-6 rounded-none border-0 px-0 shadow-none",
                                     "before:absolute before:inset-y-1.5 before:left-0 before:w-px",
@@ -621,7 +682,7 @@ export function MeetingImportScreen({
                                     </span>
                                     <span className="col-start-1 row-start-1 flex items-center justify-center gap-2 transition-transform duration-200 group-hover/sign-in:translate-y-full group-focus-visible/sign-in:translate-y-full">
                                       <PlugsConnected className="size-3.5" />
-                                      <Trans>Connect & import</Trans>
+                                      <Trans>Connect</Trans>
                                     </span>
                                     <span className="col-start-1 row-start-1 flex -translate-y-full items-center justify-center transition-transform duration-200 group-hover/sign-in:translate-y-0 group-focus-visible/sign-in:translate-y-0">
                                       <Trans>Sign in to connect</Trans>
@@ -641,7 +702,7 @@ export function MeetingImportScreen({
                               ) : checkingConnection ? (
                                 <Trans>Checking connection</Trans>
                               ) : (
-                                <Trans>Connect & import</Trans>
+                                <Trans>Connect</Trans>
                               )}
                             </Button>
                             <DropdownMenu>
@@ -690,6 +751,7 @@ export function MeetingImportScreen({
                       <Button
                         type="button"
                         size="sm"
+                        className="w-56 shrink-0"
                         variant="outline"
                         disabled={fileImportMutation.isPending}
                         onClick={() => fileImportMutation.mutate(provider)}
