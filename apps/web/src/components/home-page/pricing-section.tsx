@@ -32,12 +32,6 @@ export function PricingSection({
         ))}
       </div>
 
-      <p className="text-color-muted mx-auto mt-6 max-w-2xl text-sm leading-6">
-        Dictation is included with Pro, Team, and Enterprise. Use a configurable
-        shortcut to turn speech into text in other desktop apps on macOS,
-        Windows, and Linux.
-      </p>
-
       {compareLink ? (
         <div className="mt-8">
           <Link
@@ -86,9 +80,9 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
         <Link
           to={plan.id === "enterprise" ? "/enterprise/" : "/download/"}
           className={cn([
-            "flex h-11 w-full items-center justify-center rounded-full text-sm font-medium transition-all hover:scale-[102%] active:scale-[98%]",
+            "flex h-11 w-full items-center justify-center rounded-full text-sm font-medium transition-colors",
             plan.popular
-              ? "bg-linear-to-t from-stone-600 to-stone-500 text-white"
+              ? "bg-fg hover:bg-fg/90 text-white"
               : "surface-subtle text-color hover:bg-page",
           ])}
         >
