@@ -1,3 +1,10 @@
+import type { MarkdownExportOptions } from "@anlg/plugin-local-api";
+
+import {
+  DEFAULT_MARKDOWN_EXPORT_OPTIONS,
+  hasMarkdownExportContent,
+  parseMarkdownExportOptions,
+} from "./markdown-export";
 import type { AutomationRunRecord, AutomationTargetRef } from "./types";
 
 import { setSettingValue, useStoredSettingValue } from "~/settings/queries";
@@ -24,6 +31,7 @@ export type WorkflowStep =
       id: string;
       type: "markdown_export";
       directory: string;
+      options?: MarkdownExportOptions;
     };
 
 export type AutomationWorkflow = {
@@ -54,14 +62,22 @@ export function createEmptyWorkflow(
 
 export function createWorkflowStep(type: WorkflowStepType): WorkflowStep {
   if (type === "markdown_export") {
-    return { id: id(), type, directory: "" };
+    return {
+      id: id(),
+      type,
+      directory: "",
+      options: { ...DEFAULT_MARKDOWN_EXPORT_OPTIONS },
+    };
   }
   return { id: id(), type, target: null };
 }
 
 export function isWorkflowStepReady(step: WorkflowStep): boolean {
   if (step.type === "markdown_export") {
-    return step.directory.trim().length > 0;
+    return (
+      step.directory.trim().length > 0 &&
+      hasMarkdownExportContent(step.options ?? DEFAULT_MARKDOWN_EXPORT_OPTIONS)
+    );
   }
   return step.target !== null;
 }
@@ -154,6 +170,9 @@ function parseStep(value: unknown): WorkflowStep | null {
       id: value.id,
       type: "markdown_export",
       directory: typeof value.directory === "string" ? value.directory : "",
+      ...(value.options !== undefined
+        ? { options: parseMarkdownExportOptions(value.options) }
+        : {}),
     };
   }
   if (

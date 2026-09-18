@@ -1124,6 +1124,10 @@ msgstr ""
 msgid "Choose an export folder first."
 msgstr ""
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Choose at least one section to export."
+msgstr "내보낼 섹션을 하나 이상 선택하세요."
+
 #: src/templates/template-icon-picker.tsx
 msgid "Choose custom color"
 msgstr ""
@@ -1327,6 +1331,7 @@ msgid "Collaborator"
 msgstr ""
 
 #: src/automations/starters.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Collect action items"
 msgstr ""
 
@@ -1929,6 +1934,7 @@ msgstr ""
 msgid "Data"
 msgstr ""
 
+#: src/settings/automations/markdown-export-options.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Date"
 msgstr ""
@@ -2426,6 +2432,10 @@ msgstr ""
 msgid "File format"
 msgstr ""
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Filename"
+msgstr "파일 이름"
+
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
 msgstr ""
@@ -2779,8 +2789,13 @@ msgid "in {weeks} weeks"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Include"
 msgstr ""
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Include meeting ID"
+msgstr "회의 ID 포함"
 
 #: src/settings/stats/index.tsx
 msgid "Includes imported transcripts. Deleted conversations are excluded."
@@ -3013,6 +3028,10 @@ msgstr ""
 #: src/settings/team/index.tsx
 msgid "Leave {workspaceName}?"
 msgstr ""
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Leave blank to use the meeting date and title."
+msgstr "비워 두면 회의 날짜와 제목을 사용합니다."
 
 #: src/settings/team/index.tsx
 msgid "Leave workspace"
@@ -3312,6 +3331,7 @@ msgstr ""
 
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Memo"
 msgstr ""
 
@@ -4803,6 +4823,7 @@ msgid "Session note views"
 msgstr ""
 
 #: src/session/components/title-input.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Session title"
 msgstr ""
 
@@ -5399,6 +5420,7 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Summary"
 msgstr ""
 
@@ -5723,6 +5745,7 @@ msgstr ""
 
 #: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Transcript"
 msgstr ""
 

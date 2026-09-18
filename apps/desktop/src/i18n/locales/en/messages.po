@@ -1124,6 +1124,10 @@ msgstr "Choose an AI model before generating a format."
 msgid "Choose an export folder first."
 msgstr "Choose an export folder first."
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Choose at least one section to export."
+msgstr "Choose at least one section to export."
+
 #: src/templates/template-icon-picker.tsx
 msgid "Choose custom color"
 msgstr "Choose custom color"
@@ -1327,6 +1331,7 @@ msgid "Collaborator"
 msgstr "Collaborator"
 
 #: src/automations/starters.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Collect action items"
 msgstr "Collect action items"
 
@@ -1929,6 +1934,7 @@ msgstr "Dark"
 msgid "Data"
 msgstr "Data"
 
+#: src/settings/automations/markdown-export-options.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Date"
 msgstr "Date"
@@ -2426,6 +2432,10 @@ msgstr "File each action item as an issue in the selected team."
 msgid "File format"
 msgstr "File format"
 
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Filename"
+msgstr "Filename"
+
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
 msgstr "Find a note..."
@@ -2779,8 +2789,13 @@ msgid "in {weeks} weeks"
 msgstr "in {weeks} weeks"
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Include"
 msgstr "Include"
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Include meeting ID"
+msgstr "Include meeting ID"
 
 #: src/settings/stats/index.tsx
 msgid "Includes imported transcripts. Deleted conversations are excluded."
@@ -3013,6 +3028,10 @@ msgstr "Learn more"
 #: src/settings/team/index.tsx
 msgid "Leave {workspaceName}?"
 msgstr "Leave {workspaceName}?"
+
+#: src/settings/automations/markdown-export-options.tsx
+msgid "Leave blank to use the meeting date and title."
+msgstr "Leave blank to use the meeting date and title."
 
 #: src/settings/team/index.tsx
 msgid "Leave workspace"
@@ -3312,6 +3331,7 @@ msgstr "Members on a claimed email domain must sign in with SSO instead of Googl
 
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Memo"
 msgstr "Memo"
 
@@ -4803,6 +4823,7 @@ msgid "Session note views"
 msgstr "Session note views"
 
 #: src/session/components/title-input.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Session title"
 msgstr "Session title"
 
@@ -5399,6 +5420,7 @@ msgstr "Summaries"
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Summary"
 msgstr "Summary"
 
@@ -5723,6 +5745,7 @@ msgstr "Transcribing…"
 
 #: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/markdown-export-options.tsx
 msgid "Transcript"
 msgstr "Transcript"
 
