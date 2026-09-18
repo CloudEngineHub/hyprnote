@@ -5,6 +5,7 @@ import { useDebounceValue } from "usehooks-ts";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import { getCustomProfileImageUrl } from "@anlg/supabase/profile";
 import { Avatar } from "@anlg/ui/components/avatar";
 import {
   CircleNotch,
@@ -90,6 +91,8 @@ import {
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { useSharedProfilePhoto } from "~/contacts/profile-photo";
+import { usePersonalContact } from "~/contacts/queries";
 import {
   cancelScheduledCapture,
   listScheduledCaptures,
@@ -525,6 +528,7 @@ function WorkspacePanel({
 
   const members = useQuery({
     queryKey: ["team-members", workspaceId],
+    refetchInterval: 30_000,
     queryFn: () => listWorkspaceMembers(requireTeamContext(auth), workspaceId),
     retry: false,
   });
@@ -1812,13 +1816,17 @@ function MemberRow({
     <tr>
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <Avatar
-            seed={member.userId}
-            label={member.name || member.email}
-            imageUrl={member.avatarUrl}
-            size={32}
-            className="rounded-full"
-          />
+          {isViewer ? (
+            <PersonalMemberAvatar member={member} />
+          ) : (
+            <Avatar
+              seed={member.userId}
+              label={member.name || member.email}
+              imageUrl={member.avatarUrl}
+              size={32}
+              className="rounded-full"
+            />
+          )}
           <div className="min-w-0">
             <p className="font-medium whitespace-nowrap">
               {member.name || "—"}
@@ -1916,5 +1924,26 @@ function TeamSkeleton() {
         <div key={row} className="bg-muted h-11 animate-pulse rounded-lg" />
       ))}
     </div>
+  );
+}
+
+function PersonalMemberAvatar({ member }: { member: WorkspaceMember }) {
+  const { data: contact } = usePersonalContact(member.userId);
+  const { data: user } = useSharedProfilePhoto(member.userId);
+  const custom = getCustomProfileImageUrl(user);
+  return (
+    <Avatar
+      seed={member.userId}
+      label={member.name || member.email}
+      imageUrl={
+        custom !== undefined
+          ? custom
+          : contact
+            ? contact.avatarDataUrl
+            : member.avatarUrl
+      }
+      size={32}
+      className="rounded-full"
+    />
   );
 }

@@ -998,7 +998,7 @@ msgstr ""
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
-#: src/settings/general/account-profile.tsx
+#: src/contacts/profile-photo.tsx
 msgid "Change photo"
 msgstr ""
 
@@ -1819,6 +1819,7 @@ msgstr ""
 msgid "Couldn't save your new badges."
 msgstr ""
 
+#: src/contacts/profile-photo.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Couldn't save your profile. Try again."
 msgstr ""
@@ -4344,7 +4345,7 @@ msgid "Remove member?"
 msgstr "Odstranim člana?"
 
 #: src/contacts/contact-page-header.tsx
-#: src/settings/general/account-profile.tsx
+#: src/contacts/profile-photo.tsx
 msgid "Remove photo"
 msgstr ""
 
@@ -4521,7 +4522,9 @@ msgid "Retention (days)"
 msgstr ""
 
 #: src/chat/components/message/error.tsx
+#: src/contacts/profile-photo.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
+#: src/settings/general/account-profile.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/sync/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -4562,7 +4565,6 @@ msgid "Runs once the AI summary for the meeting is ready."
 msgstr ""
 
 #: src/settings/dictionary/index.tsx
-#: src/settings/general/account-profile.tsx
 #: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
 msgid "Save"
@@ -4616,6 +4618,7 @@ msgstr ""
 msgid "Saved locally"
 msgstr ""
 
+#: src/contacts/profile-photo.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Saving..."
 msgstr ""

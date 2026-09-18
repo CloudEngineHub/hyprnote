@@ -6,16 +6,17 @@ import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
 
+import { formatProfilePhone } from "./phone";
+
 import { useAuth } from "~/auth";
-import { AvatarUploadButton, ContactImage } from "~/contacts/contact-avatar";
 import { ContactOrganizationSelector } from "~/contacts/details";
+import { ProfilePhoto } from "~/contacts/profile-photo";
 import {
   type HumanRecord,
   savePersonalContact,
   usePersonalContact,
   useOrganizations,
 } from "~/contacts/queries";
-import { ContactFacehash } from "~/contacts/shared";
 import { useOwnerUserId } from "~/shared/owner-user";
 
 export function AccountProfile() {
@@ -62,7 +63,10 @@ function ProfileForm({
   const organizations = useOrganizations();
   const save = useMutation({
     mutationFn: (values: Parameters<typeof savePersonalContact>[1]) =>
-      savePersonalContact(humanId, values),
+      savePersonalContact(humanId, {
+        ...values,
+        phone: formatProfilePhone(values.phone, navigator.language),
+      }),
   });
   const metadataName = auth.session?.user.user_metadata?.full_name;
   const form = useForm({
@@ -70,21 +74,16 @@ function ProfileForm({
       name:
         human?.name ?? (typeof metadataName === "string" ? metadataName : ""),
       email: human?.email ?? auth.session?.user.email ?? "",
-      phone: human?.phone ?? "",
+      phone: formatProfilePhone(human?.phone ?? "", navigator.language),
       jobTitle: human?.jobTitle ?? "",
       linkedinUsername: human?.linkedinUsername ?? "",
       memo: human?.memo ?? "",
       organizationId: human?.organizationId ?? "",
-      avatarDataUrl: human?.avatarDataUrl ?? (null as string | null),
     },
-    onSubmit: async ({ value }) => {
-      try {
-        await save.mutateAsync(value);
-        form.reset(value);
-      } catch {
-        // The mutation keeps the error visible and the draft available to retry.
-      }
+    listeners: {
+      onChange: ({ formApi }) => save.mutate(formApi.state.values),
     },
+    onSubmit: ({ value }) => save.mutate(value),
   });
   const fields = [
     { name: "name", label: t`Name`, type: "text" },
@@ -111,38 +110,22 @@ function ProfileForm({
           separately.
         </Trans>
       </p>
-      <fieldset
-        disabled={save.isPending}
-        className="flex min-w-0 flex-col gap-4"
-      >
-        <form.Field name="avatarDataUrl">
-          {(field) => (
-            <div className="flex items-center gap-4">
-              <AvatarUploadButton
-                label={t`Change photo`}
-                onUpload={field.handleChange}
-              >
-                {field.state.value ? (
-                  <ContactImage src={field.state.value} size={64} />
-                ) : (
-                  <ContactFacehash
-                    name={human?.name || human?.email || humanId}
-                    size={64}
-                  />
-                )}
-              </AvatarUploadButton>
-              {field.state.value && (
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => field.handleChange(null)}
-                >
-                  <Trans>Remove photo</Trans>
-                </Button>
-              )}
-            </div>
-          )}
-        </form.Field>
+      <fieldset className="flex min-w-0 flex-col gap-4">
+        <ProfilePhoto
+          userId={humanId}
+          name={human?.name || human?.email || humanId}
+          localPhoto={human?.avatarDataUrl ?? null}
+          onSave={(avatarDataUrl) =>
+            savePersonalContact(humanId, {
+              ...form.state.values,
+              phone: formatProfilePhone(
+                form.state.values.phone,
+                navigator.language,
+              ),
+              avatarDataUrl,
+            })
+          }
+        />
         {fields.map(({ name, label, type }) => (
           <form.Field key={name} name={name}>
             {(field) => (
@@ -152,7 +135,18 @@ function ProfileForm({
                   type={type}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
+                  onBlur={() => {
+                    if (name === "phone") {
+                      field.handleChange(
+                        formatProfilePhone(
+                          field.state.value,
+                          navigator.language,
+                        ),
+                      );
+                    }
+                    field.handleBlur();
+                  }}
+                  placeholder={name === "phone" ? "+1 202 555 0123" : undefined}
                 />
               </label>
             )}
@@ -166,7 +160,6 @@ function ProfileForm({
               </span>
               <div>
                 <ContactOrganizationSelector
-                  disabled={save.isPending}
                   organization={
                     organizations.find(
                       (organization) => organization.id === field.state.value,
@@ -194,24 +187,20 @@ function ProfileForm({
         </form.Field>
       </fieldset>
       {save.isError && (
-        <p role="alert" className="text-destructive text-sm">
-          <Trans>Couldn't save your profile. Try again.</Trans>
-        </p>
+        <div className="flex items-center gap-3">
+          <p role="alert" className="text-destructive text-sm">
+            <Trans>Couldn't save your profile. Try again.</Trans>
+          </p>
+          <Button type="submit" variant="outline">
+            <Trans>Retry</Trans>
+          </Button>
+        </div>
       )}
-      <form.Subscribe selector={(state) => [state.isDirty, state.isSubmitting]}>
-        {([isDirty, isSubmitting]) => (
-          <div className="flex items-center gap-3">
-            <Button type="submit" disabled={!isDirty || isSubmitting}>
-              {isSubmitting ? t`Saving...` : t`Save`}
-            </Button>
-            {save.isSuccess && !isDirty && (
-              <span role="status" className="text-muted-foreground text-sm">
-                <Trans>Saved</Trans>
-              </span>
-            )}
-          </div>
-        )}
-      </form.Subscribe>
+      {(save.isPending || save.isSuccess) && (
+        <span role="status" className="text-muted-foreground text-sm">
+          {save.isPending ? t`Saving...` : t`Saved`}
+        </span>
+      )}
     </form>
   );
 }
