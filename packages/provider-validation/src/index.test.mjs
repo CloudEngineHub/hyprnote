@@ -416,3 +416,30 @@ test("Nari verifies keys using its non-billable authenticated voice catalog", as
     "Bearer anarlog-invalid-key-verification",
   );
 });
+
+test("validates Wispr Flow with its authenticated warmup endpoint", async () => {
+  const requests = [];
+  await verifyProviderCredentials(
+    {
+      provider: "wisprflow",
+      baseUrl: "https://platform-api.wisprflow.ai",
+      apiKey: "synthetic-key",
+    },
+    async (url, init) => {
+      requests.push({ url, init });
+      assert.equal(
+        url,
+        "https://platform-api.wisprflow.ai/api/v1/dash/warmup_dash",
+      );
+      if (init.headers.Authorization !== "Bearer synthetic-key")
+        return new Response(null, { status: 401 });
+      return Response.json({ status: "warmed" });
+    },
+  );
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].init.headers.Authorization, "Bearer synthetic-key");
+  assert.equal(
+    requests[1].init.headers.Authorization,
+    "Bearer anarlog-invalid-key-verification",
+  );
+});

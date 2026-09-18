@@ -137,12 +137,16 @@ impl RealtimeSttAdapter for SonioxAdapter {
                 &final_tokens,
                 true,
                 is_finished,
-                has_fin_token,
+                has_fin_token && non_final_tokens.is_empty(),
             ));
         }
 
         if !non_final_tokens.is_empty() {
             responses.push(Self::build_response(&non_final_tokens, false, false, false));
+        }
+
+        if has_fin_token && (final_tokens.is_empty() || !non_final_tokens.is_empty()) {
+            responses.push(Self::build_response(&[], true, true, true));
         }
 
         responses
@@ -262,6 +266,40 @@ mod tests {
     use crate::ListenClient;
     use crate::adapter::RealtimeSttAdapter;
     use crate::test_utils::{UrlTestCase, run_dual_test, run_single_test, run_url_test_cases};
+
+    #[test]
+    fn standalone_finalization_marker_is_not_discarded() {
+        let responses = SonioxAdapter::default()
+            .parse_response(r#"{"tokens":[{"text":"<fin>","is_final":true}]}"#);
+        assert!(matches!(
+            &responses[..],
+            [StreamResponse::TranscriptResponse {
+                from_finalize: true,
+                ..
+            }]
+        ));
+    }
+
+    #[test]
+    fn finalization_follows_unfinished_content() {
+        let responses = SonioxAdapter::default().parse_response(
+            r#"{"tokens":[{"text":"unfinished","is_final":false},{"text":"<fin>","is_final":true}]}"#,
+        );
+        assert!(matches!(
+            &responses[..],
+            [
+                StreamResponse::TranscriptResponse {
+                    is_final: false,
+                    from_finalize: false,
+                    ..
+                },
+                StreamResponse::TranscriptResponse {
+                    from_finalize: true,
+                    ..
+                }
+            ]
+        ));
+    }
 
     const API_BASE: &str = "https://api.soniox.com";
 
