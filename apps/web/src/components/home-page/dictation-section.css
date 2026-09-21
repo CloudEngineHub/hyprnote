@@ -13,7 +13,7 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: max(100vw, 980px);
+  width: min(1360px, 144vw);
   min-width: 980px;
   overflow: visible;
   transform: translate(-50%, -50%);
@@ -72,7 +72,9 @@
   font-weight: 750;
   text-decoration: none;
   transform: translate(-50%, -50%);
-  transition: background-color 140ms ease, color 140ms ease;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
 }
 
 #dictation .speech-flow-control:hover,
