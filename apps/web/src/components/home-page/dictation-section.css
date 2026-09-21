@@ -1,27 +1,21 @@
 #dictation .speech-flow-stage {
   position: relative;
-  width: min(100vw, 1280px);
+  width: 100vw;
   height: clamp(340px, 30vw, 380px);
   margin-top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  overflow: hidden;
+  overflow: visible;
   isolation: isolate;
-  mask-image: linear-gradient(
-    90deg,
-    transparent,
-    black 10%,
-    black 90%,
-    transparent
-  );
 }
 
 #dictation .speech-flow-svg {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(1360px, 144vw);
+  width: max(100vw, 980px);
   min-width: 980px;
+  overflow: visible;
   transform: translate(-50%, -50%);
 }
 
