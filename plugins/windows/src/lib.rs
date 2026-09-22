@@ -43,6 +43,33 @@ impl SavedFrames {
     fn remove(&self, label: &str) {
         self.0.lock().unwrap().remove(label);
     }
+
+    fn contains(&self, label: &str) -> bool {
+        self.0.lock().unwrap().contains_key(label)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+#[derive(Default)]
+pub struct PendingPositions(pub Mutex<HashMap<String, SavedFrame>>);
+
+#[cfg(not(target_os = "macos"))]
+impl PendingPositions {
+    fn insert(&self, label: String, frame: SavedFrame) {
+        self.0.lock().unwrap().insert(label, frame);
+    }
+
+    fn take_if_sized(&self, label: &str, size: tauri::LogicalSize<f64>) -> Option<SavedFrame> {
+        let mut pending = self.0.lock().unwrap();
+        let matches = pending.get(label).is_some_and(|frame| {
+            (frame.w - size.width).abs() < 1.0 && (frame.h - size.height).abs() < 1.0
+        });
+        if matches { pending.remove(label) } else { None }
+    }
+
+    fn remove(&self, label: &str) {
+        self.0.lock().unwrap().remove(label);
+    }
 }
 
 #[derive(Default)]
@@ -213,6 +240,10 @@ pub(crate) fn clear_window_state(app: &tauri::AppHandle<tauri::Wry>, label: &str
     if let Some(state) = app.try_state::<SavedFrames>() {
         state.remove(label);
     }
+    #[cfg(not(target_os = "macos"))]
+    if let Some(state) = app.try_state::<PendingPositions>() {
+        state.remove(label);
+    }
     if let Some(state) = app.try_state::<WindowExpansions>() {
         state.remove(label);
     }
@@ -294,6 +325,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 let saved_frames = SavedFrames::default();
                 app.manage(saved_frames);
             }
+
+            #[cfg(not(target_os = "macos"))]
+            app.manage(PendingPositions::default());
 
             {
                 let window_expansions = WindowExpansions::default();
