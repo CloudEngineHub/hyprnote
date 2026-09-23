@@ -383,6 +383,29 @@ function sanitizePostHogElements(value: unknown) {
   });
 }
 
+function sanitizePostHogHeatmapData(value: unknown, origin: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const sanitized: Record<string, unknown> = {};
+  for (const [pageUrl, entries] of Object.entries(value)) {
+    const url = normalizeUrl(pageUrl, origin, true);
+    if (url === undefined || !Array.isArray(entries)) continue;
+    const safeEntries = entries.flatMap((entry) =>
+      entry && typeof entry === "object" && !Array.isArray(entry)
+        ? [sanitizeAnalyticsProperties(entry as Record<string, unknown>)]
+        : [],
+    );
+    if (safeEntries.length > 0) {
+      const previous = sanitized[url];
+      sanitized[url] = Array.isArray(previous)
+        ? [...previous, ...safeEntries]
+        : safeEntries;
+    }
+  }
+  return sanitized;
+}
+
 function isPostHogTextPropertyKey(key: string) {
   return (
     POSTHOG_TEXT_PROPERTY_KEYS.has(key) ||
@@ -457,6 +480,11 @@ function sanitizePostHogProperties(
     if (key === "$elements") {
       const elements = sanitizePostHogElements(value);
       if (elements) sanitized[key] = elements;
+      continue;
+    }
+    if (key === "$heatmap_data") {
+      const heatmap = sanitizePostHogHeatmapData(value, origin);
+      if (heatmap) sanitized[key] = heatmap;
       continue;
     }
     if (isPostHogTextPropertyKey(key)) {
