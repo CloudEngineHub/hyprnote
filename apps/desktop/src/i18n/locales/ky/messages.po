@@ -25,6 +25,11 @@ msgstr ""
 msgid "(Unavailable — using current default)"
 msgstr ""
 
+#. placeholder {0}: reconnectRequired ? "Reconnect" : "Connect"
+#: src/settings/crm/index.tsx
+msgid "{0}"
+msgstr ""
+
 #. placeholder {0}: group.sessionIds.length
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "{0} {noteLabel} deleted"
@@ -909,6 +914,7 @@ msgstr ""
 #: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -1025,6 +1031,7 @@ msgid "Checking connection"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/crm/index.tsx
 msgid "Checking connection…"
 msgstr ""
 
@@ -1438,6 +1445,10 @@ msgstr ""
 msgid "Connect {0} Calendar"
 msgstr ""
 
+#: src/settings/crm/index.tsx
+msgid "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
+msgstr ""
+
 #: src/onboarding/calendar.tsx
 #: src/onboarding/index.tsx
 msgid "Connect calendar"
@@ -1482,11 +1493,16 @@ msgid "Connect your integration"
 msgstr ""
 
 #: src/imports/screen.tsx
+#: src/settings/crm/index.tsx
 msgid "Connected"
 msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Connected accounts"
+msgstr ""
+
+#: src/settings/crm/index.tsx
+msgid "Connected and working"
 msgstr ""
 
 #. placeholder {0}: subscriptionProvider.displayName
@@ -1880,6 +1896,11 @@ msgstr ""
 msgid "Crisp"
 msgstr ""
 
+#: src/settings/crm/index.tsx
+#: src/sidebar/settings.tsx
+msgid "CRM"
+msgstr ""
+
 #: src/settings/general/billing.tsx
 msgid "Current"
 msgstr ""
@@ -2093,6 +2114,7 @@ msgstr ""
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
 #: src/imports/screen.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/sync/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Disconnect"
@@ -3522,6 +3544,10 @@ msgstr ""
 msgid "No content."
 msgstr ""
 
+#: src/settings/crm/index.tsx
+msgid "No CRM integrations are available yet."
+msgstr ""
+
 #: src/task/resource-view.tsx
 msgid "No description provided."
 msgstr ""
@@ -3675,6 +3701,10 @@ msgstr ""
 
 #: src/settings/stats/insights.tsx
 msgid "Not available"
+msgstr ""
+
+#: src/settings/crm/index.tsx
+msgid "Not connected"
 msgstr ""
 
 #: src/settings/developers/cli.tsx
@@ -4223,6 +4253,7 @@ msgid "Reconnect Notion"
 msgstr ""
 
 #: src/calendar/components/oauth/status.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Reconnect required"
 msgstr ""
@@ -5088,6 +5119,10 @@ msgstr ""
 msgid "Sign in to connect {0}"
 msgstr ""
 
+#: src/settings/crm/index.tsx
+msgid "Sign in to connect a CRM."
+msgstr ""
+
 #: src/calendar/components/oauth/provider-content.tsx
 msgid "Sign in to connect your calendar"
 msgstr ""
@@ -5594,6 +5629,7 @@ msgid "Templates"
 msgstr ""
 
 #: src/settings/automations/index.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/developers/webhooks.tsx
 msgid "Test"
 msgstr ""
