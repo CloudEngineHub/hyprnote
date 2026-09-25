@@ -82,6 +82,16 @@ export function integrationIcon(integrationId: string, size = 20): ReactNode {
       return <Icon icon="logos:google-meet" width={size} height={size} />;
     case "microsoft-teams":
       return <Icon icon="logos:microsoft-teams" width={size} height={size} />;
+    case "attio":
+      return <Icon icon="thesvg-color:attio" width={size} height={size} />;
+    case "close":
+      return <Icon icon="logos:close" width={size} height={size} />;
+    case "hubspot":
+      return <Icon icon="logos:hubspot" width={size} height={size} />;
+    case "pipedrive":
+      return <Icon icon="logos:pipedrive" width={size} height={size} />;
+    case "salesforce":
+      return <Icon icon="logos:salesforce" width={size} height={size} />;
     default:
       return <PuzzlePiece size={size} className="text-color-muted" />;
   }

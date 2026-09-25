@@ -39,6 +39,11 @@ const INTEGRATION_NAMES: Record<string, string> = {
   webex: "Webex",
   "google-meet": "Google Meet",
   "microsoft-teams": "Microsoft Teams",
+  attio: "Attio",
+  close: "Close",
+  hubspot: "HubSpot",
+  pipedrive: "Pipedrive",
+  salesforce: "Salesforce",
 };
 
 const connectionsQueryKey = ["account-integrations"];
