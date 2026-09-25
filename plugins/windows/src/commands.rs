@@ -369,16 +369,25 @@ pub async fn window_expand_width(
     expand_left: bool,
     restore_on_close: bool,
 ) -> Result<(), String> {
+    let scale_factor = window.scale_factor().map_err(|e| e.to_string())?;
+    let expansion_physical = (f64::from(expansion_px) * scale_factor).ceil() as u32;
+
     if check_monitor_space {
         let outer_size = window.outer_size().map_err(|e| e.to_string())?;
         let outer_position = window.outer_position().map_err(|e| e.to_string())?;
         let monitor = window.current_monitor().map_err(|e| e.to_string())?;
 
         if let Some(monitor) = monitor {
-            let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
-            let monitor_right = i64::from(monitor.position().x) + i64::from(monitor.size().width);
+            let available = if expand_left {
+                i64::from(outer_position.x) - i64::from(monitor.position().x)
+            } else {
+                let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
+                let monitor_right =
+                    i64::from(monitor.position().x) + i64::from(monitor.size().width);
+                monitor_right - window_right
+            };
 
-            if monitor_right - window_right < i64::from(expansion_px) {
+            if available < i64::from(expansion_physical) {
                 return Ok(());
             }
         }
@@ -408,12 +417,24 @@ pub async fn window_expand_width(
                 return None;
             }
 
-            let new_width = frame.size.width + expansion;
-            let new_origin_x = if expand_left {
+            let mut new_width = frame.size.width + expansion;
+            let mut new_origin_x = if expand_left {
                 frame.origin.x - expansion
             } else {
                 frame.origin.x
             };
+            if let Some(screen) = ns_window.screen() {
+                let visible = screen.visibleFrame();
+                let visible_max_x = visible.origin.x + visible.size.width;
+                new_origin_x = new_origin_x
+                    .min(visible_max_x - new_width)
+                    .max(visible.origin.x);
+                new_width = new_width.min(visible_max_x - new_origin_x);
+            }
+            if new_width <= frame.size.width {
+                return None;
+            }
+            let origin_shift = new_origin_x - frame.origin.x;
             ns_window.setFrame_display(
                 NSRect::new(
                     NSPoint::new(new_origin_x, frame.origin.y),
@@ -421,7 +442,7 @@ pub async fn window_expand_width(
                 ),
                 false,
             );
-            Some((frame.size.width, new_width, expand_left))
+            Some((frame.size.width, new_width, origin_shift))
         })
         .map_err(|e| e.to_string())?;
 
@@ -444,7 +465,8 @@ pub async fn window_expand_width(
             return Ok(());
         }
 
-        let new_width = outer_size.width + expansion_px;
+        let _ = expand_left;
+        let new_width = outer_size.width + expansion_physical;
         window
             .set_size(tauri::Size::Physical(tauri::PhysicalSize {
                 width: new_width,
@@ -459,11 +481,7 @@ pub async fn window_expand_width(
                 .unwrap()
                 .entry(window.label().to_string())
                 .or_default()
-                .push((
-                    f64::from(outer_size.width),
-                    f64::from(new_width),
-                    expand_left,
-                ));
+                .push((f64::from(outer_size.width), f64::from(new_width), 0.0));
         }
     }
 
@@ -478,7 +496,7 @@ pub async fn window_restore_width(
 ) -> Result<(), String> {
     let entry = app.state::<crate::WindowExpansions>().pop(window.label());
 
-    let Some((previous_w, expanded_w, expand_left)) = entry else {
+    let Some((previous_w, expanded_w, origin_shift)) = entry else {
         return Ok(());
     };
 
@@ -501,11 +519,7 @@ pub async fn window_restore_width(
 
             let frame = ns_window.frame();
             if (frame.size.width - expanded_w).abs() < 1.0 {
-                let restore_origin_x = if expand_left {
-                    frame.origin.x + (expanded_w - previous_w)
-                } else {
-                    frame.origin.x
-                };
+                let restore_origin_x = frame.origin.x - origin_shift;
                 ns_window.setFrame_display(
                     NSRect::new(
                         NSPoint::new(restore_origin_x, frame.origin.y),
@@ -520,6 +534,7 @@ pub async fn window_restore_width(
 
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = origin_shift;
         let outer_size = window.outer_size().map_err(|e| e.to_string())?;
         if (f64::from(outer_size.width) - expanded_w).abs() < 1.0 {
             window
