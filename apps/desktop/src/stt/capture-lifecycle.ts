@@ -57,7 +57,10 @@ import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
 } from "~/store/zustand/listener/transcript";
-import { isRealtimeLocalModel } from "~/stt/capabilities";
+import {
+  isRealtimeLocalModel,
+  requiresRetainedBatchAudio,
+} from "~/stt/capabilities";
 import {
   type CaptureLifecycleMarker,
   clearCaptureLifecycleMarker,
@@ -228,8 +231,6 @@ export function useCaptureLifecycle(sessionId: string) {
     ) => {
       let usesChunkedAudio =
         !recoveredMarker || recoveredMarker.chunkedAudio === true;
-      const retainAudio =
-        recoveredMarker?.retainAudio ?? audioRetention !== "none";
       const automatic = recoveredMarker
         ? recoveredMarker.automatic === true
         : startedAutomatically;
@@ -257,6 +258,12 @@ export function useCaptureLifecycle(sessionId: string) {
         recoveredMarker?.ownerUserId ?? session?.user_id ?? "";
       const provider = recoveredMarker?.provider ?? conn?.provider;
       const model = recoveredMarker?.model ?? conn?.model;
+      const retainAudio =
+        recoveredMarker?.retainAudio ??
+        (audioRetention !== "none" ||
+          requiresRetainedBatchAudio(provider, model));
+      const batchFromRetainedAudio =
+        retainAudio && requiresRetainedBatchAudio(provider, model);
       const hasMultipleRemoteParticipants =
         new Set(
           participantHumanIds.filter(
@@ -562,8 +569,9 @@ export function useCaptureLifecycle(sessionId: string) {
             if (payload.session_id !== sessionId) return;
             if (payload.type === "started") {
               if (payload.live_transcription_active) audioRecovery.connected();
+              else if (batchFromRetainedAudio) audioRecovery.batchOnly(true);
               else if (!payload.requested_live_transcription)
-                audioRecovery.batchOnly();
+                audioRecovery.batchOnly(false);
               else audioRecovery.interrupted();
             } else if (payload.type === "finalizing" && !retainAudio) {
               void audioRecovery.stop(false);
@@ -583,7 +591,9 @@ export function useCaptureLifecycle(sessionId: string) {
         ]).then((unlisten) => {
           recoveryUnlisten = unlisten;
           audioRecovery.start();
-          if (recoveredMarker) audioRecovery.recoverPending();
+          if (recoveredMarker && !batchFromRetainedAudio)
+            audioRecovery.recoverPending();
+          if (batchFromRetainedAudio) audioRecovery.batchOnly(true);
           if (provider === "anarlog" && model === "cloud") {
             refreshCredentialsActive = true;
             credentialTimer = setTimeout(
@@ -750,7 +760,8 @@ export function useCaptureLifecycle(sessionId: string) {
                 refineSpeakerDiarization,
                 transcriptWriteFailed: Boolean(transcriptWriteError),
               },
-              canRunBatchRef.current && !usesChunkedAudio,
+              canRunBatchRef.current &&
+                (!usesChunkedAudio || batchFromRetainedAudio),
             );
         const repairReasons = pendingSummaryMode
           ? []
@@ -1098,7 +1109,8 @@ export function useCaptureLifecycle(sessionId: string) {
           details = {
             ...details,
             needsBatchRepair: recovery.incomplete,
-            liveTranscriptionActive: !recovery.incomplete,
+            liveTranscriptionActive:
+              !recovery.incomplete && !batchFromRetainedAudio,
           };
           if (recovery.incomplete || details.audioDeletionFailed) {
             await saveIncompleteCapture(
@@ -1143,7 +1155,7 @@ export function useCaptureLifecycle(sessionId: string) {
         details: Parameters<OnStoppedCallback>[1],
       ) => {
         if (
-          !usesChunkedAudio &&
+          (!usesChunkedAudio || batchFromRetainedAudio) &&
           !pendingSummaryMode &&
           details.audioPath &&
           canRunBatchRef.current &&
@@ -1156,12 +1168,13 @@ export function useCaptureLifecycle(sessionId: string) {
       };
       const recoverStopped: OnStoppedCallback = async (_sessionId, details) => {
         if (usesChunkedAudio) {
-          audioRecovery.recoverPending();
+          if (!batchFromRetainedAudio) audioRecovery.recoverPending();
           const recovery = await stopAudioRecovery();
           details = {
             ...details,
             needsBatchRepair: recovery.incomplete,
-            liveTranscriptionActive: !recovery.incomplete,
+            liveTranscriptionActive:
+              !recovery.incomplete && !batchFromRetainedAudio,
             ...(!retainAudio ? { audioPath: null } : {}),
           };
         }
