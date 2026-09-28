@@ -1132,6 +1132,15 @@ export type ListenCallbackResponse = {
     request_id: string;
 };
 
+export type LiveCapability = 'editor' | 'viewer';
+
+export type LiveTicketResponse = {
+    capability: LiveCapability;
+    contentRevision: number;
+    expiresInSeconds: number;
+    ticket: string;
+};
+
 export type Location = {
     address?: null | PhysicalAddress;
     coordinates?: null | OutlookGeoCoordinates;
@@ -5157,6 +5166,35 @@ export type GrantSharedAttachmentUploadResponses = {
 };
 
 export type GrantSharedAttachmentUploadResponse = GrantSharedAttachmentUploadResponses[keyof GrantSharedAttachmentUploadResponses];
+
+export type CreateLiveTicketData = {
+    body?: never;
+    path: {
+        /**
+         * Shared note ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/sync/shares/{share_id}/live/ticket';
+};
+
+export type CreateLiveTicketErrors = {
+    /**
+     * No access to the shared note
+     */
+    403: unknown;
+    /**
+     * Shared note not found
+     */
+    404: unknown;
+};
+
+export type CreateLiveTicketResponses = {
+    200: LiveTicketResponse;
+};
+
+export type CreateLiveTicketResponse = CreateLiveTicketResponses[keyof CreateLiveTicketResponses];
 
 export type PublishSessionShareSnapshotData = {
     body: PublishSessionShareSnapshotRequest;

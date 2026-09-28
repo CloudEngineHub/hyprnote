@@ -4057,6 +4057,49 @@
         ]
       }
     },
+    "/sync/shares/{share_id}/live/ticket": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "summary": "Issues a short-lived, HMAC-signed ticket that authorizes one WebSocket\nconnection to a shared note's live document. Browsers cannot attach a bearer\nheader to a WebSocket upgrade, so the ticket carries the resolved capability\ninstead and the socket route verifies it without touching Supabase.",
+        "operationId": "create_live_ticket",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Shared note ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveTicketResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the shared note"
+          },
+          "404": {
+            "description": "Shared note not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/shares/{share_id}/snapshot": {
       "put": {
         "tags": [
@@ -9572,6 +9615,39 @@
         ],
         "properties": {
           "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "LiveCapability": {
+        "type": "string",
+        "enum": [
+          "editor",
+          "viewer"
+        ]
+      },
+      "LiveTicketResponse": {
+        "type": "object",
+        "required": [
+          "ticket",
+          "capability",
+          "contentRevision",
+          "expiresInSeconds"
+        ],
+        "properties": {
+          "capability": {
+            "$ref": "#/components/schemas/LiveCapability"
+          },
+          "contentRevision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expiresInSeconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "ticket": {
             "type": "string"
           }
         }

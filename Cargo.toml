@@ -252,6 +252,7 @@ tokio = "1"
 tokio-stream = "0.1.17"
 tokio-tungstenite = "0.29"
 tokio-util = "0.7.15"
+yrs = "0.26"
 
 camino = "1"
 
