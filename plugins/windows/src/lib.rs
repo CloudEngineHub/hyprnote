@@ -11,7 +11,7 @@ pub use ext::{Windows, WindowsPluginExt};
 pub use tab::*;
 pub use window::*;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{
     Mutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -96,6 +96,11 @@ impl WindowExpansions {
     fn remove(&self, label: &str) {
         self.0.lock().unwrap().remove(label);
     }
+
+    #[cfg(target_os = "macos")]
+    fn take(&self, label: &str) -> Vec<(f64, f64, f64)> {
+        self.0.lock().unwrap().remove(label).unwrap_or_default()
+    }
 }
 
 pub struct DockVisibilityState(AtomicBool);
@@ -133,16 +138,11 @@ pub struct WindowReadyState {
 struct WebviewHealthState {
     next_registration_id: AtomicU64,
     pending: Mutex<HashMap<String, (u64, String, oneshot::Sender<()>)>>,
-    recovering: Mutex<HashSet<String>>,
+    recovering: Mutex<HashMap<String, u8>>,
 }
 
 impl WebviewHealthState {
     fn register(&self, label: String) -> Option<(u64, String, oneshot::Receiver<()>)> {
-        let recovering = self.recovering.lock().unwrap();
-        if recovering.contains(&label) {
-            return None;
-        }
-
         let mut pending = self.pending.lock().unwrap();
         if pending.contains_key(&label) {
             return None;
@@ -152,7 +152,6 @@ impl WebviewHealthState {
         let registration_id = self.next_registration_id.fetch_add(1, Ordering::Relaxed);
         let request_id = uuid::Uuid::new_v4().to_string();
         pending.insert(label, (registration_id, request_id.clone(), tx));
-        drop(recovering);
 
         Some((registration_id, request_id, rx))
     }
@@ -185,13 +184,24 @@ impl WebviewHealthState {
         is_match
     }
 
-    fn begin_recovery(&self, label: &str) -> bool {
+    fn retry_recovery(&self, label: &str) -> u8 {
         let mut recovering = self.recovering.lock().unwrap();
-        if !recovering.insert(label.to_string()) {
-            return false;
-        }
+        let attempt = recovering.entry(label.to_string()).or_insert(0);
+        *attempt = attempt.saturating_add(1);
+        let attempt = *attempt;
         self.pending.lock().unwrap().remove(label);
-        true
+        attempt
+    }
+
+    fn resume_recovery(&self, label: &str) -> u8 {
+        let attempt = *self
+            .recovering
+            .lock()
+            .unwrap()
+            .entry(label.to_string())
+            .or_insert(0);
+        self.pending.lock().unwrap().remove(label);
+        attempt
     }
 
     fn ready(&self, label: &str) {
@@ -414,27 +424,31 @@ mod test {
     }
 
     #[test]
-    fn webview_health_recovery_starts_once_and_blocks_probes() {
+    fn webview_recovery_attempts_count_until_ready() {
         let state = WebviewHealthState::default();
-        assert!(state.begin_recovery("main"));
-
-        assert!(state.register("main".into()).is_none());
-        assert!(!state.begin_recovery("main"));
-        state.ready("main");
         assert!(state.register("main".into()).is_some());
+        assert_eq!(state.retry_recovery("main"), 1);
+        assert!(state.pending.lock().unwrap().is_empty());
+
+        assert!(state.register("main".into()).is_some());
+        assert_eq!(state.retry_recovery("main"), 2);
+        assert_eq!(state.resume_recovery("main"), 2);
+        assert_eq!(state.resume_recovery("main"), 2);
+        assert!(state.pending.lock().unwrap().is_empty());
+        state.ready("main");
+        assert_eq!(state.resume_recovery("main"), 0);
+        assert_eq!(state.retry_recovery("main"), 1);
     }
 
     #[cfg(target_os = "macos")]
     #[test]
-    fn terminated_webview_restarts_only_for_visible_main_window() {
-        assert!(crate::ext::should_restart_terminated_webview("main", true));
-        assert!(!crate::ext::should_restart_terminated_webview(
-            "main", false
-        ));
-        assert!(!crate::ext::should_restart_terminated_webview(
+    fn terminated_webview_reloads_only_for_visible_main_window() {
+        assert!(crate::ext::should_reload_terminated_webview("main", true));
+        assert!(!crate::ext::should_reload_terminated_webview("main", false));
+        assert!(!crate::ext::should_reload_terminated_webview(
             "composer", true
         ));
-        assert!(!crate::ext::should_restart_terminated_webview(
+        assert!(!crate::ext::should_reload_terminated_webview(
             "note-1", true
         ));
     }
