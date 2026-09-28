@@ -9,7 +9,7 @@ mod listener;
 mod live_transcription;
 mod transcription;
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
 
@@ -17,7 +17,7 @@ use error::{
     BridgeError, cloudsync_error, cloudsync_runtime_error, execute_error, parse_params_json,
     reactive_error, serialization_error,
 };
-use listener::{ListenerSink, QueryEventListener};
+use listener::{ListenerDelivery, ListenerSink, QueryEventListener};
 
 uniffi::setup_scaffolding!();
 
@@ -34,8 +34,9 @@ struct BridgeState {
     db: Arc<anlg_db_core::Db>,
     executor: anlg_db_execute::DbExecutor,
     live_query_runtime: Arc<anlg_db_reactive::LiveQueryRuntime<ListenerSink>>,
+    listener_delivery: ListenerDelivery,
     runtime: Arc<tokio::runtime::Runtime>,
-    subscription_ids: HashSet<String>,
+    subscriptions: HashMap<String, ListenerSink>,
     e2ee_sync_hook: Arc<anlg_db_sync::E2eeSyncHook>,
     replica_sync: anlg_db_sync::ReplicaSyncTask,
     witness_watch: anlg_db_sync::WitnessWatchTask,
@@ -68,6 +69,10 @@ impl MobileDbBridge {
                 }
             })?;
         let db = std::sync::Arc::new(db);
+        let listener_delivery =
+            ListenerDelivery::spawn().map_err(|error| BridgeError::OpenFailed {
+                reason: error.to_string(),
+            })?;
         let e2ee_sync_hook = Arc::new(anlg_db_sync::E2eeSyncHook::default());
         db.set_cloudsync_sync_hook(e2ee_sync_hook.clone());
         let executor = anlg_db_execute::DbExecutor::new(std::sync::Arc::clone(&db));
@@ -85,8 +90,9 @@ impl MobileDbBridge {
                 db,
                 executor,
                 live_query_runtime,
+                listener_delivery,
                 runtime,
-                subscription_ids: HashSet::new(),
+                subscriptions: HashMap::new(),
                 e2ee_sync_hook,
                 replica_sync,
                 witness_watch,
@@ -317,15 +323,16 @@ impl MobileDbBridge {
     ) -> Result<String, BridgeError> {
         let params = parse_params_json(&params_json)?;
         let sql_for_log = sql.clone();
-        let (runtime, live_query_runtime) = self.with_state(|state| {
+        let (runtime, live_query_runtime, sink) = self.with_state(|state| {
             Ok((
                 Arc::clone(&state.runtime),
                 Arc::clone(&state.live_query_runtime),
+                state.listener_delivery.sink(listener),
             ))
         })?;
         let registration = block_on(
             &runtime,
-            live_query_runtime.subscribe(sql, params, ListenerSink::new(listener)),
+            live_query_runtime.subscribe(sql, params, sink.clone()),
         )
         .map_err(reactive_error)?;
 
@@ -340,11 +347,14 @@ impl MobileDbBridge {
         let subscription_id = registration.id.clone();
         if self
             .with_state(|state| {
-                state.subscription_ids.insert(subscription_id.clone());
+                state
+                    .subscriptions
+                    .insert(subscription_id.clone(), sink.clone());
                 Ok(())
             })
             .is_err()
         {
+            sink.retire();
             let _ = block_on(&runtime, live_query_runtime.unsubscribe(&registration.id));
             return Err(BridgeError::Closed);
         }
@@ -354,17 +364,15 @@ impl MobileDbBridge {
 
     pub fn unsubscribe(&self, subscription_id: String) -> Result<(), BridgeError> {
         let (runtime, live_query_runtime) = self.with_state(|state| {
+            if let Some(sink) = state.subscriptions.remove(&subscription_id) {
+                sink.retire();
+            }
             Ok((
                 Arc::clone(&state.runtime),
                 Arc::clone(&state.live_query_runtime),
             ))
         })?;
-        block_on(&runtime, live_query_runtime.unsubscribe(&subscription_id))
-            .map_err(reactive_error)?;
-        self.with_state(|state| {
-            state.subscription_ids.remove(&subscription_id);
-            Ok(())
-        })
+        block_on(&runtime, live_query_runtime.unsubscribe(&subscription_id)).map_err(reactive_error)
     }
 
     pub fn cloudsync_version(&self) -> Result<String, BridgeError> {
@@ -773,7 +781,14 @@ impl MobileDbBridge {
         };
         drop(guard);
 
-        let subscription_ids: Vec<String> = state.subscription_ids.drain().collect();
+        let subscription_ids: Vec<String> = state
+            .subscriptions
+            .drain()
+            .map(|(subscription_id, sink)| {
+                sink.retire();
+                subscription_id
+            })
+            .collect();
         let pool = state.live_query_runtime.db().pool().clone();
         block_on(&state.runtime, async {
             for subscription_id in subscription_ids {
@@ -1129,6 +1144,87 @@ mod tests {
 
             std::thread::sleep(Duration::from_millis(10));
         }
+    }
+
+    #[test]
+    fn unsubscribe_does_not_wait_for_blocked_foreign_delivery() {
+        type OwnerJob = Box<dyn FnOnce() + Send>;
+
+        // Mirrors a foreign listener that blocks until the owning (JS) thread runs it.
+        struct OwnerThreadListener {
+            owner: std::thread::ThreadId,
+            jobs: std::sync::mpsc::Sender<OwnerJob>,
+            off_owner_delivery: std::sync::mpsc::Sender<()>,
+        }
+
+        impl OwnerThreadListener {
+            fn run_on_owner(&self) {
+                if std::thread::current().id() == self.owner {
+                    return;
+                }
+                let _ = self.off_owner_delivery.send(());
+                let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
+                if self
+                    .jobs
+                    .send(Box::new(move || {
+                        let _ = done_tx.send(());
+                    }))
+                    .is_ok()
+                {
+                    let _ = done_rx.recv();
+                }
+            }
+        }
+
+        impl QueryEventListener for OwnerThreadListener {
+            fn on_result(&self, _rows_json: String) {
+                self.run_on_owner();
+            }
+
+            fn on_error(&self, _message: String) {
+                self.run_on_owner();
+            }
+        }
+
+        let (finished_tx, finished_rx) = std::sync::mpsc::channel::<()>();
+        std::thread::spawn(move || {
+            let (_dir, bridge) = new_bridge(None);
+            let (jobs_tx, jobs_rx) = std::sync::mpsc::channel::<OwnerJob>();
+            let (delivery_tx, delivery_rx) = std::sync::mpsc::channel::<()>();
+            let listener = Arc::new(OwnerThreadListener {
+                owner: std::thread::current().id(),
+                jobs: jobs_tx,
+                off_owner_delivery: delivery_tx,
+            });
+
+            let subscription_id = bridge
+                .subscribe(
+                    "SELECT id, title FROM templates ORDER BY id".to_string(),
+                    "[]".to_string(),
+                    listener,
+                )
+                .unwrap();
+            bridge
+                .execute(
+                    "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
+                    r#"["template-blocked","Retro"]"#.to_string(),
+                )
+                .unwrap();
+            delivery_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("refresh should reach the listener");
+
+            bridge.unsubscribe(subscription_id).unwrap();
+            let _ = finished_tx.send(());
+
+            while let Ok(job) = jobs_rx.recv_timeout(Duration::from_millis(100)) {
+                job();
+            }
+        });
+
+        finished_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("unsubscribe deadlocked behind a blocked listener delivery");
     }
 
     #[test]
