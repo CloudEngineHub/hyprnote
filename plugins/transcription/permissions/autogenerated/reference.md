@@ -24,6 +24,9 @@ Default permissions for the plugin
 - `allow-render-transcript-segments`
 - `allow-start-transcription`
 - `allow-stop-transcription`
+- `allow-list-transcription-sessions`
+- `allow-get-completed-transcription`
+- `allow-acknowledge-completed-transcription`
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
 - `allow-cleanup-expired-voiceprint-candidates`
@@ -93,6 +96,32 @@ Enables the acknowledge_capture_audio_cleanup_status command without any pre-con
 <td>
 
 Denies the acknowledge_capture_audio_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-acknowledge-completed-transcription`
+
+</td>
+<td>
+
+Enables the acknowledge_completed_transcription command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-acknowledge-completed-transcription`
+
+</td>
+<td>
+
+Denies the acknowledge_completed_transcription command without any pre-configured scope.
 
 </td>
 </tr>
@@ -249,6 +278,32 @@ Enables the get_capture_state command without any pre-configured scope.
 <td>
 
 Denies the get_capture_state command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-get-completed-transcription`
+
+</td>
+<td>
+
+Enables the get_completed_transcription command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-completed-transcription`
+
+</td>
+<td>
+
+Denies the get_completed_transcription command without any pre-configured scope.
 
 </td>
 </tr>
@@ -457,6 +512,32 @@ Enables the list_microphone_devices command without any pre-configured scope.
 <td>
 
 Denies the list_microphone_devices command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-list-transcription-sessions`
+
+</td>
+<td>
+
+Enables the list_transcription_sessions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-list-transcription-sessions`
+
+</td>
+<td>
+
+Denies the list_transcription_sessions command without any pre-configured scope.
 
 </td>
 </tr>

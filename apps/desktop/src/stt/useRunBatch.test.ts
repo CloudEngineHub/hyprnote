@@ -184,6 +184,7 @@ vi.mock("~/stt/queries", () => ({
 }));
 
 vi.mock("~/store/zustand/listener/general-batch", () => ({
+  acknowledgeCompletedBatch: vi.fn(async () => {}),
   notifyBatchCompleted: notifyBatchCompletedMock,
 }));
 

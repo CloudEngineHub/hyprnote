@@ -20,6 +20,12 @@ pub struct CaptureSnapshot {
     pub live_segments_session_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub live_segments: Option<Vec<listener::LiveTranscriptSegment>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at_ms: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mic_muted: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub degraded: Option<listener::DegradedError>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -155,6 +161,25 @@ pub struct TranscriptionParams {
     pub min_speakers: Option<u32>,
     #[serde(default)]
     pub max_speakers: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resume_context: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct TranscriptionSession {
+    pub session_id: String,
+    pub file_path: String,
+    pub provider: Option<TranscriptionProvider>,
+    pub model: Option<String>,
+    pub started_at_ms: i64,
+    pub resume_context: Option<String>,
+    pub completed: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct CompletedTranscription {
+    pub session_id: String,
+    pub response: owhisper_interface::batch::Response,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -250,6 +275,9 @@ impl From<listener::Snapshot> for CaptureSnapshot {
             live_transcription_active: None,
             live_segments_session_id: None,
             live_segments: None,
+            started_at_ms: None,
+            mic_muted: None,
+            degraded: None,
         }
     }
 }

@@ -1004,6 +1004,36 @@ describe("General Listener Slice", () => {
         ),
       );
     });
+    test("attachLiveSession restores timer, mute and degraded state from the native snapshot", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:20:00Z"));
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+          startedAtMs: new Date("2026-01-01T00:00:00Z").getTime(),
+          micMuted: true,
+          degraded: { type: "connection_timeout" },
+        },
+      });
+
+      try {
+        await store.getState().attachLiveSession("session-a");
+
+        const live = store.getState().live;
+        expect(live.status).toBe("active");
+        expect(live.seconds).toBe(20 * 60);
+        expect(live.muted).toBe(true);
+        expect(live.degraded).toEqual({ type: "connection_timeout" });
+      } finally {
+        clearInterval(store.getState().live.intervalId);
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe("Start Action", () => {

@@ -9,7 +9,7 @@ import {
 import type { TranscriptionParams } from "@anlg/plugin-transcription";
 
 import type { BatchActions, BatchState } from "./batch";
-import { runBatchSession } from "./general-batch";
+import { hasConflictingBatchSession, runBatchSession } from "./general-batch";
 import {
   attachLiveSession,
   startLiveSession,
@@ -213,7 +213,11 @@ export const createGeneralSlice = <
       );
     }
 
-    if (mode === "running_batch") {
+    if (
+      mode === "running_batch" &&
+      (!get().batch[sessionId]?.recovered ||
+        (await hasConflictingBatchSession(params)))
+    ) {
       throw new Error(
         `[listener] session ${sessionId} is already processing in batch mode`,
       );

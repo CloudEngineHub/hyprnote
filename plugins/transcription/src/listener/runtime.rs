@@ -89,6 +89,8 @@ impl ListenerRuntime for TauriRuntime {
                     let state = cache.entry(session_id.clone()).or_default();
                     state.requested_live_transcription = requested_live_transcription;
                     state.live_transcription_active = live_transcription_active;
+                    state.started_at_ms.get_or_insert_with(unix_now_ms);
+                    state.degraded = error.clone();
                 }
                 CaptureLifecycleEvent::Started {
                     session_id,
@@ -221,6 +223,13 @@ fn apply_segment_delta(
     if segments.len() > LIVE_SEGMENT_SNAPSHOT_LIMIT {
         segments.drain(0..segments.len() - LIVE_SEGMENT_SNAPSHOT_LIMIT);
     }
+}
+
+fn unix_now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as i64)
+        .unwrap_or_default()
 }
 
 async fn current_root_state() -> RootState {

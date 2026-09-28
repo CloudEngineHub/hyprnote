@@ -46,6 +46,8 @@ pub struct SessionStateSnapshot {
     /// `Some(true)` only if every capture stream of this recording ran with the mic isolated
     /// (headphone output). One shared-speaker stretch pins it to `Some(false)`.
     pub mic_isolated: Option<bool>,
+    pub started_at_ms: Option<i64>,
+    pub degraded: Option<DegradedError>,
 }
 
 pub type SessionStateCache = Arc<StdMutex<HashMap<String, SessionStateSnapshot>>>;
@@ -86,14 +88,29 @@ impl AudioCleanupStatus {
     }
 }
 
+#[derive(Default)]
 pub struct BatchSessionRegistry {
     pub sessions: StdMutex<HashMap<String, BatchSessionEntry>>,
+    pub completed: StdMutex<HashMap<String, CompletedBatchEntry>>,
+    pub completed_dir: Option<std::path::PathBuf>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct CompletedBatchEntry {
+    pub session: TranscriptionSession,
+    pub response: owhisper_interface::batch::Response,
+    pub completed_at_ms: i64,
 }
 
 pub struct BatchSessionEntry {
     pub control: Arc<BatchSessionControl>,
     pub abort_handle: Option<AbortHandle>,
     pub wait_for_native_completion: bool,
+    pub file_path: String,
+    pub provider: Option<crate::TranscriptionProvider>,
+    pub model: Option<String>,
+    pub started_at_ms: i64,
+    pub resume_context: Option<String>,
 }
 
 pub struct BatchSessionControl {
@@ -135,6 +152,9 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::render_transcript_segments,
             listener2::commands::start_transcription::<tauri::Wry>,
             listener2::commands::stop_transcription::<tauri::Wry>,
+            listener2::commands::list_transcription_sessions::<tauri::Wry>,
+            listener2::commands::get_completed_transcription::<tauri::Wry>,
+            listener2::commands::acknowledge_completed_transcription::<tauri::Wry>,
             listener2::commands::parse_subtitle::<tauri::Wry>,
             listener2::commands::export_to_vtt::<tauri::Wry>,
             listener2::commands::is_supported_languages_batch::<tauri::Wry>,
@@ -166,9 +186,16 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 app: app_handle.clone(),
             }));
             app.manage(state);
-            app.manage(Arc::new(BatchSessionRegistry {
-                sessions: StdMutex::new(HashMap::new()),
-            }));
+            let batch_registry = Arc::new(BatchSessionRegistry {
+                completed_dir: app
+                    .path()
+                    .app_data_dir()
+                    .ok()
+                    .map(|dir| dir.join("batch-results")),
+                ..Default::default()
+            });
+            listener2::load_completed_batches(&batch_registry);
+            app.manage(batch_registry);
 
             let audio = app.state::<Arc<dyn AudioProvider>>().inner().clone();
             let session_state_cache: SessionStateCache = Arc::new(StdMutex::new(HashMap::new()));

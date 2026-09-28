@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -8,11 +9,12 @@ use tokio::task::JoinHandle;
 
 use crate::{
     BatchSessionControl, BatchSessionEntry, BatchSessionRegistry, BatchTerminalState,
-    TranscriptionEvent, TranscriptionParams,
+    CompletedBatchEntry, TranscriptionEvent, TranscriptionParams,
 };
 
 const BATCH_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_ACTIVE_BATCH_SESSIONS: usize = 4;
+const COMPLETED_BATCH_RETENTION_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 
 pub struct Listener2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -35,6 +37,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             .inner()
             .clone();
         let session_id = params.session_id.clone();
+        let file_path = params.file_path.clone();
+        let provider = params.provider.clone();
+        let model = params.model.clone();
+        let resume_context = params.resume_context.clone();
+        let started_at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_millis() as i64)
+            .unwrap_or_default();
         let idle_timeout = batch_idle_timeout(&params);
         let wait_for_native_completion = matches!(
             &params.provider,
@@ -55,9 +65,21 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             wait_for_native_completion,
         )?;
 
+        discard_completed_batch(&registry, &session_id);
+
         let runtime = Arc::new(TauriBatchRuntime {
             app: app.clone(),
             control: control.clone(),
+            registry: registry.clone(),
+            session: crate::TranscriptionSession {
+                session_id: session_id.clone(),
+                file_path: file_path.clone(),
+                provider: Some(provider.clone()),
+                model: model.clone(),
+                started_at_ms,
+                resume_context: resume_context.clone(),
+                completed: true,
+            },
         });
 
         let task = tokio::spawn({
@@ -97,6 +119,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             }
 
             entry.abort_handle = Some(abort_handle.clone());
+            entry.file_path = file_path;
+            entry.provider = Some(provider);
+            entry.model = model;
+            entry.started_at_ms = started_at_ms;
+            entry.resume_context = resume_context;
 
             match lock_terminal_state(&control) {
                 Ok(state) => *state == BatchTerminalState::Running,
@@ -127,6 +154,50 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
         }
 
         Ok(())
+    }
+
+    pub fn list_transcription_sessions(
+        &self,
+    ) -> Result<Vec<crate::TranscriptionSession>, core::Error> {
+        let registry = self.manager.state::<Arc<BatchSessionRegistry>>();
+        let mut sessions = {
+            let running = lock_batch_sessions(&registry)?;
+            running_batch_sessions(&running)
+        };
+        let mut completed = lock_completed_batches(&registry)?;
+        prune_completed_batches(&registry, &mut completed, now_ms());
+        let completed_sessions: Vec<_> = completed
+            .values()
+            .filter(|entry| {
+                !sessions
+                    .iter()
+                    .any(|session| session.session_id == entry.session.session_id)
+            })
+            .map(|entry| entry.session.clone())
+            .collect();
+        sessions.extend(completed_sessions);
+        sessions.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+        Ok(sessions)
+    }
+
+    pub fn get_completed_transcription(
+        &self,
+        session_id: String,
+    ) -> Result<Option<crate::CompletedTranscription>, core::Error> {
+        let registry = self.manager.state::<Arc<BatchSessionRegistry>>();
+        let mut completed = lock_completed_batches(&registry)?;
+        prune_completed_batches(&registry, &mut completed, now_ms());
+        Ok(completed
+            .get(&session_id)
+            .map(|entry| crate::CompletedTranscription {
+                session_id: session_id.clone(),
+                response: entry.response.clone(),
+            }))
+    }
+
+    pub fn acknowledge_completed_transcription(&self, session_id: String) {
+        let registry = self.manager.state::<Arc<BatchSessionRegistry>>();
+        discard_completed_batch(&registry, &session_id);
     }
 
     pub async fn stop_transcription(&self, session_id: String) {
@@ -191,6 +262,8 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> Listener2PluginExt<R> for T {
 struct TauriBatchRuntime {
     app: tauri::AppHandle,
     control: Arc<BatchSessionControl>,
+    registry: Arc<BatchSessionRegistry>,
+    session: crate::TranscriptionSession,
 }
 
 impl core::BatchRuntime for TauriBatchRuntime {
@@ -208,6 +281,9 @@ impl core::BatchRuntime for TauriBatchRuntime {
 
         if let core::BatchEvent::BatchCompleted { .. } = event {
             return;
+        }
+        if let core::BatchEvent::BatchResponse { response, .. } = &event {
+            store_completed_batch(&self.registry, self.session.clone(), response.clone());
         }
         let _ = TranscriptionEvent::from(event).emit(&self.app);
     }
@@ -231,6 +307,125 @@ fn lock_batch_sessions(
         .map_err(|_| batch_lock_poisoned("batch session registry"))
 }
 
+fn lock_completed_batches(
+    registry: &BatchSessionRegistry,
+) -> Result<MutexGuard<'_, HashMap<String, CompletedBatchEntry>>, core::Error> {
+    registry
+        .completed
+        .lock()
+        .map_err(|_| batch_lock_poisoned("completed batch registry"))
+}
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as i64)
+        .unwrap_or_default()
+}
+
+fn prune_completed_batches(
+    registry: &BatchSessionRegistry,
+    completed: &mut HashMap<String, CompletedBatchEntry>,
+    now_ms: i64,
+) {
+    completed.retain(|session_id, entry| {
+        let keep = now_ms - entry.completed_at_ms < COMPLETED_BATCH_RETENTION_MS;
+        if !keep {
+            remove_completed_batch_file(registry, session_id);
+        }
+        keep
+    });
+}
+
+fn completed_batch_path(dir: &Path, session_id: &str) -> PathBuf {
+    let name: String = session_id.bytes().map(|b| format!("{b:02x}")).collect();
+    dir.join(format!("{name}.json"))
+}
+
+fn write_completed_batch_file(registry: &BatchSessionRegistry, entry: &CompletedBatchEntry) {
+    let Some(dir) = &registry.completed_dir else {
+        return;
+    };
+    let result = (|| -> std::io::Result<()> {
+        std::fs::create_dir_all(dir)?;
+        let path = completed_batch_path(dir, &entry.session.session_id);
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(&tmp, serde_json::to_vec(entry)?)?;
+        std::fs::rename(&tmp, &path)
+    })();
+    if let Err(error) = result {
+        tracing::warn!(?error, "failed_to_persist_completed_batch");
+    }
+}
+
+fn remove_completed_batch_file(registry: &BatchSessionRegistry, session_id: &str) {
+    let Some(dir) = &registry.completed_dir else {
+        return;
+    };
+    match std::fs::remove_file(completed_batch_path(dir, session_id)) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => tracing::warn!(?error, "failed_to_remove_completed_batch"),
+    }
+}
+
+pub fn load_completed_batches(registry: &BatchSessionRegistry) {
+    let Some(dir) = &registry.completed_dir else {
+        return;
+    };
+    let Ok(files) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let Ok(mut completed) = lock_completed_batches(registry) else {
+        return;
+    };
+    for file in files.flatten() {
+        let path = file.path();
+        let entry = if path.extension().is_some_and(|ext| ext == "json") {
+            std::fs::read(&path)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<CompletedBatchEntry>(&bytes).ok())
+        } else {
+            None
+        };
+        match entry {
+            Some(entry) => {
+                completed.insert(entry.session.session_id.clone(), entry);
+            }
+            None => {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+    }
+    prune_completed_batches(registry, &mut completed, now_ms());
+}
+
+fn store_completed_batch(
+    registry: &BatchSessionRegistry,
+    session: crate::TranscriptionSession,
+    response: owhisper_interface::batch::Response,
+) {
+    let Ok(mut completed) = lock_completed_batches(registry) else {
+        return;
+    };
+    let now = now_ms();
+    prune_completed_batches(registry, &mut completed, now);
+    let entry = CompletedBatchEntry {
+        session,
+        response,
+        completed_at_ms: now,
+    };
+    write_completed_batch_file(registry, &entry);
+    completed.insert(entry.session.session_id.clone(), entry);
+}
+
+fn discard_completed_batch(registry: &BatchSessionRegistry, session_id: &str) {
+    if let Ok(mut completed) = lock_completed_batches(registry) {
+        completed.remove(session_id);
+    }
+    remove_completed_batch_file(registry, session_id);
+}
+
 fn lock_terminal_state(
     control: &BatchSessionControl,
 ) -> Result<MutexGuard<'_, BatchTerminalState>, core::Error> {
@@ -238,6 +433,30 @@ fn lock_terminal_state(
         .terminal_state
         .lock()
         .map_err(|_| batch_lock_poisoned("batch terminal state"))
+}
+
+fn running_batch_sessions(
+    sessions: &HashMap<String, BatchSessionEntry>,
+) -> Vec<crate::TranscriptionSession> {
+    let mut running: Vec<_> = sessions
+        .iter()
+        .filter(|(_, entry)| entry.abort_handle.is_some())
+        .filter(|(_, entry)| {
+            lock_terminal_state(&entry.control)
+                .is_ok_and(|state| *state == BatchTerminalState::Running)
+        })
+        .map(|(session_id, entry)| crate::TranscriptionSession {
+            session_id: session_id.clone(),
+            file_path: entry.file_path.clone(),
+            provider: entry.provider.clone(),
+            model: entry.model.clone(),
+            started_at_ms: entry.started_at_ms,
+            resume_context: entry.resume_context.clone(),
+            completed: false,
+        })
+        .collect();
+    running.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+    running
 }
 
 fn reserve_batch_session(
@@ -264,6 +483,11 @@ fn reserve_batch_session(
             control,
             abort_handle: None,
             wait_for_native_completion,
+            file_path: String::new(),
+            provider: None,
+            model: None,
+            started_at_ms: 0,
+            resume_context: None,
         },
     );
     Ok(())
@@ -448,8 +672,14 @@ mod tests {
                     control,
                     abort_handle: None,
                     wait_for_native_completion: false,
+                    file_path: String::new(),
+                    provider: None,
+                    model: None,
+                    started_at_ms: 0,
+                    resume_context: None,
                 },
             )])),
+            ..Default::default()
         })
     }
 
@@ -492,7 +722,94 @@ mod tests {
             num_speakers: None,
             min_speakers: None,
             max_speakers: None,
+            resume_context: None,
         }
+    }
+
+    fn empty_response() -> owhisper_interface::batch::Response {
+        serde_json::from_value(serde_json::json!({
+            "metadata": {},
+            "results": { "channels": [] }
+        }))
+        .unwrap()
+    }
+
+    fn completed_session(session_id: &str) -> crate::TranscriptionSession {
+        crate::TranscriptionSession {
+            session_id: session_id.to_string(),
+            file_path: "/tmp/audio.wav".to_string(),
+            provider: None,
+            model: None,
+            started_at_ms: 0,
+            resume_context: None,
+            completed: true,
+        }
+    }
+
+    #[test]
+    fn completed_batches_are_kept_until_discarded() {
+        let registry = BatchSessionRegistry::default();
+        store_completed_batch(&registry, completed_session("session-1"), empty_response());
+        assert!(
+            lock_completed_batches(&registry)
+                .unwrap()
+                .contains_key("session-1")
+        );
+
+        discard_completed_batch(&registry, "session-1");
+        assert!(lock_completed_batches(&registry).unwrap().is_empty());
+    }
+
+    #[test]
+    fn completed_batches_expire_after_retention() {
+        let registry = BatchSessionRegistry::default();
+        store_completed_batch(&registry, completed_session("session-1"), empty_response());
+        let mut completed = lock_completed_batches(&registry).unwrap();
+        let stored_at = completed["session-1"].completed_at_ms;
+        prune_completed_batches(
+            &registry,
+            &mut completed,
+            stored_at + COMPLETED_BATCH_RETENTION_MS,
+        );
+        assert!(completed.is_empty());
+    }
+
+    #[test]
+    fn completed_batches_survive_restart_until_discarded() {
+        let dir = std::env::temp_dir().join(format!(
+            "anarlog-batch-results-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
+        let registry = BatchSessionRegistry {
+            completed_dir: Some(dir.clone()),
+            ..Default::default()
+        };
+        store_completed_batch(
+            &registry,
+            completed_session("session-1:recovery"),
+            empty_response(),
+        );
+
+        let restarted = BatchSessionRegistry {
+            completed_dir: Some(dir.clone()),
+            ..Default::default()
+        };
+        load_completed_batches(&restarted);
+        assert!(
+            lock_completed_batches(&restarted)
+                .unwrap()
+                .contains_key("session-1:recovery")
+        );
+
+        discard_completed_batch(&restarted, "session-1:recovery");
+        let reloaded = BatchSessionRegistry {
+            completed_dir: Some(dir.clone()),
+            ..Default::default()
+        };
+        load_completed_batches(&reloaded);
+        assert!(lock_completed_batches(&reloaded).unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -569,9 +886,7 @@ mod tests {
 
     #[test]
     fn reserve_batch_session_enforces_active_session_capacity() {
-        let registry = Arc::new(BatchSessionRegistry {
-            sessions: std::sync::Mutex::new(std::collections::HashMap::new()),
-        });
+        let registry = Arc::new(BatchSessionRegistry::default());
 
         for index in 0..MAX_ACTIVE_BATCH_SESSIONS {
             reserve_batch_session(
@@ -602,9 +917,7 @@ mod tests {
 
     #[test]
     fn stopped_native_sessions_hold_admission_until_workers_finish() {
-        let registry = Arc::new(BatchSessionRegistry {
-            sessions: std::sync::Mutex::new(std::collections::HashMap::new()),
-        });
+        let registry = Arc::new(BatchSessionRegistry::default());
         let mut controls = Vec::new();
 
         for index in 0..MAX_ACTIVE_BATCH_SESSIONS {
@@ -647,9 +960,7 @@ mod tests {
 
     #[test]
     fn concurrent_same_id_reservation_admits_exactly_one_session() {
-        let registry = Arc::new(BatchSessionRegistry {
-            sessions: std::sync::Mutex::new(std::collections::HashMap::new()),
-        });
+        let registry = Arc::new(BatchSessionRegistry::default());
         let barrier = Arc::new(std::sync::Barrier::new(3));
         let attempts = (0..2)
             .map(|_| {
@@ -733,6 +1044,11 @@ mod tests {
             control: make_control(),
             abort_handle: Some(task.abort_handle()),
             wait_for_native_completion: false,
+            file_path: String::new(),
+            provider: None,
+            model: None,
+            started_at_ms: 0,
+            resume_context: None,
         });
 
         assert!(

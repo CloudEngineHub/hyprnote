@@ -29,6 +29,38 @@ pub async fn stop_transcription<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn list_transcription_sessions<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<crate::TranscriptionSession>, String> {
+    app.listener2()
+        .list_transcription_sessions()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_completed_transcription<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<Option<crate::CompletedTranscription>, String> {
+    app.listener2()
+        .get_completed_transcription(session_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn acknowledge_completed_transcription<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<(), String> {
+    app.listener2()
+        .acknowledge_completed_transcription(session_id);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn parse_subtitle<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     path: String,
