@@ -1,4 +1,5 @@
 use crate::Store2PluginExt;
+use crate::chunked::{self, ChunkedError};
 
 const SECURE_STORE_SUFFIX: &str = "secure-store";
 const NATIVE_SECRET_ACCOUNT_PREFIXES: &[&str] = &["e2ee:"];
@@ -150,19 +151,53 @@ fn legacy_secret_entries<R: tauri::Runtime>(
         .collect()
 }
 
-fn secret_entry<R: tauri::Runtime>(
+struct SecretLocation {
+    service: String,
+    account: String,
+}
+
+impl SecretLocation {
+    fn slot(&self) -> impl Fn(&str) -> Result<keyring::Entry, String> + '_ {
+        |account| keyring::Entry::new(&self.service, account).map_err(secure_store_error)
+    }
+
+    fn read(&self) -> Result<String, ChunkedError> {
+        chunked::read(self.slot(), &self.account)
+    }
+
+    fn write(&self, value: &str) -> Result<(), String> {
+        chunked::write(self.slot(), &self.account, value).map_err(chunked_error)
+    }
+
+    fn delete(&self) -> Result<(), String> {
+        chunked::delete(self.slot(), &self.account).map_err(chunked_error)
+    }
+}
+
+fn chunked_error(error: ChunkedError) -> String {
+    match error {
+        ChunkedError::Keyring(error) => secure_store_error(error),
+        ChunkedError::Slot(error) => error,
+        ChunkedError::Incomplete => {
+            "secure-store secret is incomplete; save it again to repair it".to_string()
+        }
+    }
+}
+
+fn secret_location<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     scope: &str,
     key: &str,
-) -> Result<keyring::Entry, String> {
+) -> Result<SecretLocation, String> {
     if scope.trim().is_empty() || key.trim().is_empty() {
         return Err("secure-store scope and key must not be empty".to_string());
     }
 
     let identifier = &app.config().identifier;
-    let service = secure_store_service(identifier);
-    let account = secure_store_account(identifier, scope, key);
-    keyring::Entry::new(&service, &account).map_err(secure_store_error)
+    Ok(SecretLocation {
+        service: secure_store_service(identifier),
+        account: secure_store_account(identifier, scope, key),
+    })
 }
 
 #[tauri::command]
@@ -325,14 +360,14 @@ fn read_secret_blocking_for<R: tauri::Runtime>(
     key: &str,
 ) -> Result<Option<String>, String> {
     validate_secret_coordinate(caller, scope, key)?;
-    let entry = secret_entry(app, scope, key)?;
-    match entry.get_password() {
+    let location = secret_location(app, scope, key)?;
+    match location.read() {
         Ok(secret) => Ok(Some(secret)),
-        Err(keyring::Error::NoEntry) => {
+        Err(ChunkedError::Keyring(keyring::Error::NoEntry)) => {
             for legacy_entry in legacy_secret_entries(app, scope, key)? {
                 match legacy_entry.get_password() {
                     Ok(secret) => {
-                        if entry.set_password(&secret).is_ok() {
+                        if location.write(&secret).is_ok() {
                             let _ = legacy_entry.delete_credential();
                         }
                         return Ok(Some(secret));
@@ -343,7 +378,7 @@ fn read_secret_blocking_for<R: tauri::Runtime>(
             }
             Ok(None)
         }
-        Err(error) => Err(secure_store_error(error)),
+        Err(error) => Err(chunked_error(error)),
     }
 }
 
@@ -399,8 +434,7 @@ fn write_secret_blocking_for<R: tauri::Runtime>(
     value: &str,
 ) -> Result<(), String> {
     validate_secret_coordinate(caller, scope, key)?;
-    let entry = secret_entry(app, scope, key)?;
-    entry.set_password(value).map_err(secure_store_error)?;
+    secret_location(app, scope, key)?.write(value)?;
     for legacy_entry in legacy_secret_entries(app, scope, key)? {
         let _ = legacy_entry.delete_credential();
     }
@@ -452,12 +486,7 @@ fn delete_secret_blocking_for<R: tauri::Runtime>(
             Err(error) => return Err(secure_store_error(error)),
         }
     }
-    let entry = secret_entry(app, scope, key)?;
-    match entry.delete_credential() {
-        Ok(()) | Err(keyring::Error::NoEntry) => {}
-        Err(error) => return Err(secure_store_error(error)),
-    }
-    Ok(())
+    secret_location(app, scope, key)?.delete()
 }
 
 #[cfg(test)]
