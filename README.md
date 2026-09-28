@@ -93,7 +93,7 @@ Product docs live at [docs.anarlog.so](https://docs.anarlog.so). To build the de
 | `apps/web`         | anarlog.so website, account portal, and shared-note pages; not the desktop notepad         |
 | `apps/api`         | Optional hosted services for AI, sync, sharing, and integrations                           |
 | `apps/cli`         | Local CLI and MCP server                                                                   |
-| `apps/mobile`      | Mobile client source; no mobile app is currently distributed                               |
+| `apps/mobile`      | iOS and Android client, available as a beta through TestFlight and Google Play             |
 | `apps/stripe`      | Billing integration                                                                        |
 | `apps/watch/apple` | watchOS companion source built with the mobile app                                         |
 | `plugins/*`        | Tauri capabilities such as local STT, database access, calendar, export, and notifications |
