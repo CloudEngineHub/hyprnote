@@ -18,6 +18,7 @@ You need:
 - Rust 1.94.0
 - [process-compose](https://f1bonacc1.github.io/process-compose/installation/) 1.122.0 or later (`brew install process-compose` on macOS)
 - The [Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/)
+- On Apple Silicon Macs, Xcode with its Metal Toolchain component. The Command Line Tools alone cannot compile the MLX shader library used by Soniqo local transcription. Xcode 26 and later install the component separately with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -downloadComponent MetalToolchain`; Xcode does not need to be selected with `xcode-select`.
 
 On Debian or Ubuntu, install the supported toolchains and system packages with:
 

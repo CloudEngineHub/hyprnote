@@ -83,20 +83,34 @@ fn metal_developer_dir() -> Option<PathBuf> {
         return None;
     }
 
-    let developer_dir = ["/Applications/Xcode.app", "/Applications/Xcode-beta.app"]
+    let installed = ["/Applications/Xcode.app", "/Applications/Xcode-beta.app"]
         .into_iter()
         .map(|app| PathBuf::from(app).join("Contents/Developer"))
-        .find(|candidate| has_metal_compiler(Some(candidate)));
+        .filter(|candidate| candidate.exists())
+        .collect::<Vec<_>>();
 
-    if developer_dir.is_none() {
-        panic!(
-            "no Metal compiler found; install Xcode, select it with \
-             `sudo xcode-select -s /Applications/Xcode.app`, then run \
-             `xcodebuild -downloadComponent MetalToolchain`"
-        );
+    if let Some(developer_dir) = installed
+        .iter()
+        .find(|candidate| has_metal_compiler(Some(candidate)))
+    {
+        return Some(developer_dir.clone());
     }
 
-    developer_dir
+    let Some(developer_dir) = installed.first() else {
+        panic!(
+            "no Metal compiler found; the Command Line Tools do not ship one. \
+             Install Xcode, then run `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+             xcodebuild -downloadComponent MetalToolchain` and rebuild"
+        );
+    };
+
+    panic!(
+        "no usable Metal compiler; {} is missing the Metal Toolchain component. \
+         Run `DEVELOPER_DIR={} xcodebuild -downloadComponent MetalToolchain` and rebuild \
+         (no sudo or `xcode-select` change is needed)",
+        developer_dir.display(),
+        developer_dir.display()
+    )
 }
 
 #[cfg(target_os = "macos")]
@@ -575,10 +589,11 @@ fn main() {
             return;
         }
 
-        // The Swift package compiles Metal shaders, so check the toolchain up
-        // front. Otherwise a missing Metal Toolchain only surfaces once the MLX
-        // sources reach their first `.metal` file, roughly 240 compile units in,
-        // buried inside a nested build-script panic.
+        // Only the MLX metallib step below needs the Metal compiler (SwiftPM
+        // cannot build `.metal` files), but check the toolchain up front.
+        // Otherwise a missing Metal Toolchain only surfaces after the
+        // multi-minute Swift package build, buried inside a nested build-script
+        // panic.
         metal_developer_dir();
 
         let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is set by Cargo"));
