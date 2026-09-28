@@ -748,6 +748,7 @@ dependencies = [
  "api-env",
  "api-error",
  "axum",
+ "base64 0.22.1",
  "chrono",
  "futures-util",
  "hex",
@@ -760,9 +761,11 @@ dependencies = [
  "sha2 0.11.0",
  "thiserror 2.0.18",
  "tokio",
+ "tower",
  "tracing",
  "urlencoding",
  "utoipa",
+ "uuid",
  "wiremock",
 ]
 
