@@ -122,6 +122,8 @@ pub struct E2eeReplicaStats {
     pub incomplete_chunk_columns: u64,
     pub rejected_rollbacks: u64,
     pub rejected_unwitnessed: u64,
+    pub deferred_unwitnessed_rows: u64,
+    pub deferred_incomplete_snapshot_rows: u64,
     pub parked_records: u64,
     pub recorded_conflicts: u64,
     pub merged_fields: u64,
@@ -216,7 +218,8 @@ pub use conflicts::{
 };
 use cooperative::yield_once;
 pub use replica_apply::{
-    apply_e2ee_replica_changes, apply_e2ee_replica_changes_with_witness,
+    E2eeReceivedApplyOptions, apply_e2ee_replica_changes, apply_e2ee_replica_changes_with_witness,
+    apply_received_e2ee_replica_changes_with_options_cancellable,
     apply_received_e2ee_replica_changes_with_witness,
     apply_received_e2ee_replica_changes_with_witness_cancellable,
 };
