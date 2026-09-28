@@ -75,6 +75,7 @@ pub struct FloatingBarState {
 
 pub const WINDOW_LABEL: &str = "floating-bar";
 
+#[cfg(any(test, not(target_os = "macos")))]
 pub(crate) mod layout {
     use super::FloatingBarState;
 
@@ -110,7 +111,6 @@ pub(crate) mod layout {
         compact_controls_width(shows_expand) + COMPACT_HORIZONTAL_PADDING * 2.0
     }
 
-    #[cfg(any(not(target_os = "macos"), test))]
     pub fn dictation_container_size(expanded: bool) -> (f64, f64) {
         container_size(expanded, true)
     }
@@ -129,7 +129,6 @@ pub(crate) mod layout {
         }
     }
 
-    #[cfg(any(test, not(target_os = "macos")))]
     pub fn controls_center_y(height: f64, expands_upward: bool) -> f64 {
         if expands_upward {
             height - INSET - COMPACT_HEIGHT / 2.0
@@ -138,7 +137,6 @@ pub(crate) mod layout {
         }
     }
 
-    #[cfg(any(test, not(target_os = "macos")))]
     pub fn frame_at_controls(
         anchor: (f64, f64),
         size: (f64, f64),
