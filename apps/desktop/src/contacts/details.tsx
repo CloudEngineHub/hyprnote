@@ -63,6 +63,7 @@ export function DetailsColumn({
   const auth = useOptionalAuth();
   const ownerUserId = auth?.session?.user.id ?? localOwnerUserId;
   const readOnly = human?.id === ownerUserId;
+  const user = humans.find((candidate) => candidate.id === ownerUserId) ?? null;
   const enrichment = useCrmEnrichment({
     human,
     ownerUserId: ownerUserId ?? "",
@@ -76,6 +77,7 @@ export function DetailsColumn({
     )?.name ?? null;
   const contactSummary = useContactSummary({
     human,
+    user,
     organizationName,
     sessions: personSessions,
   });

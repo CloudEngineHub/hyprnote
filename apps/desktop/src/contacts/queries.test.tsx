@@ -183,6 +183,7 @@ describe("contact SQLite queries", () => {
         summary: {
           facts: ["Fact one", "Fact two", "Fact three"],
           sourceHash: "source-1",
+          promptKey: "",
           generatedAt: "2026-08-12T12:00:00.000Z",
           sources: [],
         },
@@ -487,6 +488,7 @@ describe("contact SQLite queries", () => {
     await updateHumanContactSummary("human-1", {
       facts: ["Fact one", "Fact two", "Fact three"],
       sourceHash: "source-1",
+      promptKey: "prompt-1",
       generatedAt: "2026-08-12T12:00:00.000Z",
       sources: [{ id: "session-1", updatedAt: "2026-08-12T11:00:00.000Z" }],
     });
@@ -498,6 +500,7 @@ describe("contact SQLite queries", () => {
     expect(JSON.parse(String(statement.params[0]))).toEqual({
       facts: ["Fact one", "Fact two", "Fact three"],
       sourceHash: "source-1",
+      promptKey: "prompt-1",
       generatedAt: "2026-08-12T12:00:00.000Z",
       sources: [{ id: "session-1", updatedAt: "2026-08-12T11:00:00.000Z" }],
     });

@@ -25,6 +25,7 @@ type HumanSqlRow = {
 export type ContactSummaryRecord = {
   facts: string[];
   sourceHash: string;
+  promptKey: string;
   generatedAt: string;
   sources: Array<{ id: string; updatedAt: string }>;
 };
@@ -1074,6 +1075,7 @@ function parseContactSummary(value: string | null | undefined) {
     return {
       facts,
       sourceHash: parsed.sourceHash,
+      promptKey: typeof parsed.promptKey === "string" ? parsed.promptKey : "",
       generatedAt: parsed.generatedAt,
       sources,
     };
