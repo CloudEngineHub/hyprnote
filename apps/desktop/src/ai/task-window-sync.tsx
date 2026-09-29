@@ -2,7 +2,11 @@ import { emit, emitTo, listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 
-import { type EnhancerService, getEnhancerService } from "~/services/enhancer";
+import {
+  type AutoEnhanceMode,
+  type EnhancerService,
+  getEnhancerService,
+} from "~/services/enhancer";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { id } from "~/shared/utils";
 import type { AITaskStore } from "~/store/zustand/ai-task";
@@ -36,7 +40,7 @@ type TaskCancelPayload = {
 
 type TaskEnhancePayload = {
   sessionId: string;
-  auto?: "regenerate" | "if_empty";
+  auto?: AutoEnhanceMode;
   opts?: {
     isAuto?: boolean;
     templateId?: string | null;
@@ -436,7 +440,9 @@ function isTaskAutoEnhanceRequestPayload(
     candidate.sourceLabel.length > 0 &&
     typeof candidate.sessionId === "string" &&
     candidate.sessionId.length > 0 &&
-    (candidate.mode === "regenerate" || candidate.mode === "if_empty")
+    (candidate.mode === "regenerate" ||
+      candidate.mode === "if_empty" ||
+      candidate.mode === "refresh")
   );
 }
 

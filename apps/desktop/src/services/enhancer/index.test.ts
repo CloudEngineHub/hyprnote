@@ -705,6 +705,54 @@ describe("EnhancerService", () => {
     expect(ai.generate).toHaveBeenCalledOnce();
   });
 
+  it("refreshes an existing summary", async () => {
+    snapshot = createSnapshot({
+      notes: [createNote({ id: "one", content: "Summary from partial audio" })],
+      wordCount: 40,
+    });
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    await service.requestAutoEnhance("session-1", "refresh");
+    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
+
+    expect(ai.reset).toHaveBeenCalledWith("one-enhance");
+    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledOnce();
+  });
+
+  it("restarts an in-flight summary when refreshing", async () => {
+    snapshot = createSnapshot({
+      notes: [createNote({ id: "one" })],
+      wordCount: 40,
+    });
+    let status = "generating";
+    const ai = createMockAITaskStore((taskId) =>
+      taskId === "one-enhance" ? { status } : undefined,
+    );
+    ai.reset.mockImplementation(() => {
+      status = "idle";
+    });
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    await service.requestAutoEnhance("session-1", "refresh");
+    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
+
+    expect(ai.reset).toHaveBeenCalledWith("one-enhance");
+    expect(ai.reset).toHaveBeenCalledBefore(ai.generate);
+    expect(ai.generate).toHaveBeenCalledWith("one-enhance", expect.anything());
+  });
+
+  it("generates a missing summary once when refreshing", async () => {
+    snapshot = createSnapshot({ wordCount: 40 });
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    await service.requestAutoEnhance("session-1", "refresh");
+    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
+
+    expect(ai.reset).not.toHaveBeenCalled();
+  });
+
   it("retries a startup recovery scan after database contention", async () => {
     vi.useFakeTimers();
     const consoleError = vi

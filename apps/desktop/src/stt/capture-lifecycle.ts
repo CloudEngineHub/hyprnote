@@ -1070,7 +1070,9 @@ export function useCaptureLifecycle(sessionId: string) {
             (preserveExistingTranscript &&
               (transcriptTouched || batchCompleted))
               ? "regenerate"
-              : "if_empty");
+              : batchCompleted
+                ? "refresh"
+                : "if_empty");
           if (!pendingSummaryMode) {
             pendingSummaryMode = summaryMode;
             try {

@@ -507,13 +507,17 @@ describe("useStartListening", () => {
       requestAutoEnhance: requestAutoEnhanceMock,
     }));
     requestAutoEnhanceMock.mockImplementation(
-      async (targetSessionId: string, mode: "regenerate" | "if_empty") => {
-        if (mode === "regenerate") {
-          await resetEnhanceTasksMock(targetSessionId);
-          queueAutoEnhanceMock(targetSessionId);
-          return;
+      async (
+        targetSessionId: string,
+        mode: "regenerate" | "if_empty" | "refresh",
+      ) => {
+        if (mode !== "regenerate") {
+          const result =
+            await queueAutoEnhanceIfSummaryEmptyMock(targetSessionId);
+          if (mode === "if_empty" || result?.type !== "summary_exists") return;
         }
-        await queueAutoEnhanceIfSummaryEmptyMock(targetSessionId);
+        await resetEnhanceTasksMock(targetSessionId);
+        queueAutoEnhanceMock(targetSessionId);
       },
     );
     useListenerMock.mockImplementation((selector) =>
@@ -1597,7 +1601,7 @@ describe("useStartListening", () => {
       expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledOnce();
     });
     expect(saveCaptureLifecycleMarkerMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({ summaryMode: "if_empty" }),
+      expect.objectContaining({ summaryMode: "refresh" }),
     );
     const summaryMarkerCallOrder =
       saveCaptureLifecycleMarkerMock.mock.invocationCallOrder;
@@ -2964,11 +2968,11 @@ describe("useStartListening", () => {
       await act(async () => await stopped);
 
       expect(requestAutoEnhanceMock.mock.calls).toEqual([
-        ["session-1", "if_empty"],
+        ["session-1", "refresh"],
       ]);
       expect(saveCaptureLifecycleMarkerMock).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          summaryMode: "if_empty",
+          summaryMode: "refresh",
         }),
       );
       expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();

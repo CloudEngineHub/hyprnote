@@ -33,7 +33,7 @@ export type CaptureLifecycleMarker = {
   memo: string;
   provider?: string;
   model?: string;
-  summaryMode?: "regenerate" | "if_empty";
+  summaryMode?: "regenerate" | "if_empty" | "refresh";
   refreshSummaryAfterRepair?: boolean;
   // Earlier captures whose recovery audio still waits for transcription.
   inheritedCaptures?: InheritedCapture[];
@@ -233,7 +233,8 @@ function parseCaptureLifecycleMarker(
         : {}),
       ...(typeof parsed.model === "string" ? { model: parsed.model } : {}),
       ...(parsed.summaryMode === "regenerate" ||
-      parsed.summaryMode === "if_empty"
+      parsed.summaryMode === "if_empty" ||
+      parsed.summaryMode === "refresh"
         ? { summaryMode: parsed.summaryMode }
         : {}),
       ...(parsed.refreshSummaryAfterRepair === true
