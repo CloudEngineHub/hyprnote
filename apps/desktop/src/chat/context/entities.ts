@@ -86,8 +86,6 @@ export type ContextEntity =
       source?: ContextEntitySource;
     } & Partial<DeviceInfo>);
 
-export type ContextEntityKind = ContextEntity["kind"];
-
 export function dedupeByKey<T extends { key: string }>(groups: T[][]): T[] {
   const seen = new Set<string>();
   const merged: T[] = [];
