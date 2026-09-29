@@ -33,6 +33,14 @@ export function loadSessionPeaks(
   return request;
 }
 
+// Warms the native peak cache without joining `pendingPeaks`: a recording that
+// resumes mid-computation must not hand its outdated peaks to a later open.
+export async function prepareSessionPeaks(sessionId: string): Promise<void> {
+  try {
+    await fsSyncCommands.audioPeaks(sessionId);
+  } catch {}
+}
+
 export function isUsablePeaks(
   peaks: WaveformPeaks | null,
 ): peaks is WaveformPeaks {

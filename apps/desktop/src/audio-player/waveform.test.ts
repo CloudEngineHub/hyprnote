@@ -10,6 +10,7 @@ import {
   isUsablePeaks,
   loadSessionPeaks,
   loadWaveform,
+  prepareSessionPeaks,
   type WaveformPeaks,
 } from "./waveform";
 
@@ -195,5 +196,29 @@ describe("isUsablePeaks", () => {
     expect(isUsablePeaks({ duration: 0, channels: [[0.1]] })).toBe(false);
     expect(isUsablePeaks({ duration: 1, channels: [] })).toBe(false);
     expect(isUsablePeaks({ duration: 1, channels: [[]] })).toBe(false);
+  });
+});
+
+describe("prepareSessionPeaks", () => {
+  it("does not share its request with later waveform loads", async () => {
+    audioPeaks.mockReset();
+    const warm = deferred<unknown>();
+    audioPeaks
+      .mockReturnValueOnce(warm.promise)
+      .mockResolvedValueOnce({ status: "ok", data: peaks });
+
+    const preparing = prepareSessionPeaks("recorded");
+    await expect(loadSessionPeaks("recorded")).resolves.toEqual(peaks);
+    expect(audioPeaks).toHaveBeenCalledTimes(2);
+
+    warm.resolve({ status: "ok", data: peaks });
+    await preparing;
+  });
+
+  it("swallows native failures", async () => {
+    audioPeaks.mockReset();
+    audioPeaks.mockRejectedValueOnce(new Error("ipc down"));
+
+    await expect(prepareSessionPeaks("failing")).resolves.toBeUndefined();
   });
 });
