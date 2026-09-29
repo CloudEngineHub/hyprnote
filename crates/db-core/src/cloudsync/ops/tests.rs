@@ -556,6 +556,7 @@ fn reconciled_send_reports_the_exact_preflighted_batch() {
         complete: true,
         fits: true,
         remaining: false,
+        local_db_versions: 2,
     };
     let status = anlg_cloudsync::NetworkStatus {
         last_optimistic_version: 12,
@@ -596,6 +597,7 @@ fn cancelled_send_never_starts_status_reconciliation() {
         complete: true,
         fits: true,
         remaining: false,
+        local_db_versions: 2,
     };
     let error = anlg_cloudsync::Error::Io(std::io::Error::new(
         std::io::ErrorKind::TimedOut,

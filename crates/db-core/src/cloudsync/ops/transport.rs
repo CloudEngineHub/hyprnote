@@ -44,7 +44,9 @@ async fn guarded_network_send_changes_with_interrupt(
     match interruptible_network_send_changes(
         connection,
         interrupt,
-        batch.watermark_db_version.unwrap_or(batch.start_db_version),
+        // Upstream rejects a zero bound; an empty batch sends nothing anyway,
+        // and a lone late write stays bounded to one version.
+        batch.local_db_versions.max(1),
     )
     .await
     {
@@ -105,11 +107,11 @@ pub(super) fn should_reconcile_send_failure(
 async fn interruptible_network_send_changes(
     connection: &mut SqliteConnection,
     interrupt: &CloudsyncInterruptHandle,
-    until_db_version: i64,
+    max_db_versions: i64,
 ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
     let registration = interrupt.register(connection).await?;
     let result =
-        anlg_cloudsync::network_send_changes_until(&mut *connection, until_db_version).await;
+        anlg_cloudsync::network_send_changes_bounded(&mut *connection, max_db_versions).await;
     registration.finish(connection).await?;
     result
 }

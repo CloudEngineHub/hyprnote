@@ -185,9 +185,12 @@ impl Db {
         connection_string: &str,
     ) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result =
-            anlg_cloudsync::network_init(&mut **connection.as_mut().unwrap(), connection_string)
-                .await;
+        let result = async {
+            let connection = &mut **connection.as_mut().unwrap();
+            anlg_cloudsync::network_init(&mut *connection, connection_string).await?;
+            anlg_cloudsync::network_set_request_deadlines(connection).await
+        }
+        .await;
         self.release_single_pool_connection(&mut connection);
         result
     }
