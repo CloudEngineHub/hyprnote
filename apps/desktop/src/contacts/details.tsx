@@ -39,7 +39,11 @@ import { RelatedNotesSection } from "./related-notes";
 import { ContactFacehash } from "./shared";
 
 import { useOptionalAuth } from "~/auth";
-import { EnrichContactFromCrm } from "~/crm/enrich-contact";
+import {
+  EnrichContactButton,
+  EnrichContactStatus,
+  useCrmEnrichment,
+} from "~/crm/enrich-contact";
 import { useOwnerUserId } from "~/shared/owner-user";
 
 export function DetailsColumn({
@@ -59,6 +63,10 @@ export function DetailsColumn({
   const auth = useOptionalAuth();
   const ownerUserId = auth?.session?.user.id ?? localOwnerUserId;
   const readOnly = human?.id === ownerUserId;
+  const enrichment = useCrmEnrichment({
+    human,
+    ownerUserId: ownerUserId ?? "",
+  });
   const { t } = useLingui();
   const [showCompactIdentity, setShowCompactIdentity] = useState(false);
   const personSessions = useHumanSessions(human?.id ?? "");
@@ -123,6 +131,11 @@ export function DetailsColumn({
                 ? () => persistContactAvatar("human", human.id, null)
                 : undefined
             }
+            actions={
+              !readOnly && ownerUserId ? (
+                <EnrichContactButton enrichment={enrichment} human={human} />
+              ) : undefined
+            }
           />
 
           <div
@@ -155,11 +168,7 @@ export function DetailsColumn({
             </div>
 
             {!readOnly && ownerUserId && (
-              <EnrichContactFromCrm
-                key={`${human.id}:crm`}
-                human={human}
-                ownerUserId={ownerUserId}
-              />
+              <EnrichContactStatus enrichment={enrichment} human={human} />
             )}
 
             {!readOnly && duplicatesWithData.length > 0 && (

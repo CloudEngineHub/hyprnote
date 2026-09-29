@@ -1485,6 +1485,14 @@ msgstr ""
 msgid "Connect {0} Calendar"
 msgstr ""
 
+#: src/crm/enrich-contact.tsx
+msgid "Connect a CRM"
+msgstr ""
+
+#: src/crm/enrich-contact.tsx
+msgid "Connect a CRM in Settings › CRM to enrich contacts."
+msgstr ""
+
 #: src/settings/crm/index.tsx
 msgid "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
 msgstr ""
@@ -1959,7 +1967,6 @@ msgstr ""
 msgid "Crisp"
 msgstr ""
 
-#: src/crm/enrich-contact.tsx
 #: src/settings/crm/index.tsx
 #: src/sidebar/settings.tsx
 msgid "CRM"
@@ -2357,11 +2364,11 @@ msgid "Enhance contact {label}"
 msgstr ""
 
 #: src/crm/enrich-contact.tsx
-msgid "Enrich contact from CRM"
+msgid "Enrich"
 msgstr ""
 
 #: src/crm/enrich-contact.tsx
-msgid "Enrich from CRM"
+msgid "Enrich contact from CRM"
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx

@@ -1485,6 +1485,14 @@ msgstr "Connect {0}"
 msgid "Connect {0} Calendar"
 msgstr "Connect {0} Calendar"
 
+#: src/crm/enrich-contact.tsx
+msgid "Connect a CRM"
+msgstr "Connect a CRM"
+
+#: src/crm/enrich-contact.tsx
+msgid "Connect a CRM in Settings › CRM to enrich contacts."
+msgstr "Connect a CRM in Settings › CRM to enrich contacts."
+
 #: src/settings/crm/index.tsx
 msgid "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
 msgstr "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
@@ -1959,7 +1967,6 @@ msgstr "Creating brief..."
 msgid "Crisp"
 msgstr "Crisp"
 
-#: src/crm/enrich-contact.tsx
 #: src/settings/crm/index.tsx
 #: src/sidebar/settings.tsx
 msgid "CRM"
@@ -2357,12 +2364,12 @@ msgid "Enhance contact {label}"
 msgstr "Enhance contact {label}"
 
 #: src/crm/enrich-contact.tsx
-msgid "Enrich contact from CRM"
-msgstr "Enrich contact from CRM"
+msgid "Enrich"
+msgstr "Enrich"
 
 #: src/crm/enrich-contact.tsx
-msgid "Enrich from CRM"
-msgstr "Enrich from CRM"
+msgid "Enrich contact from CRM"
+msgstr "Enrich contact from CRM"
 
 #: src/settings/ai/stt/select.tsx
 msgid "Enter a model identifier"
