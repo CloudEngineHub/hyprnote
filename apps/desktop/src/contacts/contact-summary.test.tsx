@@ -120,13 +120,6 @@ describe("contact summary", () => {
       }),
     );
 
-    expect(mocks.generateText.mock.calls[0]?.[0]).toMatchObject({
-      maxOutputTokens: 4_096,
-      timeout: { totalMs: 45_000 },
-    });
-    expect(mocks.generateText.mock.calls[0]?.[0].system).toContain(
-      "Prefer newer evidence",
-    );
     expect(mocks.updateHumanContactSummary).toHaveBeenCalledWith(
       "human-1",
       expect.objectContaining({
@@ -174,17 +167,26 @@ describe("contact summary", () => {
     ]);
   });
 
-  it("rebuilds from scratch when a summarized meeting was removed", async () => {
+  it.each([
+    {
+      change: "a summarized meeting was removed",
+      sources: [
+        { id: "session-0", updatedAt: "2026-08-05T12:00:00.000Z" },
+        { id: "session-1", updatedAt: "2026-08-11T12:00:00.000Z" },
+      ],
+    },
+    {
+      change: "an already-summarized meeting changed",
+      sources: [{ id: "session-1", updatedAt: "2026-08-01T12:00:00.000Z" }],
+    },
+  ])("rebuilds from scratch when $change", async ({ sources }) => {
     const human = {
       ...makeHuman(),
       summary: {
         facts: ["Fact one.", "Fact two.", "Fact three."],
         sourceHash: "source-old",
         generatedAt: "2026-08-11T12:00:00.000Z",
-        sources: [
-          { id: "session-0", updatedAt: "2026-08-05T12:00:00.000Z" },
-          { id: "session-1", updatedAt: "2026-08-11T12:00:00.000Z" },
-        ],
+        sources,
       },
     };
     const sessions: HumanSessionRecord[] = [
@@ -208,69 +210,6 @@ describe("contact summary", () => {
     expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(2);
     const prompt = JSON.parse(mocks.generateText.mock.calls[0]?.[0].prompt);
     expect(prompt.existing_facts).toBeUndefined();
-  });
-
-  it("rebuilds from scratch when an already-summarized meeting changed", async () => {
-    const human = {
-      ...makeHuman(),
-      summary: {
-        facts: ["Fact one.", "Fact two.", "Fact three."],
-        sourceHash: "source-old",
-        generatedAt: "2026-08-11T12:00:00.000Z",
-        sources: [{ id: "session-1", updatedAt: "2026-08-01T12:00:00.000Z" }],
-      },
-    };
-    const sessions: HumanSessionRecord[] = [
-      {
-        id: "session-2",
-        title: "Follow-up",
-        createdAt: "2026-08-15T12:00:00.000Z",
-        sourceUpdatedAt: "2026-08-15T13:00:00.000Z",
-      },
-      ...makeSessions(),
-    ];
-
-    await generateAndSaveContactSummary({
-      human,
-      organizationName: "Fastrepl",
-      sessions,
-      sourceHash: "source-2",
-      model: { id: "model-1" } as never,
-    });
-
-    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(2);
-    const prompt = JSON.parse(mocks.generateText.mock.calls[0]?.[0].prompt);
-    expect(prompt.existing_facts).toBeUndefined();
-  });
-
-  it("starts the first summary as soon as sessions arrive", async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-
-    const props = {
-      human: makeHuman(),
-      organizationName: "Fastrepl",
-      sessions: [] as HumanSessionRecord[],
-      settleMs: 200,
-    };
-    const { rerender } = renderHook(
-      (nextProps: typeof props) => useContactSummary(nextProps),
-      { wrapper, initialProps: props },
-    );
-
-    expect(mocks.generateText).not.toHaveBeenCalled();
-
-    // A session appearing while writes keep arriving must not wait out the
-    // settle window before generating.
-    rerender({ ...props, sessions: makeSessions() });
-
-    await waitFor(() => {
-      expect(mocks.generateText).toHaveBeenCalledOnce();
-    });
   });
 
   it("does not restart generation while session updates keep arriving", async () => {

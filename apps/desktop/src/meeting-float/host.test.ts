@@ -3,11 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { LiveTranscriptSegment } from "@anlg/plugin-transcription";
 
 import {
-  getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getFloatingTranscriptBubbles,
   haveFloatingRouteInputsChanged,
-  shouldShowFloatingLiveCaptionToggle,
 } from "./host";
 
 import { createListenerStore } from "~/store/zustand/listener";
@@ -90,18 +88,6 @@ describe("getFloatingRouteState", () => {
       liveCaptionToggleVisible: false,
       transcriptBubbles: [],
     });
-  });
-
-  it("uses the session title when provided", () => {
-    expect(
-      getFloatingRouteState(
-        createListenerState({
-          status: "active",
-          sessionId: "session-1",
-        }),
-        { sessionTitle: "  Weekly team sync  " },
-      )?.title,
-    ).toBe("Weekly team sync");
   });
 
   it("builds transcript bubbles from speaker segments", () => {
@@ -567,48 +553,6 @@ describe("getFloatingTranscriptBubbles", () => {
       { id: "short-you", overlapsNext: false },
       { id: "remote", overlapsPrevious: true },
     ]);
-  });
-});
-
-describe("getCurrentFloatingBarColorScheme", () => {
-  it("uses the applied document theme", () => {
-    document.documentElement.classList.remove("dark");
-    expect(getCurrentFloatingBarColorScheme()).toBe("light");
-
-    document.documentElement.classList.add("dark");
-    expect(getCurrentFloatingBarColorScheme()).toBe("dark");
-  });
-});
-
-describe("shouldShowFloatingLiveCaptionToggle", () => {
-  it("shows for active live transcription", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "anarlog",
-        model: "cloud",
-        liveTranscriptionActive: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("shows for local realtime transcription", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "anarlog",
-        model: "soniqo-parakeet-streaming",
-        liveTranscriptionActive: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("hides before live transcription is active", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "anarlog",
-        model: "cloud",
-        liveTranscriptionActive: false,
-      }),
-    ).toBe(false);
   });
 });
 

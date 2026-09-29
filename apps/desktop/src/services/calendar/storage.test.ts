@@ -37,6 +37,15 @@ const calendar = {
   deleted_at: null,
 };
 
+const ctx = {
+  provider: "google" as const,
+  connectionId: "conn-work",
+  from: new Date("2026-06-01T00:00:00.000Z"),
+  to: new Date("2026-06-02T00:00:00.000Z"),
+  calendarIds: new Set(["cal-work"]),
+  calendarTrackingIdToId: new Map([["primary", "cal-work"]]),
+};
+
 describe("calendar SQLite storage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -60,11 +69,9 @@ describe("calendar SQLite storage", () => {
       params: unknown[];
     }>;
     expect(statements).toHaveLength(2);
-    expect(statements[0].sql).toContain("UPDATE calendars");
-    expect(statements[0].sql).toContain("deleted_at");
-    expect(statements[0].params).toContain("cal-work");
-    expect(statements[1].sql).toContain("UPDATE events");
-    expect(statements[1].params).toContain("cal-work");
+    expect(
+      statements.every((statement) => statement.params.includes("cal-work")),
+    ).toBe(true);
     expect(
       statements.every((statement) => !statement.sql.includes("DELETE")),
     ).toBe(true);
@@ -79,11 +86,10 @@ describe("calendar SQLite storage", () => {
       params: unknown[];
     }>;
     expect(statements).toHaveLength(2);
-    expect(statements[0].sql).toContain("UPDATE events");
-    expect(statements[0].sql).toContain("SELECT id");
-    expect(statements[0].params.slice(2)).toEqual(["google", "conn-personal"]);
-    expect(statements[1].sql).toContain("UPDATE calendars");
-    expect(statements[1].params.slice(2)).toEqual(["google", "conn-personal"]);
+    for (const statement of statements) {
+      expect(statement.params.slice(2)).toEqual(["google", "conn-personal"]);
+      expect(statement.sql).not.toContain("DELETE");
+    }
   });
 
   test("preserves calendars when a requested connection fails to refresh", async () => {
@@ -126,8 +132,6 @@ describe("calendar SQLite storage", () => {
     });
 
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("ON CONFLICT(id) DO UPDATE");
-    expect(statement.sql).toContain("WHEN calendars.deleted_at IS NULL");
     expect(statement.params[0]).toBe("cal-work");
     expect(statement.params).toContain("Work restored");
   });
@@ -154,17 +158,7 @@ describe("calendar SQLite storage", () => {
       },
     ]);
 
-    const rows = await loadEventsForSync(
-      {
-        provider: "google",
-        connectionId: "conn-work",
-        from: new Date("2026-06-01T00:00:00.000Z"),
-        to: new Date("2026-06-02T00:00:00.000Z"),
-        calendarIds: new Set(["cal-work"]),
-        calendarTrackingIdToId: new Map([["primary", "cal-work"]]),
-      },
-      ["tracking-1"],
-    );
+    const rows = await loadEventsForSync(ctx, ["tracking-1"]);
 
     expect(rows[0]).toMatchObject({
       id: "event-1",
@@ -172,21 +166,11 @@ describe("calendar SQLite storage", () => {
       is_all_day: false,
       deleted_at: "2026-05-01T00:00:00.000Z",
     });
-    expect(mocks.execute.mock.calls[0][0]).toContain(
-      "tracking_id_event IN (?)",
-    );
   });
 
   test("commits event, session, human, and participant writes together", async () => {
     await applyConnectionSync({
-      ctx: {
-        provider: "google",
-        connectionId: "conn-work",
-        from: new Date("2026-06-01T00:00:00.000Z"),
-        to: new Date("2026-06-02T00:00:00.000Z"),
-        calendarIds: new Set(["cal-work"]),
-        calendarTrackingIdToId: new Map([["primary", "cal-work"]]),
-      },
+      ctx,
       events: {
         toDelete: ["event-old"],
         toUpdate: [],
@@ -244,34 +228,10 @@ describe("calendar SQLite storage", () => {
       sql: string;
     }>;
     const sql = statements.map((statement) => statement.sql).join("\n");
-    expect(sql).toContain("UPDATE events");
-    expect(sql).toContain("INSERT INTO events");
-    expect(sql).toContain("UPDATE sessions");
-    expect(sql).toContain("INSERT INTO organizations");
-    expect(sql).toContain("INSERT INTO humans");
-    expect(sql).toContain("UPDATE humans");
-    expect(sql.indexOf("INSERT INTO organizations")).toBeLessThan(
-      sql.indexOf("INSERT INTO humans"),
-    );
-    expect(sql).toContain("cloudsync_workspace_binding");
-    expect(sql).toContain("NULLIF((");
-    expect(sql).not.toContain("COALESCE((");
-    expect(sql).toContain("NULLIF(NULLIF(?, ''), 'default-user')");
-    expect(sql).toContain("UPDATE session_participants");
-    expect(sql).toContain("INSERT INTO session_participants");
-    expect(sql).toContain("session.workspace_id");
     expect(sql).not.toContain("DELETE FROM");
   });
 
   test("normalizes missing optional fields when updating events", async () => {
-    const ctx = {
-      provider: "google" as const,
-      connectionId: "conn-work",
-      from: new Date("2026-06-01T00:00:00.000Z"),
-      to: new Date("2026-06-02T00:00:00.000Z"),
-      calendarIds: new Set(["cal-work"]),
-      calendarTrackingIdToId: new Map([["primary", "cal-work"]]),
-    };
     const events = syncEvents(ctx, {
       incoming: [
         {

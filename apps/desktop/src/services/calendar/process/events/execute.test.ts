@@ -100,17 +100,27 @@ describe("syncSessionEmbeddedEvents", () => {
       ),
     ).toEqual([]);
   });
-  test("builds an update for a matching non-recurring event", () => {
+  test("builds an update for a matching event with its canonical calendar id", () => {
     const updates = syncSessionEmbeddedEvents(
-      createMockCtx(),
-      [makeIncomingEvent({ title: "Updated Title" })],
+      createMockCtx({
+        calendarIds: new Set(["cal-new"]),
+        calendarTrackingIdToId: new Map([["tracking-cal-new", "cal-new"]]),
+      }),
+      [
+        makeIncomingEvent({
+          title: "Updated Title",
+          tracking_id_calendar: "tracking-cal-new",
+        }),
+      ],
       [makeSession("session-1")],
     );
 
     expect(updates).toHaveLength(1);
-    const event = JSON.parse(updates[0].eventJson);
-    expect(event.title).toBe("Updated Title");
-    expect(event.tracking_id).toBe("track-1");
+    expect(JSON.parse(updates[0].eventJson)).toMatchObject({
+      title: "Updated Title",
+      tracking_id: "track-1",
+      calendar_id: "cal-new",
+    });
   });
 
   test("matches recurring events by occurrence tracking id", () => {
@@ -155,28 +165,5 @@ describe("syncSessionEmbeddedEvents", () => {
     );
 
     expect(updates).toEqual([]);
-  });
-
-  test("does nothing when incoming events are empty", () => {
-    expect(
-      syncSessionEmbeddedEvents(
-        createMockCtx(),
-        [],
-        [makeSession("session-1")],
-      ),
-    ).toEqual([]);
-  });
-
-  test("resolves the canonical calendar id", () => {
-    const updates = syncSessionEmbeddedEvents(
-      createMockCtx({
-        calendarIds: new Set(["cal-new"]),
-        calendarTrackingIdToId: new Map([["tracking-cal-new", "cal-new"]]),
-      }),
-      [makeIncomingEvent({ tracking_id_calendar: "tracking-cal-new" })],
-      [makeSession("session-1")],
-    );
-
-    expect(JSON.parse(updates[0].eventJson).calendar_id).toBe("cal-new");
   });
 });

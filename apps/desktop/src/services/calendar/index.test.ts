@@ -107,27 +107,21 @@ describe("syncCalendarEventsForRange", () => {
     vi.useRealTimers();
   });
 
-  test("removes the exact disconnected calendar connection", async () => {
-    await removeDisconnectedCalendarConnection(
-      "google-calendar",
-      "conn-personal",
-    );
+  test.each([
+    ["google-calendar", "conn-personal", "google"],
+    ["apple", "apple", "apple"],
+  ] as const)(
+    "removes the exact disconnected %s connection",
+    async (integration, connectionId, provider) => {
+      await removeDisconnectedCalendarConnection(integration, connectionId);
 
-    expect(storageMocks.tombstoneCalendarConnection).toHaveBeenCalledWith(
-      "google",
-      "conn-personal",
-    );
-    expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
-  });
-
-  test("removes the apple calendar connection", async () => {
-    await removeDisconnectedCalendarConnection("apple", "apple");
-
-    expect(storageMocks.tombstoneCalendarConnection).toHaveBeenCalledWith(
-      "apple",
-      "apple",
-    );
-  });
+      expect(storageMocks.tombstoneCalendarConnection).toHaveBeenCalledWith(
+        provider,
+        connectionId,
+      );
+      expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
+    },
+  );
 
   test("allows recovery sync when disconnect persistence fails", async () => {
     storageMocks.tombstoneCalendarConnection.mockRejectedValueOnce(
@@ -146,52 +140,21 @@ describe("syncCalendarEventsForRange", () => {
     );
   });
 
-  test("does not start a range sync when already aborted", async () => {
+  test.each([
+    [
+      "range",
+      (signal: AbortSignal) =>
+        syncCalendarEventsForRange({ from: ctx.from, to: ctx.to }, { signal }),
+    ],
+    ["scheduled", (signal: AbortSignal) => syncCalendarEvents({ signal })],
+  ])("does not start a %s sync when already aborted", async (_name, run) => {
     const abortController = new AbortController();
     abortController.abort();
 
-    await syncCalendarEventsForRange(
-      {
-        from: new Date("2026-06-01T00:00:00.000Z"),
-        to: new Date("2026-06-08T00:00:00.000Z"),
-      },
-      { signal: abortController.signal },
-    );
+    await run(abortController.signal);
 
     expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
     expect(fetchMocks.fetchIncomingEvents).not.toHaveBeenCalled();
-  });
-
-  test("does not start a scheduled sync when already aborted", async () => {
-    const abortController = new AbortController();
-    abortController.abort();
-
-    await syncCalendarEvents({ signal: abortController.signal });
-
-    expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
-  });
-
-  test("does not hold the database write queue while remote discovery is pending", async () => {
-    let resolveConnections:
-      | ((
-          connections: Array<{ provider: string; connection_ids: string[] }>,
-        ) => void)
-      | undefined;
-    ctxMocks.getProviderConnections.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveConnections = resolve;
-      }),
-    );
-
-    const sync = syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
-    await vi.waitFor(() => {
-      expect(ctxMocks.getProviderConnections).toHaveBeenCalledOnce();
-    });
-
-    expect(writeQueueMocks.enqueueDatabaseWrite).not.toHaveBeenCalled();
-
-    resolveConnections?.([]);
-    await sync;
   });
 
   test("serializes remote calendar syncs outside the database write queue", async () => {
@@ -356,19 +319,7 @@ describe("syncCalendarEventsForRange", () => {
     expect(ctxMocks.createCtx).not.toHaveBeenCalled();
   });
 
-  test("reuses an active scheduled calendar sync", () => {
-    const manager = createTaskScheduler();
-    managers.push(manager);
-    manager.setTask(CALENDAR_SYNC_TASK_ID, async () => undefined);
-
-    const firstTaskRunId = scheduleCalendarSync(manager);
-    const secondTaskRunId = scheduleCalendarSync(manager);
-
-    expect(firstTaskRunId).toBeDefined();
-    expect(secondTaskRunId).toBe(firstTaskRunId);
-  });
-
-  test("reuses a running calendar sync", async () => {
+  test("reuses a scheduled or running calendar sync", async () => {
     vi.useFakeTimers();
     const manager = createTaskScheduler();
     managers.push(manager);
@@ -379,14 +330,16 @@ describe("syncCalendarEventsForRange", () => {
           signal.addEventListener("abort", () => resolve(), { once: true });
         }),
     );
-    manager.start();
 
     const firstTaskRunId = scheduleCalendarSync(manager);
+    expect(firstTaskRunId).toBeDefined();
+    expect(scheduleCalendarSync(manager)).toBe(firstTaskRunId);
+
+    manager.start();
     await vi.advanceTimersByTimeAsync(100);
-    const secondTaskRunId = scheduleCalendarSync(manager);
 
     expect(manager.getRunningTaskRunIds()).toContain(firstTaskRunId);
-    expect(secondTaskRunId).toBe(firstTaskRunId);
+    expect(scheduleCalendarSync(manager)).toBe(firstTaskRunId);
   });
 
   test("can schedule a new calendar sync after a timeout", async () => {

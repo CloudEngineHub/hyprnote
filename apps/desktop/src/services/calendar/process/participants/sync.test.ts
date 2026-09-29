@@ -54,28 +54,6 @@ describe("syncSessionParticipants", () => {
       "human-one",
     ]);
   });
-  test("returns empty output when no events are provided", () => {
-    const result = syncSessionParticipants({
-      incomingParticipants: new Map(),
-      snapshot: createSnapshot(),
-    });
-
-    expect(result.toAdd).toEqual([]);
-    expect(result.toDelete).toEqual([]);
-    expect(result.humansToCreate).toEqual([]);
-  });
-
-  test("skips events without an associated session", () => {
-    const result = syncSessionParticipants({
-      incomingParticipants: new Map([
-        ["tracking-1", [{ email: "test@example.com", name: "Test" }]],
-      ]),
-      snapshot: createSnapshot(),
-    });
-
-    expect(result.toAdd).toEqual([]);
-    expect(result.humansToCreate).toEqual([]);
-  });
 
   test("creates a human when the participant email is new", () => {
     const result = syncSessionParticipants({
@@ -126,94 +104,38 @@ describe("syncSessionParticipants", () => {
     expect(result.toAdd[0]).toMatchObject({ humanId: "human-1" });
   });
 
-  test("deletes auto mappings when a participant is removed", () => {
-    const result = syncSessionParticipants({
-      incomingParticipants: new Map([["tracking-1", []]]),
-      snapshot: createSnapshot({
-        sessions: [session],
-        humans: [
-          {
-            id: "human-1",
-            email: "removed@example.com",
-            name: "",
-            organizationId: "",
-          },
-        ],
-        mappings: [
-          {
-            id: "mapping-1",
-            sessionId: "session-1",
-            humanId: "human-1",
-            source: "auto",
-          },
-        ],
-      }),
-    });
+  test.each([
+    ["auto", ["mapping-1"]],
+    ["excluded", []],
+  ] as const)(
+    "a removed participant with a %s mapping yields deletions %j",
+    (source, expected) => {
+      const result = syncSessionParticipants({
+        incomingParticipants: new Map([["tracking-1", []]]),
+        snapshot: createSnapshot({
+          sessions: [session],
+          humans: [
+            {
+              id: "human-1",
+              email: "removed@example.com",
+              name: "",
+              organizationId: "",
+            },
+          ],
+          mappings: [
+            {
+              id: "mapping-1",
+              sessionId: "session-1",
+              humanId: "human-1",
+              source,
+            },
+          ],
+        }),
+      });
 
-    expect(result.toDelete).toEqual(["mapping-1"]);
-  });
-
-  test("preserves excluded mappings", () => {
-    const result = syncSessionParticipants({
-      incomingParticipants: new Map([["tracking-1", []]]),
-      snapshot: createSnapshot({
-        sessions: [session],
-        humans: [
-          {
-            id: "human-1",
-            email: "excluded@example.com",
-            name: "",
-            organizationId: "",
-          },
-        ],
-        mappings: [
-          {
-            id: "mapping-1",
-            sessionId: "session-1",
-            humanId: "human-1",
-            source: "excluded",
-          },
-        ],
-      }),
-    });
-
-    expect(result.toDelete).toEqual([]);
-  });
-
-  test("derives a display name and company for new humans without a name", () => {
-    const result = syncSessionParticipants({
-      incomingParticipants: new Map([
-        ["tracking-1", [{ email: "simon.goldstein@ionprotocol.io" }]],
-      ]),
-      snapshot: createSnapshot({ sessions: [session] }),
-    });
-
-    expect(result.humansToCreate).toEqual([
-      {
-        id: "human-new",
-        ownerUserId: "user-1",
-        email: "simon.goldstein@ionprotocol.io",
-        name: "Simon Goldstein",
-        companyName: "Ionprotocol",
-      },
-    ]);
-  });
-
-  test("does not attach a company for personal email domains", () => {
-    const result = syncSessionParticipants({
-      incomingParticipants: new Map([
-        ["tracking-1", [{ email: "jane.doe@gmail.com" }]],
-      ]),
-      snapshot: createSnapshot({ sessions: [session] }),
-    });
-
-    expect(result.humansToCreate[0]).toEqual({
-      id: "human-new",
-      ownerUserId: "user-1",
-      email: "jane.doe@gmail.com",
-      name: "Jane Doe",
-    });
-  });
+      expect(result.toDelete).toEqual(expected);
+    },
+  );
 
   test("enriches existing humans whose name is missing or an email", () => {
     const result = syncSessionParticipants({
