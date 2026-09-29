@@ -38,6 +38,7 @@ const settingsState = vi.hoisted(() => ({
 vi.mock("./auth-context", () => ({
   useAuth: () => ({
     session: authState.session,
+    isFingerprintSettled: true,
     getHeaders: () =>
       authState.session
         ? {

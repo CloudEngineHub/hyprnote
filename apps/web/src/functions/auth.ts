@@ -95,6 +95,9 @@ async function prepareNewAccountTrial(
   let result: Awaited<ReturnType<typeof ensureNewAccountTrial>>;
   try {
     await claimPendingReferral(supabase);
+    if (flow === "desktop") {
+      return { createdAccount: true, needsTrialCheckout: false, session };
+    }
     result = await ensureNewAccountTrial(session.access_token);
   } catch (error) {
     captureOperationalError(error, {
