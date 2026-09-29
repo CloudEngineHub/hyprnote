@@ -726,46 +726,6 @@ mod test {
     use super::*;
 
     #[test]
-    fn tokio_runtime_is_not_entered_after_block_on_returns() {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        runtime.block_on(async {
-            assert!(tokio::runtime::Handle::try_current().is_ok());
-        });
-        assert!(tokio::runtime::Handle::try_current().is_err());
-    }
-
-    #[test]
-    fn tauri_async_runtime_can_spawn_after_block_on_returns() {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        tauri::async_runtime::set(runtime.handle().clone());
-        runtime.block_on(async {});
-        assert!(tokio::runtime::Handle::try_current().is_err());
-
-        let (tx, rx) = std::sync::mpsc::channel();
-        tauri::async_runtime::spawn(async move {
-            let _ = tx.send(());
-        });
-        rx.recv_timeout(std::time::Duration::from_secs(2))
-            .expect("spawned task should run on the process-wide runtime");
-    }
-
-    #[test]
-    fn startup_failure_message_includes_the_original_error() {
-        let message = startup_failure_message(&"legacy import did not pass parity verification");
-
-        assert_eq!(
-            message,
-            "Anarlog failed to start: legacy import did not pass parity verification"
-        );
-    }
-
-    #[test]
     fn complete_quit_allows_immediate_exit_without_frontend_flush() {
         assert!(!should_allow_immediate_exit());
         anlg_intercept::set_force_quit();

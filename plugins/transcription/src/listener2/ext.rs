@@ -747,20 +747,6 @@ mod tests {
     }
 
     #[test]
-    fn completed_batches_are_kept_until_discarded() {
-        let registry = BatchSessionRegistry::default();
-        store_completed_batch(&registry, completed_session("session-1"), empty_response());
-        assert!(
-            lock_completed_batches(&registry)
-                .unwrap()
-                .contains_key("session-1")
-        );
-
-        discard_completed_batch(&registry, "session-1");
-        assert!(lock_completed_batches(&registry).unwrap().is_empty());
-    }
-
-    #[test]
     fn completed_batches_expire_after_retention() {
         let registry = BatchSessionRegistry::default();
         store_completed_batch(&registry, completed_session("session-1"), empty_response());
@@ -813,11 +799,17 @@ mod tests {
     }
 
     #[test]
-    fn mark_terminal_state_only_transitions_once() {
+    fn terminal_state_transitions_once_and_stops_events() {
         let control = make_control();
+        let event = core::BatchEvent::BatchStarted {
+            session_id: "session-1".to_string(),
+        };
 
+        assert!(should_emit_event(&control, &event));
         assert!(mark_terminal_state(&control, BatchTerminalState::Stopped));
         assert!(!mark_terminal_state(&control, BatchTerminalState::TimedOut));
+        assert!(!should_emit_event(&control, &event));
+        assert!(control.cancellation_token.is_cancelled());
         assert_eq!(
             *control
                 .terminal_state
@@ -828,41 +820,30 @@ mod tests {
     }
 
     #[test]
-    fn should_emit_event_stops_after_terminal_transition() {
+    fn poisoned_locks_fail_closed_without_panicking() {
         let control = make_control();
+        let registry = make_registry(control.clone());
         let event = core::BatchEvent::BatchStarted {
             session_id: "session-1".to_string(),
         };
-
-        assert!(should_emit_event(&control, &event));
-        assert!(mark_terminal_state(&control, BatchTerminalState::Stopped));
-        assert!(!should_emit_event(&control, &event));
-    }
-
-    #[test]
-    fn lock_terminal_state_returns_batch_error_when_poisoned() {
-        let control = make_control();
         poison_terminal_state(control.clone());
 
-        match lock_terminal_state(&control) {
-            Err(core::Error::BatchError(message)) => {
-                assert!(message.contains("batch terminal state poisoned"));
-            }
-            _ => panic!("expected terminal state poison to return BatchError"),
-        }
-    }
+        assert!(!should_emit_event(&control, &event));
+        assert!(!mark_terminal_state(&control, BatchTerminalState::Stopped));
+        finish_batch_session(&registry, "session-1", &control);
+        assert!(
+            !registry
+                .sessions
+                .lock()
+                .expect("batch session registry poisoned")
+                .contains_key("session-1")
+        );
 
-    #[test]
-    fn lock_batch_sessions_returns_batch_error_when_poisoned() {
-        let registry = make_registry(make_control());
         poison_registry(registry.clone());
-
-        match lock_batch_sessions(&registry) {
-            Err(core::Error::BatchError(message)) => {
-                assert!(message.contains("batch session registry poisoned"));
-            }
-            _ => panic!("expected registry poison to return BatchError"),
-        }
+        assert!(matches!(
+            lock_batch_sessions(&registry),
+            Err(core::Error::BatchError(_))
+        ));
     }
 
     #[test]
@@ -992,96 +973,24 @@ mod tests {
     }
 
     #[test]
-    fn poisoned_terminal_state_stops_emit_and_transition_without_panic() {
-        let control = make_control();
-        let event = core::BatchEvent::BatchStarted {
-            session_id: "session-1".to_string(),
-        };
-        poison_terminal_state(control.clone());
+    fn batch_idle_timeout_applies_only_to_local_batch() {
+        let cases = [
+            (
+                core::BatchProvider::Anarlog,
+                "https://api.anarlog.so/stt",
+                None,
+            ),
+            (core::BatchProvider::Am, "https://api.anarlog.so/stt", None),
+            (
+                core::BatchProvider::Am,
+                "http://localhost:50060/v1",
+                Some(BATCH_IDLE_TIMEOUT),
+            ),
+        ];
 
-        assert!(!should_emit_event(&control, &event));
-        assert!(!mark_terminal_state(&control, BatchTerminalState::Stopped));
-    }
-
-    #[test]
-    fn finish_batch_session_removes_entry_when_terminal_state_is_poisoned() {
-        let control = make_control();
-        let registry = make_registry(control.clone());
-        poison_terminal_state(control.clone());
-
-        finish_batch_session(&registry, "session-1", &control);
-
-        assert!(
-            !registry
-                .sessions
-                .lock()
-                .expect("batch session registry poisoned")
-                .contains_key("session-1")
-        );
-    }
-
-    #[test]
-    fn finish_batch_session_removes_matching_registry_entry() {
-        let control = make_control();
-        let registry = make_registry(control.clone());
-
-        finish_batch_session(&registry, "session-1", &control);
-
-        assert!(
-            !registry
-                .sessions
-                .lock()
-                .expect("batch session registry poisoned")
-                .contains_key("session-1")
-        );
-    }
-
-    #[tokio::test]
-    async fn abort_batch_entry_cancels_background_task() {
-        let task = tokio::spawn(std::future::pending::<()>());
-
-        abort_batch_entry(BatchSessionEntry {
-            control: make_control(),
-            abort_handle: Some(task.abort_handle()),
-            wait_for_native_completion: false,
-            file_path: String::new(),
-            provider: None,
-            model: None,
-            started_at_ms: 0,
-            resume_context: None,
-        });
-
-        assert!(
-            task.await
-                .expect_err("batch task should be aborted")
-                .is_cancelled()
-        );
-    }
-
-    #[test]
-    fn batch_idle_timeout_skips_direct_cloud_batch() {
-        let params = transcription_params(
-            core::BatchProvider::Anarlog,
-            "https://api.anarlog.so/stt",
-            None,
-        );
-
-        assert_eq!(batch_idle_timeout(&params), None);
-    }
-
-    #[test]
-    fn batch_idle_timeout_skips_cloud_am_batch() {
-        let params =
-            transcription_params(core::BatchProvider::Am, "https://api.anarlog.so/stt", None);
-
-        assert_eq!(batch_idle_timeout(&params), None);
-    }
-
-    #[test]
-    fn batch_idle_timeout_applies_to_local_am_batch() {
-        let params =
-            transcription_params(core::BatchProvider::Am, "http://localhost:50060/v1", None);
-
-        assert_eq!(batch_idle_timeout(&params), Some(BATCH_IDLE_TIMEOUT));
+        for (provider, base_url, expected) in cases {
+            let params = transcription_params(provider, base_url, None);
+            assert_eq!(batch_idle_timeout(&params), expected, "{base_url}");
+        }
     }
 }

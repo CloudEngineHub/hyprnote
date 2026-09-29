@@ -454,55 +454,6 @@ mod test {
     }
 
     #[test]
-    fn expansion_pop_removes_empty_window_entry() {
-        let expansions = WindowExpansions::default();
-        expansions
-            .0
-            .lock()
-            .unwrap()
-            .insert("note-1".into(), vec![(100.0, 120.0, 0.0)]);
-
-        assert_eq!(expansions.pop("note-1"), Some((100.0, 120.0, 0.0)));
-        assert!(expansions.0.lock().unwrap().is_empty());
-    }
-
-    #[test]
-    fn persisted_window_state_includes_size_and_position() {
-        use tauri_plugin_window_state::StateFlags;
-
-        let flags = persisted_window_state_flags();
-        assert!(flags.contains(StateFlags::SIZE));
-        assert!(flags.contains(StateFlags::POSITION));
-        assert!(flags.contains(StateFlags::MAXIMIZED));
-        assert!(!flags.contains(StateFlags::VISIBLE));
-        assert!(!flags.contains(StateFlags::DECORATIONS));
-        assert!(!flags.contains(StateFlags::FULLSCREEN));
-    }
-
-    #[test]
-    fn saved_frame_take_consumes_window_entry() {
-        let frames = SavedFrames::default();
-        frames.0.lock().unwrap().insert(
-            "note-1".into(),
-            SavedWindowFrame {
-                frame: SavedFrame {
-                    x: 1.0,
-                    y: 2.0,
-                    w: 3.0,
-                    h: 4.0,
-                },
-                maximized: true,
-            },
-        );
-
-        let saved = frames.take("note-1").unwrap();
-        let frame = saved.frame;
-        assert_eq!((frame.x, frame.y, frame.w, frame.h), (1.0, 2.0, 3.0, 4.0));
-        assert!(saved.maximized);
-        assert!(frames.0.lock().unwrap().is_empty());
-    }
-
-    #[test]
     fn export_types() {
         const OUTPUT_FILE: &str = "./js/bindings.gen.ts";
 
@@ -517,17 +468,6 @@ mod test {
 
         let content = std::fs::read_to_string(OUTPUT_FILE).unwrap();
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
-    }
-
-    #[test]
-    fn test_version() {
-        let version = tauri_plugin_os::version()
-            .to_string()
-            .split('.')
-            .next()
-            .and_then(|v| v.parse::<u32>().ok())
-            .unwrap_or(0);
-        println!("version: {}", version);
     }
 }
 

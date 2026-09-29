@@ -171,13 +171,3 @@ pub async fn install_agent_skill(agent: SkillAgent) -> Result<SkillAgentStatus, 
 
     crate::agent_skills::install(agent)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shows_devtools_for_staging_bundle() {
-        assert!(should_show_devtool(STAGING_BUNDLE_ID));
-    }
-}

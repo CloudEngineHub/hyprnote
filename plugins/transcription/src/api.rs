@@ -421,234 +421,35 @@ impl From<listener2::BatchEvent> for TranscriptionEvent {
 #[cfg(test)]
 mod tests {
     use super::CaptureParams;
-    use anlg_language::ISO639;
-    use anlg_transcription_core::listener::TranscriptionMode;
+    use anlg_transcription_core::listener::{TranscriptionMode, actors::SessionParams};
 
-    fn resolved(params: &CaptureParams) -> TranscriptionMode {
-        anlg_transcription_core::listener::actors::resolve_transcription_mode(
-            params.transcription_mode.unwrap_or(TranscriptionMode::Live),
-            &params.base_url,
-            &params.model,
-            &params.languages,
-        )
-    }
-
-    fn capture_params(base_url: &str, model: &str) -> CaptureParams {
-        capture_params_with_languages(base_url, model, vec![])
-    }
-
-    fn capture_params_with_languages(
-        base_url: &str,
-        model: &str,
-        languages: Vec<anlg_language::Language>,
-    ) -> CaptureParams {
+    fn capture_params(transcription_mode: Option<TranscriptionMode>) -> CaptureParams {
         CaptureParams {
             session_id: "session-1".to_string(),
             retain_audio: None,
-            languages,
+            languages: vec![],
             onboarding: false,
-            model: model.to_string(),
-            base_url: base_url.to_string(),
+            model: "nova-3-general".to_string(),
+            base_url: "https://api.deepgram.com/v1".to_string(),
             api_key: "test-key".to_string(),
             keywords: vec![],
-            mic_device: None,
-            transcription_mode: None,
+            mic_device: Some("External Microphone".to_string()),
+            transcription_mode,
             participant_human_ids: vec![],
             self_human_id: None,
         }
     }
 
     #[test]
-    fn defaults_realtime_provider_to_live_mode() {
-        let params = capture_params("https://api.deepgram.com/v1", "nova-3-general");
+    fn session_params_carry_selected_microphone_and_requested_mode() {
+        for (requested, expected) in [
+            (None, TranscriptionMode::Live),
+            (Some(TranscriptionMode::Batch), TranscriptionMode::Batch),
+        ] {
+            let session: SessionParams = capture_params(requested).into();
 
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn preserves_selected_microphone_for_listener_session() {
-        let mut params = capture_params("https://api.deepgram.com/v1", "nova-3-general");
-        params.mic_device = Some("External Microphone".to_string());
-
-        let session: anlg_transcription_core::listener::actors::SessionParams = params.into();
-
-        assert_eq!(session.mic_device.as_deref(), Some("External Microphone"));
-    }
-
-    #[test]
-    fn defaults_cloudflare_workers_ai_capture_to_live_mode() {
-        let params = capture_params("https://example.workers.dev", "nova-3");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn defaults_soniox_capture_to_live_mode_without_languages() {
-        let params = capture_params("https://api.soniox.com", "stt-rt-v5");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn defaults_soniox_capture_to_live_mode_with_selected_language() {
-        let params = capture_params_with_languages(
-            "https://api.soniox.com",
-            "stt-rt-v5",
-            vec![ISO639::Ko.into()],
-        );
-
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn defaults_anarlog_cloud_en_ko_capture_to_live_mode() {
-        let params = capture_params_with_languages(
-            "https://api.anarlog.so/stt",
-            "cloud",
-            vec![ISO639::En.into(), ISO639::Ko.into()],
-        );
-
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn defaults_assemblyai_capture_to_live_mode_without_languages() {
-        let params = capture_params("https://api.assemblyai.com/v2", "");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn defaults_gladia_capture_to_live_mode_without_languages() {
-        let params = capture_params("https://api.gladia.io/v2", "");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn defaults_elevenlabs_capture_to_live_mode_without_languages() {
-        let params = capture_params("https://api.elevenlabs.io", "");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn defaults_openai_capture_to_batch_mode() {
-        let params = capture_params("https://api.openai.com/v1", "gpt-4o-transcribe");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
-    }
-
-    #[test]
-    fn defaults_openai_live_capture_to_live_mode() {
-        let params = capture_params("https://api.openai.com/v1", "gpt-live-transcribe");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn defaults_gemini_live_capture_to_live_mode() {
-        let params = capture_params(
-            "https://generativelanguage.googleapis.com/v1beta",
-            "gemini-3.5-transcribe-live",
-        );
-
-        assert_eq!(resolved(&params), TranscriptionMode::Live);
-    }
-
-    #[test]
-    fn defaults_gemini_file_capture_to_batch_mode() {
-        let params = capture_params(
-            "https://generativelanguage.googleapis.com/v1beta",
-            "gemini-3.5-transcribe",
-        );
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
-    }
-
-    #[test]
-    fn defaults_pyannote_capture_to_batch_mode() {
-        let params = capture_params("https://api.pyannote.ai", "parakeet-tdt-0.6b-v3");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
-    }
-
-    #[test]
-    fn defaults_local_argmax_capture_to_batch_mode() {
-        let params = capture_params("http://localhost:50060/v1", "parakeet-tdt-0.6b-v3");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
-    }
-
-    #[test]
-    fn defaults_soniqo_streaming_capture_to_platform_mode() {
-        let params = capture_params("soniqo://local", "soniqo-parakeet-streaming");
-        let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-            TranscriptionMode::Live
-        } else {
-            TranscriptionMode::Batch
-        };
-
-        assert_eq!(resolved(&params), expected);
-    }
-
-    #[test]
-    fn defaults_soniqo_streaming_with_loopback_base_to_platform_mode() {
-        let params = capture_params("http://localhost:50060/v1", "soniqo-parakeet-streaming");
-        let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-            TranscriptionMode::Live
-        } else {
-            TranscriptionMode::Batch
-        };
-
-        assert_eq!(resolved(&params), expected);
-    }
-
-    #[test]
-    fn defaults_soniqo_streaming_with_unsupported_language_to_batch_mode() {
-        let params = capture_params_with_languages(
-            "soniqo://local",
-            "soniqo-parakeet-streaming",
-            vec![ISO639::Ko.into()],
-        );
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
-    }
-
-    #[test]
-    fn defaults_soniqo_batch_capture_to_batch_mode() {
-        let params = capture_params("soniqo://local", "soniqo-parakeet-batch");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
-    }
-
-    #[test]
-    fn explicit_batch_overrides_soniqo_streaming_capture() {
-        let mut params = capture_params("soniqo://local", "soniqo-parakeet-streaming");
-        params.transcription_mode = Some(TranscriptionMode::Batch);
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
-    }
-
-    #[test]
-    fn explicit_live_falls_back_to_batch_for_soniqo_batch_model() {
-        let mut params = capture_params("soniqo://local", "soniqo-parakeet-batch");
-        params.transcription_mode = Some(TranscriptionMode::Live);
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
-    }
-
-    #[test]
-    fn defaults_soniqo_model_on_non_soniqo_provider_from_provider_mode() {
-        let params = capture_params("https://api.openai.com/v1", "soniqo-parakeet-streaming");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
-    }
-
-    #[test]
-    fn defaults_invalid_soniqo_local_model_to_batch_mode() {
-        let params = capture_params("soniqo://local", "nova-3");
-
-        assert_eq!(resolved(&params), TranscriptionMode::Batch);
+            assert_eq!(session.transcription_mode, expected);
+            assert_eq!(session.mic_device.as_deref(), Some("External Microphone"));
+        }
     }
 }

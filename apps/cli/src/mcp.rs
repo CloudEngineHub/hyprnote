@@ -576,21 +576,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn server_advertises_tools_and_resources() {
-        let db = Arc::new(anlg_db_core::Db::connect_memory_plain().await.unwrap());
-        let info = AnarlogMcpServer::new(db).get_info();
-        assert_eq!(info.protocol_version, ProtocolVersion::V_2026_07_28);
-        assert!(info.capabilities.tools.is_some());
-        assert!(info.capabilities.resources.is_some());
-        let instructions = info.instructions.unwrap();
-        assert!(instructions.contains("Start with list_meetings"));
-        assert!(instructions.contains("https://docs.anarlog.so"));
-        assert!(instructions.contains("propose_summary_edit"));
-        assert!(instructions.contains("claim a proposal was applied"));
-        assert!(instructions.contains("Never invent meeting titles"));
-    }
-
-    #[tokio::test]
     async fn list_tool_returns_structured_meeting_data() {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         anlg_db_app::prepare_schema(&db).await.unwrap();

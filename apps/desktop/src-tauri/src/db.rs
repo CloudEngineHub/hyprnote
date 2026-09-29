@@ -246,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn transient_lock_errors_are_recognized() {
+    fn startup_error_classifiers_recognize_lock_and_newer_schema_errors() {
         assert!(is_transient_lock_error(
             &"error returned from database: (code: 5) database is locked"
         ));
@@ -256,10 +256,7 @@ mod tests {
         assert!(!is_transient_lock_error(
             &"unable to open database file: /tmp/app.db"
         ));
-    }
 
-    #[test]
-    fn newer_schema_errors_are_recognized() {
         // Rendered form of MigrateError::SchemaFromNewerApp after crossing the
         // plugin setup boundary as a string.
         assert!(is_newer_schema_error(
@@ -271,14 +268,11 @@ mod tests {
     }
 
     #[test]
-    fn dev_uses_an_isolated_persistent_database() {
+    fn only_nightly_and_stable_share_a_database_directory() {
         let db_dir = desktop_db_dir("com.hyprnote.dev").unwrap();
 
         assert!(db_dir.ends_with("com.hyprnote.dev"));
-    }
 
-    #[test]
-    fn nightly_opens_the_stable_database() {
         assert_eq!(
             desktop_db_dir(NIGHTLY_BUNDLE_ID),
             desktop_db_dir(STABLE_BUNDLE_ID)
@@ -288,10 +282,7 @@ mod tests {
                 .unwrap()
                 .ends_with(NIGHTLY_BUNDLE_ID)
         );
-    }
 
-    #[test]
-    fn only_nightly_and_stable_share_a_database() {
         assert_eq!(
             shared_database_peer(NIGHTLY_BUNDLE_ID),
             Some(STABLE_BUNDLE_ID)
@@ -302,13 +293,6 @@ mod tests {
         );
         assert_eq!(shared_database_peer("com.hyprnote.staging"), None);
         assert_eq!(shared_database_peer("com.hyprnote.dev"), None);
-    }
-
-    #[test]
-    fn cloudsync_is_inert_without_environment_config() {
-        let config = cloudsync_runtime_config(|_| None).unwrap();
-
-        assert!(config.is_none());
     }
 
     #[test]
@@ -362,7 +346,9 @@ mod tests {
     }
 
     #[test]
-    fn cloudsync_static_auth_requires_explicit_opt_in() {
+    fn cloudsync_stays_inert_without_config_or_static_auth_opt_in() {
+        assert!(cloudsync_runtime_config(|_| None).unwrap().is_none());
+
         let values = HashMap::from([
             (
                 "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",

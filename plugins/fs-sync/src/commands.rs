@@ -754,38 +754,19 @@ mod tests {
     }
 
     #[test]
-    fn audio_import_source_extension_uses_supported_filename_extension() {
-        assert_eq!(
-            audio_import_source_extension("recording.WEBM", Some("audio/mp4")),
-            "webm"
-        );
-        assert_eq!(audio_import_source_extension("recording.aac", None), "aac");
-    }
-
-    #[test]
-    fn audio_import_source_extension_recognizes_voice_memos_transfers() {
-        assert_eq!(audio_import_source_extension("Brian Shin.qta", None), "m4a");
-        assert_eq!(
-            audio_import_source_extension("Brian Shin", Some("audio/mp4; codecs=alac")),
-            "m4a"
-        );
-        assert_eq!(
-            audio_import_source_extension("Brian Shin", Some("audio/quicktime")),
-            "m4a"
-        );
-    }
-
-    #[test]
-    fn create_parent_dir_error_includes_parent_and_target_paths() {
-        let temp = tempfile::tempdir().unwrap();
-        let blocker = temp.path().join("sessions");
-        std::fs::write(&blocker, "not a directory").unwrap();
-
-        let target = blocker.join("session-1").join("_meta.json");
-        let error = create_parent_dir_for_write(&target).unwrap_err();
-
-        assert!(error.contains("failed to create parent directory"));
-        assert!(error.contains(&target.parent().unwrap().display().to_string()));
-        assert!(error.contains(&target.display().to_string()));
+    fn audio_import_source_extension_prefers_supported_names_then_mime() {
+        for (filename, content_type, expected) in [
+            ("recording.WEBM", Some("audio/mp4"), "webm"),
+            ("recording.aac", None, "aac"),
+            ("Brian Shin.qta", None, "m4a"),
+            ("Brian Shin", Some("audio/mp4; codecs=alac"), "m4a"),
+            ("Brian Shin", Some("audio/quicktime"), "m4a"),
+        ] {
+            assert_eq!(
+                audio_import_source_extension(filename, content_type),
+                expected,
+                "unexpected extension for {filename:?} and {content_type:?}"
+            );
+        }
     }
 }

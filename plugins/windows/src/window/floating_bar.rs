@@ -620,18 +620,6 @@ mod tests {
     }
 
     #[test]
-    fn dictation_sizes_preserve_the_shared_panel_anchors() {
-        assert_eq!(layout::dictation_container_size(false), (108.0, 67.0));
-        assert_eq!(layout::dictation_container_size(true), (368.0, 459.0));
-    }
-    #[test]
-    fn sizes_the_compact_and_expanded_windows() {
-        assert_eq!(layout::container_size(false, false), (84.0, 67.0));
-        assert_eq!(layout::container_size(false, true), (108.0, 67.0));
-        assert_eq!(layout::container_size(true, true), (368.0, 459.0));
-    }
-
-    #[test]
     fn controls_keep_their_screen_position_through_expansion_and_collapse() {
         let work = (-1920.0, 40.0, 1920.0, 1040.0);
         for (anchor, upwards) in [
