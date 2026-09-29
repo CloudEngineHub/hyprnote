@@ -46,6 +46,7 @@ Treat `.github/workflows/` and their composite actions as the source of truth fo
 - `ci.yaml`: run both license-boundary Python commands and the complete `node --test` command listed there. These run on every PR, including documentation-only changes.
 - `zizmor.yaml` runs on every PR. Reproduce `uvx zizmor --format sarif .` (save output outside the repository) with read-only GitHub access; report unavailable authenticated checks. Inspect the SARIF findings: a successful scan/upload does not mean zero findings. Fix findings introduced by workflow/action changes and report existing findings separately.
 - For TypeScript changes, run affected packages' typechecks and existing test scripts. For Rust changes, run affected crate checks/tests with the workflow's flags; retain `--locked`, feature selections, test filters, and Clippy's `-D warnings`. Add regression coverage for changed behavior, especially persistence, auth, billing, and recording lifecycles.
+- Decide what to test, delete, or leave untested with `.agents/skills/testing/SKILL.md`: one regression test per fix, no tests for CSS, copy, mock call counts, private state, or file layout. Structural and import-boundary rules belong in lint rules, not tests.
 
 ### Checks by component
 
