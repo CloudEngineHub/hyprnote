@@ -1187,6 +1187,22 @@ export type Meeting = {
     updated_at: string;
 };
 
+export type MeetingDevice = {
+    deviceFingerprint: string;
+    deviceName?: string | null;
+    primary: boolean;
+};
+
+export type MeetingDeviceHeartbeatRequest = {
+    intent: MeetingDeviceIntent;
+};
+
+export type MeetingDeviceIntent = 'present' | 'claim' | 'release';
+
+export type MeetingDevicesResponse = {
+    devices: Array<MeetingDevice>;
+};
+
 export type MeetingExport = Meeting & {
     transcripts: Array<Transcript>;
 };
@@ -4981,6 +4997,56 @@ export type GetWorkspaceE2EeKeyRecipientsResponses = {
 };
 
 export type GetWorkspaceE2EeKeyRecipientsResponse = GetWorkspaceE2EeKeyRecipientsResponses[keyof GetWorkspaceE2EeKeyRecipientsResponses];
+
+export type HeartbeatMeetingDeviceData = {
+    body: MeetingDeviceHeartbeatRequest;
+    headers: {
+        /**
+         * Fingerprint of the calling device
+         */
+        'x-device-fingerprint': string;
+    };
+    path: {
+        /**
+         * Opaque key derived from the calendar event
+         */
+        meeting_key: string;
+    };
+    query?: never;
+    url: '/sync/meetings/{meeting_key}/devices';
+};
+
+export type HeartbeatMeetingDeviceErrors = {
+    /**
+     * Invalid meeting key or device fingerprint
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription required
+     */
+    403: unknown;
+    /**
+     * The calling device is not a registered sync device
+     */
+    404: unknown;
+    /**
+     * Device service unavailable
+     */
+    502: unknown;
+};
+
+export type HeartbeatMeetingDeviceResponses = {
+    /**
+     * Devices present for the meeting
+     */
+    200: MeetingDevicesResponse;
+};
+
+export type HeartbeatMeetingDeviceResponse = HeartbeatMeetingDeviceResponses[keyof HeartbeatMeetingDeviceResponses];
 
 export type CreateReplicaCredentialsData = {
     body?: never;

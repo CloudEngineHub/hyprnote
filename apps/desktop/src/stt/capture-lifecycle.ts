@@ -21,6 +21,7 @@ import { useListener } from "./contexts";
 import { discardEmptyAutomaticCapture } from "./empty-automatic-capture";
 import { cancelMeetingRecordingDisclosure } from "./meeting-disclosure";
 import { persistTranscriptWrite } from "./persist-retry";
+import { consumePrimaryDeviceYield } from "./primary-device";
 import { createTranscriptPersistenceWorker } from "./transcript-persistence-worker";
 import {
   canRunBatchTranscription,
@@ -797,6 +798,36 @@ export function useCaptureLifecycle(sessionId: string) {
         cancelMeetingRecordingDisclosure(sessionId);
         await stopMeetingChatTasks();
         await transcriptPersistence.flush();
+        if (
+          consumePrimaryDeviceYield(sessionId) &&
+          !preserveExistingTranscript &&
+          inheritedCaptures.length === 0 &&
+          !(await existingAudioPromise)
+        ) {
+          try {
+            if (details.audioPath) {
+              const deleted = await enqueueSessionAudioOperation(
+                sessionId,
+                () => fsSyncCommands.audioDelete(sessionId),
+              );
+              if (deleted.status !== "ok") {
+                throw new Error(deleted.error);
+              }
+            }
+            if (await transcriptExists(transcriptId)) {
+              await softDeleteTranscript(transcriptId);
+            }
+            await releaseMarker();
+            recoveryPending = false;
+            recoveryStateCleared = true;
+            return;
+          } catch (error) {
+            console.error(
+              "[listener] failed to discard capture recorded on another device",
+              error,
+            );
+          }
+        }
         if (
           details.audioPath &&
           (await discardEmptyAutomaticCapture({

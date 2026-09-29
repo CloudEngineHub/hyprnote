@@ -226,6 +226,11 @@ vi.mock("~/ai/task-window-sync", () => ({
   requestMainAutoEnhance: requestMainAutoEnhanceMock,
 }));
 
+vi.mock("./primary-device", () => ({
+  consumePrimaryDeviceYield: () => false,
+  startPrimaryDeviceCoordination: vi.fn(),
+}));
+
 vi.mock("./meeting-chat-capture", () => ({
   startMeetingChatCapture: startMeetingChatCaptureMock,
 }));
