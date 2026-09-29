@@ -139,6 +139,35 @@ struct WebviewHealthState {
     next_registration_id: AtomicU64,
     pending: Mutex<HashMap<String, (u64, String, oneshot::Sender<()>)>>,
     recovering: Mutex<HashMap<String, u8>>,
+    rebuilt: Mutex<std::collections::HashSet<String>>,
+}
+
+static MAIN_WINDOW_REBUILDING: AtomicBool = AtomicBool::new(false);
+
+/// True while the main window is destroyed and rebuilt in-process, so the
+/// transient "no windows left" exit request must not quit the app.
+pub fn main_window_rebuilding() -> bool {
+    MAIN_WINDOW_REBUILDING.load(Ordering::SeqCst)
+}
+
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn set_main_window_rebuilding(value: bool) {
+    MAIN_WINDOW_REBUILDING.store(value, Ordering::SeqCst);
+}
+
+static MAIN_WINDOW_SHOW_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+/// Records that the main window was asked to show while it was being rebuilt,
+/// so a rebuild that started hidden still ends visible.
+fn note_main_window_show_requested() {
+    if main_window_rebuilding() {
+        MAIN_WINDOW_SHOW_REQUESTED.store(true, Ordering::SeqCst);
+    }
+}
+
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn take_main_window_show_requested() -> bool {
+    MAIN_WINDOW_SHOW_REQUESTED.swap(false, Ordering::SeqCst)
 }
 
 impl WebviewHealthState {
@@ -204,8 +233,15 @@ impl WebviewHealthState {
         attempt
     }
 
+    // One rebuild per failure episode; a webview that reports ready resets it.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    fn begin_rebuild(&self, label: &str) -> bool {
+        self.rebuilt.lock().unwrap().insert(label.to_string())
+    }
+
     fn ready(&self, label: &str) {
         self.recovering.lock().unwrap().remove(label);
+        self.rebuilt.lock().unwrap().remove(label);
     }
 
     fn remove(&self, label: &str) {
@@ -440,17 +476,22 @@ mod test {
         assert_eq!(state.retry_recovery("main"), 1);
     }
 
+    #[test]
+    fn webview_rebuild_runs_once_until_ready_and_survives_window_removal() {
+        let state = WebviewHealthState::default();
+        assert!(state.begin_rebuild("main"));
+        state.remove("main");
+        assert!(!state.begin_rebuild("main"));
+        state.ready("main");
+        assert!(state.begin_rebuild("main"));
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
-    fn terminated_webview_reloads_only_for_visible_main_window() {
-        assert!(crate::ext::should_reload_terminated_webview("main", true));
-        assert!(!crate::ext::should_reload_terminated_webview("main", false));
-        assert!(!crate::ext::should_reload_terminated_webview(
-            "composer", true
-        ));
-        assert!(!crate::ext::should_reload_terminated_webview(
-            "note-1", true
-        ));
+    fn terminated_webview_reloads_only_for_main_window() {
+        assert!(crate::ext::should_reload_terminated_webview("main"));
+        assert!(!crate::ext::should_reload_terminated_webview("composer"));
+        assert!(!crate::ext::should_reload_terminated_webview("note-1"));
     }
 
     #[test]

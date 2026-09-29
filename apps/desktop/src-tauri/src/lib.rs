@@ -560,7 +560,11 @@ pub fn main() {
                 tracing::error!(%error, "failed to reopen main window");
             }
         }
-        tauri::RunEvent::ExitRequested { api, .. } => {
+        tauri::RunEvent::ExitRequested { api, code, .. } => {
+            if code.is_none() && tauri_plugin_windows::main_window_rebuilding() {
+                api.prevent_exit();
+                return;
+            }
             if let Some(ref ctx) = root_supervisor_ctx_for_run {
                 ctx.mark_exiting();
             }

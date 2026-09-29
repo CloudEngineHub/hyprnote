@@ -13,6 +13,8 @@ const WEBVIEW_HEALTH_CHECK_RETRY_DELAY: std::time::Duration = std::time::Duratio
 const WEBVIEW_HEALTH_CHECK_ATTEMPTS: u8 = 2;
 #[cfg(target_os = "macos")]
 const WEBVIEW_RELOAD_ATTEMPTS: u8 = 3;
+#[cfg(target_os = "macos")]
+const MAIN_WINDOW_DESTROY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 
 #[cfg(target_os = "macos")]
 enum WebviewHealthCheckResult {
@@ -68,8 +70,8 @@ fn webview_is_visible(app: &AppHandle<tauri::Wry>, label: &str) -> bool {
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn should_reload_terminated_webview(label: &str, is_visible: bool) -> bool {
-    is_visible && matches!(label.parse::<AppWindow>(), Ok(AppWindow::Main))
+pub(crate) fn should_reload_terminated_webview(label: &str) -> bool {
+    matches!(label.parse::<AppWindow>(), Ok(AppWindow::Main))
 }
 
 pub(crate) fn run_on_main_thread<R: Send + 'static>(
@@ -138,23 +140,98 @@ impl AppWindow {
             );
         }
 
-        use tauri_plugin_window_state::AppHandleExt;
-        if let Err(error) = app.save_window_state(crate::persisted_window_state_flags()) {
-            tracing::warn!(%error, "failed to save window state before app restart");
+        let Some(state) = app.try_state::<WebviewHealthState>() else {
+            return;
+        };
+        if !state.begin_rebuild(&Self::Main.label()) {
+            // Restarting the app would end an active native recording.
+            tracing::error!("main webview could not be recovered; leaving the app running");
+            return;
         }
-        tracing::error!("restarting app to recover main webview");
-        app.request_restart();
+        Self::rebuild_main_window(app);
+    }
+
+    // Recreates the main window in-process so native capture keeps running.
+    #[cfg(target_os = "macos")]
+    fn rebuild_main_window(app: &AppHandle<tauri::Wry>) {
+        let label = Self::Main.label();
+        let visible = webview_is_visible(app, &label);
+        if let Some(expansions) = app.try_state::<crate::WindowExpansions>() {
+            for entry in expansions.take(&label).into_iter().rev() {
+                if let Err(error) = crate::commands::restore_expanded_width(app, &label, entry) {
+                    tracing::warn!(%error, "failed to restore main window width before rebuild");
+                }
+            }
+        }
+        let saved = app
+            .try_state::<crate::SavedFrames>()
+            .and_then(|frames| frames.take(&label));
+        {
+            use tauri_plugin_window_state::AppHandleExt;
+            if let Err(error) = app.save_window_state(crate::persisted_window_state_flags()) {
+                tracing::warn!(%error, "failed to save window state before main window rebuild");
+            }
+        }
+
+        tracing::error!("rebuilding main window to recover main webview");
+        crate::take_main_window_show_requested();
+        crate::set_main_window_rebuilding(true);
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let result = Self::replace_main_window(&app, visible).await;
+            crate::set_main_window_rebuilding(false);
+            if let Err(error) = result {
+                tracing::error!(%error, "failed to rebuild main window");
+                return;
+            }
+            if saved.is_some()
+                && let Err(error) =
+                    crate::commands::restore_saved_frame(&app, AppWindow::Main, saved).await
+            {
+                tracing::warn!(%error, "failed to restore main window frame after rebuild");
+            }
+        });
+    }
+
+    #[cfg(target_os = "macos")]
+    async fn replace_main_window(
+        app: &AppHandle<tauri::Wry>,
+        visible: bool,
+    ) -> Result<(), crate::Error> {
+        Self::Main.destroy(app)?;
+        let deadline = tokio::time::Instant::now() + MAIN_WINDOW_DESTROY_TIMEOUT;
+        while Self::Main.get(app).is_some() {
+            if tokio::time::Instant::now() >= deadline {
+                return Err(tauri::Error::WindowLabelAlreadyExists(Self::Main.label()).into());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        if visible || crate::take_main_window_show_requested() {
+            Self::Main.show(app)?;
+            crate::take_main_window_show_requested();
+            return Ok(());
+        }
+
+        // A hidden main window still has to run the frontend (auto-start,
+        // listener recovery), but must not pop up on its own.
+        use tauri_plugin_window_state::WindowExt;
+        let window = Self::Main.build_window(app)?;
+        let _ = window.restore_state(crate::persisted_window_state_flags());
+        Self::Main.position_new_window(app, &window)?;
+        if crate::take_main_window_show_requested() {
+            Self::Main.show(app)?;
+            crate::take_main_window_show_requested();
+        }
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]
     pub fn recover_terminated_webview(webview: &tauri::Webview<tauri::Wry>) {
         let app = webview.app_handle();
         let label = webview.label();
-        let is_visible = webview_is_visible(app, label);
-        if !should_reload_terminated_webview(label, is_visible) {
+        if !should_reload_terminated_webview(label) {
             tracing::warn!(
                 webview = %label,
-                is_visible,
                 "web content process terminated without requiring immediate app recovery"
             );
             return;
@@ -164,7 +241,8 @@ impl AppWindow {
             return;
         };
         let attempt = state.retry_recovery(label);
-        tracing::error!(webview = %label, attempt, "reloading webview after web content process termination");
+        let is_visible = webview_is_visible(app, label);
+        tracing::error!(webview = %label, attempt, is_visible, "reloading webview after web content process termination");
         Self::recover_main_webview(app, attempt);
     }
 
@@ -585,6 +663,9 @@ impl AppWindow {
     where
         Self: WindowImpl,
     {
+        if matches!(self, Self::Main) {
+            crate::note_main_window_show_requested();
+        }
         self.prepare_show(app);
 
         if matches!(self, Self::Composer) {
@@ -624,6 +705,9 @@ impl AppWindow {
     where
         Self: WindowImpl,
     {
+        if matches!(self, Self::Main) {
+            crate::note_main_window_show_requested();
+        }
         self.prepare_show(app);
 
         if matches!(self, Self::Composer) {
