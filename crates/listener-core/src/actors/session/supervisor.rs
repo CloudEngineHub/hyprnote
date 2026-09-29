@@ -303,7 +303,7 @@ impl Actor for SessionActor {
                 &state.ctx.params.session_id,
             );
             if let Err(error) = tokio::task::spawn_blocking(move || {
-                crate::actors::recorder::delete_capture_audio(&dir)
+                crate::actors::recorder::delete_transcribed_capture_audio(&dir).map(|_| ())
             })
             .await?
             {

@@ -7,6 +7,7 @@ import { useListener } from "./contexts";
 
 import {
   clearCaptureLifecycleMarker,
+  hasPendingZeroRetentionAudio,
   loadCaptureLifecycleMarker,
 } from "~/stt/capture-lifecycle-storage";
 
@@ -89,7 +90,7 @@ export function useResumeListeningLifecycle(sessionId: string) {
         if (clearMarker) {
           try {
             const marker = await loadCaptureLifecycleMarker(sessionId);
-            if (marker) {
+            if (marker && !hasPendingZeroRetentionAudio(marker)) {
               await clearCaptureLifecycleMarker(sessionId, marker.transcriptId);
             }
           } catch (error) {

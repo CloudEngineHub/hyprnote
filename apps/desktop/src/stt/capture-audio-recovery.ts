@@ -19,6 +19,8 @@ export function createCaptureAudioRecovery(options: {
     intervals: RecoveryInterval[],
     signal: AbortSignal,
   ) => Promise<void>;
+  // Chunks from earlier captures are repaired whole into their own transcript.
+  inherited?: (chunk: RecoveryAudioChunk) => boolean;
   now?: () => number;
 }) {
   const now = options.now ?? Date.now;
@@ -59,6 +61,14 @@ export function createCaptureAudioRecovery(options: {
     pending = gapStart !== undefined || gaps.length > 0;
     for (const chunk of chunks) {
       controller.signal.throwIfAborted();
+      if (options.inherited?.(chunk)) {
+        pending = true;
+        if (!online || now() < retryAt) return false;
+        await options.repair(chunk, [], controller.signal);
+        controller.signal.throwIfAborted();
+        await options.acknowledge(chunk);
+        continue;
+      }
       const range = chunkInterval(chunk, options.startedAt);
       if (!settle && range.end > elapsed() - 10_000) continue;
       if (batchFromRetainedAudio) {
@@ -163,17 +173,9 @@ export function createCaptureAudioRecovery(options: {
       failed = true;
       markGap();
     },
-    async stop(retainAudio: boolean) {
+    async stop() {
       active = false;
       clearTimeout(timer);
-      if (!retainAudio) {
-        controller.abort();
-        await running;
-        return {
-          incomplete:
-            pending || failed || gapStart !== undefined || gaps.length > 0,
-        };
-      }
       closeGap();
       await running;
       while (await tick(true)) {

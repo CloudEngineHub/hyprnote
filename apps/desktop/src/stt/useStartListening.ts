@@ -4,6 +4,10 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useCaptureLifecycle } from "./capture-lifecycle";
+import {
+  hasPendingZeroRetentionAudio,
+  loadCaptureLifecycleMarker,
+} from "./capture-lifecycle-storage";
 import { useListener } from "./contexts";
 import { startMeetingChatCapture } from "./meeting-chat-capture";
 import {
@@ -79,7 +83,19 @@ export function useStartListeningState(
       return;
     }
     await stopMeetingChatTasks();
-    const lifecycle = createCaptureLifecycle(undefined, automatic);
+    const previousMarker = await loadCaptureLifecycleMarker(sessionId).catch(
+      (error) => {
+        console.error("[listener] failed to load pending capture", error);
+        return null;
+      },
+    );
+    const lifecycle = createCaptureLifecycle(
+      undefined,
+      automatic,
+      previousMarker && hasPendingZeroRetentionAudio(previousMarker)
+        ? previousMarker
+        : undefined,
+    );
     // A fresh note or a just-focused window starts listening right as a sync
     // round begins; waiting for that round to yield made the start feel slow
     // and sometimes refused to record at all.

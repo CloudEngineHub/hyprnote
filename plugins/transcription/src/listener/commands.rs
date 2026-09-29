@@ -78,6 +78,20 @@ pub async fn acknowledge_capture_audio_chunk<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn delete_transcribed_capture_audio<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<bool, String> {
+    tokio::task::spawn_blocking(move || {
+        let dir = session_audio_dir(&app, &session_id)?;
+        recorder::delete_transcribed_capture_audio(&dir).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn list_microphone_devices<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Vec<String>, String> {

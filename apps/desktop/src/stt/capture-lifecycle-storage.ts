@@ -3,6 +3,17 @@ import { enqueueDatabaseWrite } from "~/db/write-queue";
 
 export const CAPTURE_LIFECYCLE_SETTING_PREFIX = "capture_lifecycle_pending:";
 
+export type InheritedCapture = {
+  transcriptId: string;
+  startedAt: number;
+  createdAt: string;
+  ownerUserId: string;
+  memo: string;
+  retainAudio?: boolean;
+  provider?: string;
+  model?: string;
+};
+
 export type CaptureLifecycleMarker = {
   version: 1;
   chunkedAudio?: boolean;
@@ -23,10 +34,15 @@ export type CaptureLifecycleMarker = {
   model?: string;
   summaryMode?: "regenerate" | "if_empty";
   refreshSummaryAfterRepair?: boolean;
+  // Earlier captures whose recovery audio still waits for transcription.
+  inheritedCaptures?: InheritedCapture[];
+  // The current capture finished; only inherited audio still needs repair.
+  inheritedOnly?: boolean;
 };
 
 export function saveCaptureLifecycleMarker(
   marker: CaptureLifecycleMarker,
+  replaceTranscriptId?: string,
 ): Promise<void> {
   return enqueueDatabaseWrite(`session:${marker.sessionId}`, async () => {
     const now = new Date().toISOString();
@@ -42,15 +58,16 @@ export function saveCaptureLifecycleMarker(
             AND json_extract(
               app_settings.value_json,
               '$.transcriptId'
-            ) = json_extract(
-              excluded.value_json,
-              '$.transcriptId'
+            ) IN (
+              json_extract(excluded.value_json, '$.transcriptId'),
+              ?
             )
         `,
         params: [
           `${CAPTURE_LIFECYCLE_SETTING_PREFIX}${marker.sessionId}`,
           JSON.stringify(marker),
           now,
+          replaceTranscriptId ?? marker.transcriptId,
         ],
         expectedRowsAffected: 1,
       },
@@ -190,8 +207,57 @@ function parseCaptureLifecycleMarker(
       ...(parsed.refreshSummaryAfterRepair === true
         ? { refreshSummaryAfterRepair: true }
         : {}),
+      ...(parsed.inheritedOnly === true ? { inheritedOnly: true } : {}),
+      ...(Array.isArray(parsed.inheritedCaptures)
+        ? {
+            inheritedCaptures: parsed.inheritedCaptures.flatMap(
+              parseInheritedCapture,
+            ),
+          }
+        : {}),
     };
   } catch {
     return null;
   }
+}
+
+function parseInheritedCapture(value: unknown): InheritedCapture[] {
+  if (typeof value !== "object" || value === null) return [];
+  const capture = value as Record<string, unknown>;
+  if (
+    typeof capture.transcriptId !== "string" ||
+    !capture.transcriptId ||
+    typeof capture.startedAt !== "number" ||
+    !Number.isFinite(capture.startedAt) ||
+    typeof capture.createdAt !== "string" ||
+    typeof capture.ownerUserId !== "string" ||
+    typeof capture.memo !== "string"
+  ) {
+    return [];
+  }
+  return [
+    {
+      transcriptId: capture.transcriptId,
+      startedAt: capture.startedAt,
+      createdAt: capture.createdAt,
+      ownerUserId: capture.ownerUserId,
+      memo: capture.memo,
+      ...(typeof capture.retainAudio === "boolean"
+        ? { retainAudio: capture.retainAudio }
+        : {}),
+      ...(typeof capture.provider === "string"
+        ? { provider: capture.provider }
+        : {}),
+      ...(typeof capture.model === "string" ? { model: capture.model } : {}),
+    },
+  ];
+}
+
+export function hasPendingZeroRetentionAudio(marker: CaptureLifecycleMarker) {
+  return (
+    (marker.chunkedAudio === true && marker.retainAudio === false) ||
+    (marker.inheritedCaptures ?? []).some(
+      (capture) => capture.retainAudio === false,
+    )
+  );
 }

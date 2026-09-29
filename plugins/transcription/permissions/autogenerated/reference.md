@@ -17,6 +17,7 @@ Default permissions for the plugin
 - `allow-get-capture-audio-cleanup-status`
 - `allow-acknowledge-capture-audio-cleanup-status`
 - `allow-acknowledge-capture-audio-chunk`
+- `allow-delete-transcribed-capture-audio`
 - `allow-is-supported-languages-live`
 - `allow-suggest-providers-for-languages-live`
 - `allow-list-documented-language-codes-live`
@@ -147,6 +148,32 @@ Enables the cleanup_expired_voiceprint_candidates command without any pre-config
 <td>
 
 Denies the cleanup_expired_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-delete-transcribed-capture-audio`
+
+</td>
+<td>
+
+Enables the delete_transcribed_capture_audio command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-delete-transcribed-capture-audio`
+
+</td>
+<td>
+
+Denies the delete_transcribed_capture_audio command without any pre-configured scope.
 
 </td>
 </tr>
