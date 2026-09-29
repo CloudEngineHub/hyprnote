@@ -2,6 +2,7 @@ import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 
 export const CAPTURE_LIFECYCLE_SETTING_PREFIX = "capture_lifecycle_pending:";
+export const CAPTURE_AUDIO_SAVED_SETTING_PREFIX = "capture_audio_saved:";
 
 export type InheritedCapture = {
   transcriptId: string;
@@ -99,6 +100,37 @@ export function clearCaptureLifecycleMarker(
           transcriptId,
         ],
         expectedRowsAffected: 1,
+      },
+    ]);
+  });
+}
+
+// A stopped capture whose saved audio waits for the user to create the note
+// or resume listening.
+export function markCaptureAudioSaved(sessionId: string): Promise<void> {
+  return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
+    await executeTransaction([
+      {
+        sql: `
+          INSERT INTO app_settings (id, value_json, updated_at)
+          VALUES (?, '{}', ?)
+          ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
+        `,
+        params: [
+          `${CAPTURE_AUDIO_SAVED_SETTING_PREFIX}${sessionId}`,
+          new Date().toISOString(),
+        ],
+      },
+    ]);
+  });
+}
+
+export function clearCaptureAudioSaved(sessionId: string): Promise<void> {
+  return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
+    await executeTransaction([
+      {
+        sql: "DELETE FROM app_settings WHERE id = ?",
+        params: [`${CAPTURE_AUDIO_SAVED_SETTING_PREFIX}${sessionId}`],
       },
     ]);
   });
@@ -251,6 +283,14 @@ function parseInheritedCapture(value: unknown): InheritedCapture[] {
       ...(typeof capture.model === "string" ? { model: capture.model } : {}),
     },
   ];
+}
+
+export function hasAudioAwaitingUser(marker: CaptureLifecycleMarker) {
+  return (
+    !marker.summaryMode &&
+    (marker.chunkedAudio === true ||
+      (marker.inheritedCaptures ?? []).length > 0)
+  );
 }
 
 export function hasPendingZeroRetentionAudio(marker: CaptureLifecycleMarker) {

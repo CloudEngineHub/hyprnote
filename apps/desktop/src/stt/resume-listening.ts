@@ -1,15 +1,32 @@
 import { useCallback, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { commands as listenerCommands } from "@anlg/plugin-transcription";
 
 import { getAudioDurationMs, useCaptureLifecycle } from "./capture-lifecycle";
 import { useListener } from "./contexts";
 
 import {
+  clearCaptureAudioSaved,
   clearCaptureLifecycleMarker,
+  hasAudioAwaitingUser,
   hasPendingZeroRetentionAudio,
   loadCaptureLifecycleMarker,
+  markCaptureAudioSaved,
 } from "~/stt/capture-lifecycle-storage";
+
+async function isNativelyCapturing(sessionId: string) {
+  try {
+    const result = await listenerCommands.getCaptureSnapshot();
+    return (
+      result.status === "ok" &&
+      (result.data.activeSessionId === sessionId ||
+        result.data.finalizingSessionIds.includes(sessionId))
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function useResumeListeningLifecycle(sessionId: string) {
   const attachLiveSession = useListener((state) => state.attachLiveSession);
@@ -34,7 +51,11 @@ export function useResumeListeningLifecycle(sessionId: string) {
   const ownsRecoveryFinalizationRef = useRef(false);
 
   return useCallback(
-    async (options?: { abandonOnFailure?: boolean }) => {
+    async (options?: {
+      abandonOnFailure?: boolean;
+      // Stopped captures wait for the user unless they asked to process them.
+      processStopped?: boolean;
+    }) => {
       let attempt = recoveryAttemptRef.current;
       if (!attempt || attempt.sessionId !== sessionId) {
         const stoppedProcessingRef = {
@@ -90,7 +111,11 @@ export function useResumeListeningLifecycle(sessionId: string) {
         if (clearMarker) {
           try {
             const marker = await loadCaptureLifecycleMarker(sessionId);
-            if (marker && !hasPendingZeroRetentionAudio(marker)) {
+            if (marker && hasAudioAwaitingUser(marker)) {
+              if (!(await isNativelyCapturing(sessionId))) {
+                await markCaptureAudioSaved(sessionId);
+              }
+            } else if (marker && !hasPendingZeroRetentionAudio(marker)) {
               await clearCaptureLifecycleMarker(sessionId, marker.transcriptId);
             }
           } catch (error) {
@@ -221,10 +246,10 @@ export function useResumeListeningLifecycle(sessionId: string) {
         }
       }
 
-      if (
-        !state.hasMarker() ||
-        !(await loadCaptureLifecycleMarker(sessionId))
-      ) {
+      const pendingMarker = state.hasMarker()
+        ? await loadCaptureLifecycleMarker(sessionId)
+        : null;
+      if (!pendingMarker) {
         if (ownsRecoveryFinalizationRef.current) {
           finishCaptureRecoveryFinalization(sessionId);
           ownsRecoveryFinalizationRef.current = false;
@@ -233,6 +258,23 @@ export function useResumeListeningLifecycle(sessionId: string) {
         return "inactive" as const;
       }
 
+      if (!options?.processStopped && hasAudioAwaitingUser(pendingMarker)) {
+        try {
+          await markCaptureAudioSaved(sessionId);
+        } catch (error) {
+          console.error("[listener] failed to save capture audio state", error);
+          return failRecovery({ clearMarker: false });
+        }
+        try {
+          await state.lifecycle.releaseCloudsyncLease();
+        } catch (error) {
+          console.error("[listener] failed to release capture recovery", error);
+        }
+        if (recoveryAttemptRef.current === attempt) {
+          recoveryAttemptRef.current = null;
+        }
+        return "awaiting_user" as const;
+      }
       if (!ownsRecoveryFinalizationRef.current) {
         if (!beginCaptureRecoveryFinalization(sessionId)) {
           return failRecovery({ clearMarker: false });
@@ -266,6 +308,9 @@ export function useResumeListeningLifecycle(sessionId: string) {
       if (await loadCaptureLifecycleMarker(sessionId)) {
         return failRecovery();
       }
+      await clearCaptureAudioSaved(sessionId).catch((error) => {
+        console.error("[listener] failed to clear capture audio state", error);
+      });
       finishCaptureRecoveryFinalization(sessionId);
       ownsRecoveryFinalizationRef.current = false;
       return "inactive" as const;

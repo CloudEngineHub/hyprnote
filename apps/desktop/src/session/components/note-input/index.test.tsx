@@ -144,6 +144,10 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
+vi.mock("~/stt/saved-capture-audio", () => ({
+  SavedCaptureAudioPrompt: () => null,
+}));
+
 vi.mock("react-hotkeys-hook", () => ({
   useHotkeys: (keys: string, callback: () => void) => {
     hoisted.hotkeys.push({ keys, callback });
