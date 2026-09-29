@@ -7,6 +7,7 @@ import {
   getFloatingTranscriptBubbles,
   haveFloatingRouteInputsChanged,
 } from "./host";
+import { getFloatingLiveCaptionToggleVisible } from "./route-state";
 
 import { createListenerStore } from "~/store/zustand/listener";
 import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/transcript";
@@ -87,6 +88,7 @@ describe("getFloatingRouteState", () => {
       liveCaptionMinimized: true,
       liveCaptionToggleVisible: false,
       transcriptBubbles: [],
+      transcriptNotice: null,
     });
   });
 
@@ -169,72 +171,65 @@ describe("getFloatingRouteState", () => {
     ).toBe(true);
   });
 
-  it("shows reconnecting only during a connection attempt", () => {
-    expect(
-      getFloatingRouteState(
-        createListenerState({
-          status: "active",
-          sessionId: "session-1",
-          loadingPhase: "connecting",
-        }),
-      )?.status,
-    ).toBe("reconnecting");
-    expect(
-      getFloatingRouteState(
-        createListenerState({
-          status: "active",
-          sessionId: "session-1",
-          loadingPhase: "connecting",
-          lastError: "microphone unavailable",
-          lastErrorIsAudioRelated: true,
-        }),
-      )?.status,
-    ).toBe("error");
-  });
-
-  it("keeps recording status while a retryable degradation reconnects on its own", () => {
-    expect(
-      getFloatingRouteState(
-        createListenerState({
-          status: "active",
-          sessionId: "session-1",
-          degraded: { type: "connection_timeout" },
-        }),
-      )?.status,
-    ).toBe("recording");
-  });
-
-  it("returns error status when live transcription needs the user", () => {
-    for (const degraded of [
-      { type: "authentication_failed" as const, provider: "deepgram" },
-      {
-        type: "provider_configuration" as const,
-        provider: "deepgram",
-        message: "invalid model",
-      },
+  it("keeps recording status while connecting or after a capture error", () => {
+    for (const live of [
+      { loadingPhase: "connecting" as const },
+      { lastError: "microphone unavailable", lastErrorIsAudioRelated: true },
     ]) {
       expect(
         getFloatingRouteState(
           createListenerState({
             status: "active",
             sessionId: "session-1",
-            degraded,
+            requestedLiveTranscription: true,
+            liveTranscriptionActive: true,
+            ...live,
           }),
         )?.status,
-      ).toBe("error");
+      ).toBe("recording");
     }
   });
 
-  it("returns error status when the active listener reports an error", () => {
+  it("keeps recording status and adds a quiet notice when live transcription is interrupted", () => {
+    for (const live of [
+      { degraded: { type: "connection_timeout" as const } },
+      {
+        degraded: {
+          type: "authentication_failed" as const,
+          provider: "deepgram",
+        },
+      },
+      { liveTranscriptionActive: false },
+      { transcriptionStalled: true },
+    ]) {
+      expect(
+        getFloatingRouteState(
+          createListenerState({
+            status: "active",
+            sessionId: "session-1",
+            requestedLiveTranscription: true,
+            liveTranscriptionActive: true,
+            ...live,
+          }),
+        ),
+      ).toMatchObject({
+        status: "recording",
+        transcriptNotice: expect.stringMatching(/^Live transcript paused/),
+      });
+    }
+  });
+
+  it("does not report an interruption for batch-only sessions", () => {
     expect(
       getFloatingRouteState(
         createListenerState({
           status: "active",
           sessionId: "session-1",
-          lastError: "microphone unavailable",
+          requestedLiveTranscription: false,
+          liveTranscriptionActive: false,
         }),
       )?.status,
-    ).toBe("error");
+    ).toBe("recording");
   });
 
   it("hides the floating route while the session is finalizing", () => {
@@ -557,6 +552,35 @@ describe("getFloatingTranscriptBubbles", () => {
 });
 
 describe("floating route refresh", () => {
+  it("keeps the caption toggle while live transcription is interrupted", () => {
+    const state = createListenerState({
+      status: "active",
+      sessionId: "session-1",
+    });
+    expect(
+      getFloatingLiveCaptionToggleVisible({
+        ...state,
+        live: {
+          ...state.live,
+          requestedLiveTranscription: true,
+          liveTranscriptionActive: false,
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("refreshes when the transcription stall watchdog trips", () => {
+    const previous = createListenerState({
+      status: "active",
+      sessionId: "session-1",
+    });
+    const stalled = {
+      ...previous,
+      live: { ...previous.live, transcriptionStalled: true },
+    };
+    expect(haveFloatingRouteInputsChanged(stalled, previous)).toBe(true);
+  });
+
   it("refreshes when retry state changes without new audio", () => {
     const previous = createListenerState({
       status: "active",

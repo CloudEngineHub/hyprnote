@@ -183,6 +183,7 @@ export async function showFloatingMeetingWindow(
         transcriptBubbles: shouldSendTranscript
           ? routeState.transcriptBubbles
           : null,
+        transcriptNotice: routeState.transcriptNotice ?? null,
       });
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
@@ -237,7 +238,8 @@ function isAmplitudeOnlyFloatingRouteUpdate(
     previousState.liveCaptionMinimized === nextState.liveCaptionMinimized &&
     previousState.liveCaptionToggleVisible ===
       nextState.liveCaptionToggleVisible &&
-    previousState.transcriptBubbles === nextState.transcriptBubbles
+    previousState.transcriptBubbles === nextState.transcriptBubbles &&
+    previousState.transcriptNotice === nextState.transcriptNotice
   );
 }
 

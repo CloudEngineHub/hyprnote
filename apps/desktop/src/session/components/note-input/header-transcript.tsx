@@ -87,7 +87,6 @@ function HeaderViewTranscriptButton({
   pressed?: boolean;
   live?: {
     amplitude: number;
-    degraded: boolean;
     muted: boolean;
   };
 }) {
@@ -120,15 +119,10 @@ function HeaderViewTranscriptButton({
                 ? "w-[98px] min-w-[98px] gap-1.5 px-2 @max-[480px]:w-10 @max-[480px]:min-w-10 @max-[480px]:gap-0"
                 : null,
               isActive
-                ? live.degraded
-                  ? [
-                      "bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-600",
-                      "dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-950 dark:hover:text-amber-200",
-                    ]
-                  : [
-                      "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600",
-                      "dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-200",
-                    ]
+                ? [
+                    "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600",
+                    "dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-200",
+                  ]
                 : null,
             ]
           : null,
@@ -142,12 +136,9 @@ function HeaderViewTranscriptLiveIcon({
 }: {
   live: {
     amplitude: number;
-    degraded: boolean;
     muted: boolean;
   };
 }) {
-  const color = live.degraded ? "#f59e0b" : "#ef4444";
-
   return (
     <span className="relative flex size-4 items-center justify-center">
       {live.muted ? (
@@ -155,7 +146,7 @@ function HeaderViewTranscriptLiveIcon({
       ) : (
         <DancingSticks
           amplitude={live.amplitude}
-          color={color}
+          color="#ef4444"
           height={16}
           width={16}
         />
@@ -165,11 +156,10 @@ function HeaderViewTranscriptLiveIcon({
 }
 
 function useTranscriptLiveViewState(sessionId: string) {
-  const { amplitude, degraded, mode, muted } = useListener((state) => {
+  const { amplitude, mode, muted } = useListener((state) => {
     const mode = state.getSessionMode(sessionId);
     return {
       amplitude: state.live.amplitude,
-      degraded: state.live.degraded,
       mode,
       muted: state.live.muted,
     };
@@ -182,7 +172,6 @@ function useTranscriptLiveViewState(sessionId: string) {
               Math.hypot(amplitude.mic, amplitude.speaker),
               1,
             ),
-            degraded: Boolean(degraded),
             muted,
           }
         : undefined,
@@ -206,7 +195,6 @@ function HeaderViewTranscriptActive({
   sessionId: string;
   live?: {
     amplitude: number;
-    degraded: boolean;
     muted: boolean;
   };
 }) {

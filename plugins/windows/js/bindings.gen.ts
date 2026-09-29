@@ -425,6 +425,7 @@ export type FloatingBarState = {
   liveCaptionMinimized: boolean;
   liveCaptionToggleVisible: boolean;
   transcriptBubbles?: FloatingTranscriptBubble[] | null;
+  transcriptNotice?: string | null;
   layout?: FloatingBarOverlayLayout | null;
   sessionId?: string | null;
 };

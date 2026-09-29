@@ -90,6 +90,7 @@ vi.mock("~/settings/queries", () => ({
   })),
   setSettingValue: mocks.setSettingValue,
   useSetSettingValues: () => mocks.setSettingValues,
+  useStoredSettingValue: () => ({ value: undefined, hasValue: false }),
 }));
 
 vi.mock("~/shared/config", () => ({

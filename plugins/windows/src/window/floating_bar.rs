@@ -69,6 +69,8 @@ pub struct FloatingBarState {
     pub live_caption_toggle_visible: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transcript_bubbles: Option<Vec<FloatingTranscriptBubble>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript_notice: Option<String>,
     #[serde(default)]
     pub layout: Option<FloatingBarOverlayLayout>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -371,6 +373,9 @@ mod cross_platform {
         // Publish inside the marshal so update/show publishes stay serialized in
         // main-thread task order; publish_state itself is cheap (a lock and an emit).
         run_on_main_thread(app, move || {
+            if state.transcript_bubbles.is_none() {
+                state.transcript_bubbles = current_state().and_then(|last| last.transcript_bubbles);
+            }
             if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
                 state.layout = Some(apply_layout(&window, Some(&state), false)?);
             }

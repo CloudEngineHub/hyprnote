@@ -45,6 +45,7 @@ import {
   getStoredSettingValues,
   setSettingValue,
   useSetSettingValues,
+  useStoredSettingValue,
 } from "~/settings/queries";
 import { useConfigValue, useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
@@ -64,6 +65,7 @@ export function FloatingMeetingWindowHost() {
   const storedSettings = useConfigValues(FLOATING_OVERLAY_SETTING_KEYS);
   const overlaySettings = getFloatingOverlaySettings(storedSettings);
   const floatingOverlaySupported = isFloatingBarSupported();
+  const sttProvider = useStoredSettingValue("current_stt_provider").value;
 
   return (
     <>
@@ -77,6 +79,7 @@ export function FloatingMeetingWindowHost() {
         <FloatingMeetingWindowSync
           settings={overlaySettings}
           enabled={floatingBarEnabled}
+          sttProvider={sttProvider ?? null}
         />
       ) : (
         <FloatingMeetingWindowDisabled />
@@ -174,11 +177,14 @@ function LiveCaptionWindowDisabled() {
 function FloatingMeetingWindowSync({
   settings,
   enabled,
+  sttProvider,
 }: {
   settings: FloatingOverlaySettings;
   enabled: boolean;
+  sttProvider: string | null;
 }) {
   const settingsRef = useLatestRef(settings);
+  const sttProviderRef = useLatestRef(sttProvider);
   const enabledRef = useLatestRef(enabled);
   const refreshSettingsRef = useRef<() => void>(() => {});
 
@@ -231,6 +237,7 @@ function FloatingMeetingWindowSync({
                 meetingData,
                 transcriptBubbles,
                 speakerLabeler.labels,
+                sttProviderRef.current,
               )
             : null,
       );
@@ -341,6 +348,9 @@ function FloatingMeetingWindowSync({
     const unsubscribeAppliedTheme = subscribeToAppliedTheme(() => {
       refreshCurrentRouteState();
     });
+    const handleConnectivityChange = () => refreshCurrentRouteState();
+    window.addEventListener("online", handleConnectivityChange);
+    window.addEventListener("offline", handleConnectivityChange);
 
     return () => {
       cancelled = true;
@@ -349,6 +359,8 @@ function FloatingMeetingWindowSync({
       unsubscribe();
       unsubscribeDictation();
       unsubscribeAppliedTheme();
+      window.removeEventListener("online", handleConnectivityChange);
+      window.removeEventListener("offline", handleConnectivityChange);
       void unsubscribeMeetingData?.();
       unlisteners.forEach((unlisten) => unlisten());
       void windowSynchronizer.dispose();
@@ -357,7 +369,7 @@ function FloatingMeetingWindowSync({
 
   return (
     <FloatingMeetingWindowSettingsSync
-      key={JSON.stringify([settings, enabled])}
+      key={JSON.stringify([settings, enabled, sttProvider])}
       onSettingsChange={() => refreshSettingsRef.current()}
     />
   );
@@ -380,8 +392,10 @@ function getCurrentFloatingRouteState(
   meetingData?: MeetingFloatData,
   transcriptBubbles?: FloatingRouteState["transcriptBubbles"],
   speakerLabels?: FloatingSpeakerLabels,
+  sttProvider?: string | null,
 ): FloatingRouteState | null {
   return getFloatingRouteState(state, {
+    sttProvider,
     sessionId,
     colorScheme: getCurrentFloatingBarColorScheme(),
     settings,
@@ -405,10 +419,14 @@ export function haveFloatingRouteInputsChanged(
       previousState.live.lastErrorIsAudioRelated ||
     state.live.amplitude.mic !== previousState.live.amplitude.mic ||
     state.live.amplitude.speaker !== previousState.live.amplitude.speaker ||
-    state.live.degraded?.type !== previousState.live.degraded?.type ||
+    state.live.degraded !== previousState.live.degraded ||
     Boolean(state.live.lastError) !== Boolean(previousState.live.lastError) ||
     state.live.liveTranscriptionActive !==
       previousState.live.liveTranscriptionActive ||
+    state.live.requestedLiveTranscription !==
+      previousState.live.requestedLiveTranscription ||
+    state.live.transcriptionStalled !==
+      previousState.live.transcriptionStalled ||
     state.liveSegments !== previousState.liveSegments
   );
 }

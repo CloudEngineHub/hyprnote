@@ -5,6 +5,7 @@ import { useRegenerateTranscript } from "./actions";
 import { TranscriptViewer } from "./renderer";
 import { BatchState } from "./screens/batch";
 import { TranscriptEmptyState } from "./screens/empty";
+import { LiveTranscriptInterruptedNotice } from "./screens/interrupted";
 import { TranscriptListeningState } from "./screens/listening";
 import { useTranscriptScreen } from "./state";
 
@@ -88,7 +89,6 @@ function TranscriptContent({
       {screen.kind === "batch_fallback" && (
         <BatchState
           requestedLiveTranscription={screen.requestedLiveTranscription}
-          error={screen.error}
         />
       )}
       {screen.kind === "listening" && (
@@ -113,6 +113,11 @@ function TranscriptContent({
           scrollRef={scrollRef}
           editMode={editMode && !screen.currentActive}
           onEditModeChange={screen.currentActive ? undefined : onEditModeChange}
+          footer={
+            screen.liveTranscriptInterrupted ? (
+              <LiveTranscriptInterruptedNotice />
+            ) : null
+          }
         />
       )}
     </div>

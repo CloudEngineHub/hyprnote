@@ -418,6 +418,22 @@ export const getLiveCaptureUiMode = (
   return "live";
 };
 
+export const isLiveTranscriptInterrupted = (
+  live: Pick<
+    LiveState,
+    | "status"
+    | "requestedLiveTranscription"
+    | "liveTranscriptionActive"
+    | "degraded"
+    | "transcriptionStalled"
+  >,
+) =>
+  live.status === "active" &&
+  live.requestedLiveTranscription === true &&
+  (live.liveTranscriptionActive === false ||
+    live.degraded !== null ||
+    live.transcriptionStalled);
+
 export const isBatchTranscriptionPending = (
   sessionMode: SessionMode,
   live: Pick<
