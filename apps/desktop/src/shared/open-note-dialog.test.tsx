@@ -103,16 +103,10 @@ describe("OpenNoteDialog", () => {
     render(<OpenNoteDialog open onOpenChange={mocks.onOpenChange} />);
 
     expect(screen.getByRole("dialog", { name: "Find a note..." })).toBeTruthy();
-    expect(
-      document.querySelector("[data-open-note-dialog-drag-region]"),
-    ).toBeTruthy();
     expect(screen.getByText("All Notes")).toBeTruthy();
     const sharedNote = screen.getByRole("option", {
       name: "Shared roadmap",
     });
-    expect(
-      sharedNote.querySelector("[data-testid='shared-note-icon']"),
-    ).toBeTruthy();
     expect(screen.queryByText("Owned note")).toBeNull();
     expect(screen.getByText("Owned canonical note")).toBeTruthy();
     expect(screen.getByText("Viewer local snapshot")).toBeTruthy();

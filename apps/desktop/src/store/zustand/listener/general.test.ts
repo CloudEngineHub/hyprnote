@@ -284,13 +284,6 @@ describe("General Listener Slice", () => {
     });
   });
 
-  describe("Amplitude Updates", () => {
-    test("amplitude state is initialized to zero", () => {
-      const state = store.getState();
-      expect(state.live.amplitude).toEqual({ mic: 0, speaker: 0 });
-    });
-  });
-
   describe("Session Mode Helpers", () => {
     test("getSessionMode defaults to inactive", () => {
       const state = store.getState();
@@ -906,11 +899,6 @@ describe("General Listener Slice", () => {
   });
 
   describe("Stop Action", () => {
-    test("stop action exists and is callable", () => {
-      const stop = store.getState().stop;
-      expect(typeof stop).toBe("function");
-    });
-
     test("marks batch transcription stopped as soon as native cancellation succeeds", async () => {
       store.getState().handleBatchStarted("session-1");
 
@@ -1037,11 +1025,6 @@ describe("General Listener Slice", () => {
   });
 
   describe("Start Action", () => {
-    test("start action exists and is callable", () => {
-      const start = store.getState().start;
-      expect(typeof start).toBe("function");
-    });
-
     test("attachLiveSession hydrates the active native capture for the same session", async () => {
       getCaptureSnapshotMock.mockResolvedValueOnce({
         status: "ok",

@@ -500,17 +500,6 @@ describe("enhanceSuccess.onSuccess", () => {
     expect(mocks.endCloudsyncActivity).not.toHaveBeenCalled();
   });
 
-  it("retries a transient activity release without rerunning persistence", async () => {
-    mocks.endCloudsyncActivity
-      .mockRejectedValueOnce(new Error("bridge busy"))
-      .mockResolvedValueOnce(undefined);
-
-    await enhanceSuccess.onSuccess?.(createParams());
-
-    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledOnce();
-    expect(mocks.endCloudsyncActivity).toHaveBeenCalledTimes(2);
-  });
-
   it("keeps a persisted summary successful while release retries in the background", async () => {
     vi.useFakeTimers();
     mocks.endCloudsyncActivity

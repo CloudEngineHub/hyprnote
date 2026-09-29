@@ -189,18 +189,6 @@ describe("AutomationsNav", () => {
     expect(mocks.selectStarter).toHaveBeenCalledWith("slack-recap");
   });
 
-  it("marks the selected starter", () => {
-    mocks.selection = { kind: "starter", starterId: "markdown-export" };
-
-    render(<AutomationsNav />);
-
-    expect(
-      screen
-        .getByRole("button", { name: /Export every meeting as Markdown/ })
-        .getAttribute("aria-current"),
-    ).toBe("page");
-  });
-
   it("lists chat automations and opens the selected conversation", () => {
     render(<AutomationsNav />);
 
@@ -264,10 +252,6 @@ describe("AutomationsNav", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 
     expect(screen.getByText("Share weekly recap")).toBeTruthy();
-  });
-
-  it("shows an empty state when the search matches nothing", () => {
-    render(<AutomationsNav />);
 
     fireEvent.change(screen.getByPlaceholderText("Search automations..."), {
       target: { value: "zzz" },

@@ -189,72 +189,34 @@ vi.mock("~/store/zustand/listener/general-batch", () => ({
 }));
 
 describe("getBatchProvider", () => {
-  test("maps pyannote to the batch transcription provider", () => {
-    expect(getBatchProvider("pyannote", "parakeet-tdt-0.6b-v3")).toBe(
-      "pyannote",
-    );
-  });
-
-  test("keeps openai mapped to the batch transcription provider", () => {
-    expect(getBatchProvider("openai", "gpt-4o-transcribe")).toBe("openai");
-  });
-
-  test("keeps cartesia mapped to the batch transcription provider", () => {
-    expect(getBatchProvider("cartesia", "ink-2")).toBe("cartesia");
-  });
-
-  test("maps Cohere to the batch transcription provider", () => {
-    expect(getBatchProvider("cohere", "cohere-transcribe-03-2026")).toBe(
-      "cohere",
-    );
-  });
-
-  test("maps Mistral to the batch transcription provider", () => {
-    expect(getBatchProvider("mistral", "voxtral-mini-2602")).toBe("mistral");
-  });
-
   test.each([
-    ["aws_transcribe", "amazon-transcribe"],
-    ["azure_speech", "fast-transcription"],
-    ["google_cloud", "latest_long"],
-    ["google_generative_ai", "gemini-3.5-transcribe"],
-    ["groq", "whisper-large-v3-turbo"],
-    ["openrouter", "openai/gpt-4o-mini-transcribe"],
-    ["siliconflow", "FunAudioLLM/SenseVoiceSmall"],
-    ["zai", "glm-asr-2512"],
-    ["revai", "machine"],
-    ["speechmatics", "enhanced"],
-    ["together", "openai/whisper-large-v3"],
-    ["xai", "xai-stt"],
-    ["smallestai", "pulse"],
-    ["meta", "muse-voice-transcribe-1.0"],
-  ] as const)("maps %s to its direct batch provider", (provider, model) => {
-    expect(getBatchProvider(provider, model)).toBe(provider);
-  });
-
-  test("maps Cloudflare Workers AI to the Deepgram-compatible batch provider", () => {
-    expect(getBatchProvider("cloudflare_workers_ai", "nova-3")).toBe(
-      "deepgram",
-    );
-  });
-
-  test("maps custom endpoints to the Deepgram-compatible batch provider", () => {
-    expect(getBatchProvider("custom", "nova-3")).toBe("deepgram");
-  });
-
-  test("maps local soniqo models to soniqo batch provider", () => {
-    expect(getBatchProvider("anarlog", "soniqo-parakeet-batch")).toBe("soniqo");
-    expect(getBatchProvider("soniqo", "soniqo-parakeet-batch")).toBe("soniqo");
-  });
-
-  test("maps Apple Speech to its batch runtime provider", () => {
-    expect(getBatchProvider("apple_speech", "apple-speech")).toBe(
-      "applespeech",
-    );
-  });
-
-  test("maps local model files to whisper.cpp", () => {
-    expect(getBatchProvider("local_file", "local-file")).toBe("whispercpp");
+    ["pyannote", "parakeet-tdt-0.6b-v3", "pyannote"],
+    ["openai", "gpt-4o-transcribe", "openai"],
+    ["cartesia", "ink-2", "cartesia"],
+    ["cohere", "cohere-transcribe-03-2026", "cohere"],
+    ["mistral", "voxtral-mini-2602", "mistral"],
+    ["aws_transcribe", "amazon-transcribe", "aws_transcribe"],
+    ["azure_speech", "fast-transcription", "azure_speech"],
+    ["google_cloud", "latest_long", "google_cloud"],
+    ["google_generative_ai", "gemini-3.5-transcribe", "google_generative_ai"],
+    ["groq", "whisper-large-v3-turbo", "groq"],
+    ["openrouter", "openai/gpt-4o-mini-transcribe", "openrouter"],
+    ["siliconflow", "FunAudioLLM/SenseVoiceSmall", "siliconflow"],
+    ["zai", "glm-asr-2512", "zai"],
+    ["revai", "machine", "revai"],
+    ["speechmatics", "enhanced", "speechmatics"],
+    ["together", "openai/whisper-large-v3", "together"],
+    ["xai", "xai-stt", "xai"],
+    ["smallestai", "pulse", "smallestai"],
+    ["meta", "muse-voice-transcribe-1.0", "meta"],
+    ["cloudflare_workers_ai", "nova-3", "deepgram"],
+    ["custom", "nova-3", "deepgram"],
+    ["anarlog", "soniqo-parakeet-batch", "soniqo"],
+    ["soniqo", "soniqo-parakeet-batch", "soniqo"],
+    ["apple_speech", "apple-speech", "applespeech"],
+    ["local_file", "local-file", "whispercpp"],
+  ] as const)("maps %s/%s to %s", (provider, model, expected) => {
+    expect(getBatchProvider(provider, model)).toBe(expected);
   });
 });
 
@@ -337,32 +299,24 @@ describe("getBatchFallbackTarget", () => {
     });
   });
 
-  test.each(["windows", "linux"] as const)(
-    "does not use local Soniqo on %s",
-    (currentPlatform) => {
+  test.each([
+    { currentPlatform: "windows" as const, currentArch: "x86_64" as const },
+    { currentPlatform: "linux" as const, currentArch: "x86_64" as const },
+    { currentPlatform: "macos" as const, currentArch: "x86_64" as const },
+  ])(
+    "does not use local Soniqo on $currentPlatform/$currentArch",
+    ({ currentPlatform, currentArch }) => {
       expect(
         getBatchFallbackTarget({
           isPaid: false,
           accessToken: null,
           apiBaseUrl: "https://api.test",
           currentPlatform,
-          currentArch: "x86_64",
+          currentArch,
         }),
       ).toBeNull();
     },
   );
-
-  test("does not use local Soniqo on Intel macOS", () => {
-    expect(
-      getBatchFallbackTarget({
-        isPaid: false,
-        accessToken: null,
-        apiBaseUrl: "https://api.test",
-        currentPlatform: "macos",
-        currentArch: "x86_64",
-      }),
-    ).toBeNull();
-  });
 });
 
 describe("reconcileRefinedSpeakerClusters", () => {
@@ -560,63 +514,78 @@ describe("reconcileRefinedSpeakerClusters", () => {
     },
   );
 
-  test("does not carry a name to a reused index without overlapping evidence", () => {
-    const source = word("old-a", 0, 100);
-    const next = word("new-a", 200, 300);
-    expect(
-      refineAssignments(
-        [source],
-        [provider(source, 0), fullSpeaker()],
-        [next],
-        [provider(next, 0)],
-      ),
-    ).toEqual([]);
-  });
-
-  test("does not name an ambiguous cluster that reused an assigned index", () => {
-    const sources = [word("old-a", 0, 100), word("old-b", 100, 200)];
-    const next = word("new-ab", 0, 200);
-    expect(
-      refineAssignments(
-        sources,
-        [provider(sources[0], 0), provider(sources[1], 1), fullSpeaker()],
-        [next],
-        [provider(next, 0)],
-      ),
-    ).toEqual([]);
-  });
-
-  test("does not infer names from simultaneous mic and remote speech after downmixing", () => {
-    const sources = [word("old-a", 0, 100), word("mic", 0, 100, 0)];
-    const next = word("mixed", 0, 100, 2);
-    expect(
-      refineAssignments(
-        sources,
-        [provider(sources[0], 0), provider(sources[1], 0), fullSpeaker()],
-        [next],
-        [provider(next, 0)],
-      ),
-    ).toEqual([]);
-  });
-
-  test("keeps stereo channels separate when simultaneous words remain separate", () => {
-    const sources = [word("old-a", 0, 100), word("mic", 0, 100, 0)];
-    const next = word("remote", 0, 100);
-    expect(
-      refineAssignments(
-        sources,
-        [provider(sources[0], 0), provider(sources[1], 0), fullSpeaker()],
-        [next],
-        [provider(next, 0)],
-      ),
-    ).toEqual([
-      {
-        word_id: "remote",
-        human_id: "alice",
-        scope: "segment",
-        word_ids: ["remote"],
+  test.each([
+    {
+      name: "a reused index without overlapping evidence",
+      run: () => {
+        const source = word("old-a", 0, 100);
+        const next = word("new-a", 200, 300);
+        return refineAssignments(
+          [source],
+          [provider(source, 0), fullSpeaker()],
+          [next],
+          [provider(next, 0)],
+        );
       },
-    ]);
+    },
+    {
+      name: "an ambiguous cluster that reused an assigned index",
+      run: () => {
+        const sources = [word("old-a", 0, 100), word("old-b", 100, 200)];
+        const next = word("new-ab", 0, 200);
+        return refineAssignments(
+          sources,
+          [provider(sources[0], 0), provider(sources[1], 1), fullSpeaker()],
+          [next],
+          [provider(next, 0)],
+        );
+      },
+    },
+    {
+      name: "a manual name without substantial timing coverage",
+      run: () => {
+        const source = word("old-a", 0, 100);
+        const next = word("new-a", 0, 1_000);
+        return refineAssignments(
+          [source],
+          [provider(source, 0), fullSpeaker()],
+          [next],
+          [provider(next, 0)],
+        );
+      },
+    },
+  ])("does not carry a name to $name", ({ run }) => {
+    expect(run()).toEqual([]);
+  });
+
+  test.each([
+    {
+      name: "does not infer names from simultaneous mic and remote speech after downmixing",
+      next: word("mixed", 0, 100, 2),
+      expected: [],
+    },
+    {
+      name: "keeps stereo channels separate when simultaneous words remain separate",
+      next: word("remote", 0, 100),
+      expected: [
+        {
+          word_id: "remote",
+          human_id: "alice",
+          scope: "segment",
+          word_ids: ["remote"],
+        },
+      ],
+    },
+  ])("$name", ({ next, expected }) => {
+    const sources = [word("old-a", 0, 100), word("mic", 0, 100, 0)];
+    expect(
+      refineAssignments(
+        sources,
+        [provider(sources[0], 0), provider(sources[1], 0), fullSpeaker()],
+        [next],
+        [provider(next, 0)],
+      ),
+    ).toEqual(expected);
   });
 
   test("remaps a segment override to replacement word IDs without extending it", () => {
@@ -672,19 +641,6 @@ describe("reconcileRefinedSpeakerClusters", () => {
         word_ids: ["new-b"],
       },
     ]);
-  });
-
-  test("requires substantial timing coverage before carrying a manual name", () => {
-    const source = word("old-a", 0, 100);
-    const next = word("new-a", 0, 1_000);
-    expect(
-      refineAssignments(
-        [source],
-        [provider(source, 0), fullSpeaker()],
-        [next],
-        [provider(next, 0)],
-      ),
-    ).toEqual([]);
   });
 
   test("does not treat a legacy mixed-channel hint as one identified person", () => {
@@ -874,34 +830,40 @@ describe("useRunBatch", () => {
     );
   });
 
-  test("does not start a dictation transcription after cancellation", async () => {
-    const abort = new AbortController();
-    abort.abort();
-    const { result } = renderHook(() => useRunBatch("dictation"));
-    await expect(
-      result.current("/tmp/voice.wav", { signal: abort.signal }),
-    ).rejects.toMatchObject({ name: "AbortError" });
-    expect(startTranscriptionMock).not.toHaveBeenCalled();
-  });
-
-  test("stops after cancelled auth preflight without starting transcription", async () => {
-    const abort = new AbortController();
-    useBillingAccessMock.mockReturnValue({ isPaid: true });
-    let finish!: (value: null) => void;
-    getSessionForRequestMock.mockReturnValueOnce(
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
-    );
-    const { result } = renderHook(() => useRunBatch("dictation"));
-    const run = result.current("/tmp/voice.wav", { signal: abort.signal });
-    const rejected = expect(run).rejects.toMatchObject({ name: "AbortError" });
-    await waitFor(() => expect(getSessionForRequestMock).toHaveBeenCalled());
-    abort.abort();
-    finish(null);
-    await rejected;
-    expect(startTranscriptionMock).not.toHaveBeenCalled();
-  });
+  test.each([
+    { name: "a pre-aborted signal", cancelsDuringAuthPreflight: false },
+    { name: "a cancelled auth preflight", cancelsDuringAuthPreflight: true },
+  ])(
+    "does not start a dictation transcription after $name",
+    async ({ cancelsDuringAuthPreflight }) => {
+      const abort = new AbortController();
+      let finish: ((value: null) => void) | undefined;
+      if (cancelsDuringAuthPreflight) {
+        useBillingAccessMock.mockReturnValue({ isPaid: true });
+        getSessionForRequestMock.mockReturnValueOnce(
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+        );
+      } else {
+        abort.abort();
+      }
+      const { result } = renderHook(() => useRunBatch("dictation"));
+      const run = result.current("/tmp/voice.wav", { signal: abort.signal });
+      const rejected = expect(run).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      if (cancelsDuringAuthPreflight) {
+        await waitFor(() =>
+          expect(getSessionForRequestMock).toHaveBeenCalled(),
+        );
+        abort.abort();
+        finish?.(null);
+      }
+      await rejected;
+      expect(startTranscriptionMock).not.toHaveBeenCalled();
+    },
+  );
 
   test("cancels the active provider and never retries authentication after abort", async () => {
     const abort = new AbortController();
@@ -1637,35 +1599,6 @@ describe("useRunBatch", () => {
     expect(notifyBatchCompletedMock).not.toHaveBeenCalled();
   });
 
-  test("uses custom Deepgram-compatible endpoints for batch transcription", async () => {
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "custom",
-        model: "realtime-only",
-        baseUrl: "https://custom.test",
-        apiKey: "custom-key",
-      },
-    });
-    startTranscriptionMock.mockResolvedValue(undefined);
-
-    const { result } = renderHook(() => useRunBatch("session-1"));
-
-    await act(async () => {
-      await result.current("/tmp/session.wav");
-    });
-
-    expect(startTranscriptionMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        provider: "deepgram",
-        model: "realtime-only",
-        base_url: "https://custom.test",
-        api_key: "custom-key",
-      }),
-      expect.any(Object),
-    );
-    expect(toastWarningMock).not.toHaveBeenCalled();
-  });
-
   test.each(["windows", "linux"] as const)(
     "reports a language mismatch instead of a platform gap when Mistral is configured on %s",
     async (currentPlatform) => {
@@ -1695,7 +1628,7 @@ describe("useRunBatch", () => {
     },
   );
 
-  test.each(["windows", "linux"] as const)(
+  test.each(["windows", "linux", "macos"] as const)(
     "uses custom Deepgram-compatible batch endpoints on %s",
     async (currentPlatform) => {
       platformMock.mockReturnValue(currentPlatform);
@@ -1727,33 +1660,12 @@ describe("useRunBatch", () => {
     },
   );
 
-  test("does not invoke Soniqo as a selected target or fallback on Intel macOS", async () => {
+  test.each([
+    { isPaid: false, name: "rejects Soniqo for unpaid users" },
+    { isPaid: true, name: "falls back to cloud for paid users" },
+  ])("never invokes Soniqo on Intel macOS: $name", async ({ isPaid }) => {
     archMock.mockReturnValue("x86_64");
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "anarlog",
-        model: "soniqo-parakeet-batch",
-        baseUrl: "soniqo://local",
-        apiKey: "",
-      },
-    });
-
-    const { result } = renderHook(() => useRunBatch("session-1"));
-
-    await expect(
-      act(async () => {
-        await result.current("/tmp/session.wav");
-      }),
-    ).rejects.toThrow(
-      "soniqo-parakeet-batch is not available for batch transcription on this platform",
-    );
-
-    expect(startTranscriptionMock).not.toHaveBeenCalled();
-  });
-
-  test("falls back from local Soniqo to cloud for paid Intel Mac users", async () => {
-    archMock.mockReturnValue("x86_64");
-    useBillingAccessMock.mockReturnValue({ isPaid: true });
+    useBillingAccessMock.mockReturnValue({ isPaid });
     useSTTConnectionMock.mockReturnValue({
       conn: {
         provider: "anarlog",
@@ -1765,6 +1677,18 @@ describe("useRunBatch", () => {
     startTranscriptionMock.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useRunBatch("session-1"));
+
+    if (!isPaid) {
+      await expect(
+        act(async () => {
+          await result.current("/tmp/session.wav");
+        }),
+      ).rejects.toThrow(
+        "soniqo-parakeet-batch is not available for batch transcription on this platform",
+      );
+      expect(startTranscriptionMock).not.toHaveBeenCalled();
+      return;
+    }
 
     await act(async () => {
       await result.current("/tmp/session.wav");

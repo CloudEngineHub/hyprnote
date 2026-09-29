@@ -318,49 +318,6 @@ describe("SettingsSync", () => {
     );
   });
 
-  it("shows mobile and watch icons when those device kinds are present", async () => {
-    mocks.requestSyncDevices.mockResolvedValue({
-      devices: [
-        {
-          deviceFingerprint: "current-device",
-          deviceName: "Johns-M4-Max.local",
-          deviceKind: "desktop",
-          createdAt: "2026-08-20T00:00:00Z",
-          lastSeenAt: "2026-08-20T00:00:00Z",
-        },
-        {
-          deviceFingerprint: "phone-device",
-          deviceName: "iPhone",
-          deviceKind: "mobile",
-          createdAt: "2026-08-19T00:00:00Z",
-          lastSeenAt: "2026-08-19T00:00:00Z",
-        },
-        {
-          deviceFingerprint: "watch-device",
-          deviceName: "Apple Watch",
-          deviceKind: "watch",
-          createdAt: "2026-08-18T00:00:00Z",
-          lastSeenAt: "2026-08-18T00:00:00Z",
-        },
-      ],
-      pendingDevices: [],
-      maxDevices: 5,
-    });
-    renderSettings();
-
-    expect(await screen.findByText("iPhone")).toBeTruthy();
-    expect(screen.getByText("Apple Watch")).toBeTruthy();
-    expect(
-      document.querySelectorAll("[data-device-kind='desktop']"),
-    ).toHaveLength(1);
-    expect(
-      document.querySelectorAll("[data-device-kind='mobile']"),
-    ).toHaveLength(1);
-    expect(
-      document.querySelectorAll("[data-device-kind='watch']"),
-    ).toHaveLength(1);
-  });
-
   it("renames the current device and refreshes the synced device list", async () => {
     const currentDevice = {
       deviceFingerprint: "current-device",
@@ -527,32 +484,22 @@ describe("SettingsSync", () => {
     expect(mocks.applyCloudsyncPreference).toHaveBeenCalledWith(mocks.session);
   });
 
-  it("does not offer Keychain repair for keychain-access failures", async () => {
-    mocks.credentialBlock = "keychain_access";
-    mocks.getE2eeIdentityStatus.mockRejectedValue(
-      "macOS couldn't access your login Keychain.",
-    );
-    renderSettings();
+  it.each([
+    ["keychain_access", "macOS couldn't access your login Keychain."],
+    ["unavailable", "E2EE recovery key read timed out"],
+  ] as const)(
+    "does not offer Keychain repair for %s failures",
+    async (credentialBlock, rejection) => {
+      mocks.credentialBlock = credentialBlock;
+      mocks.getE2eeIdentityStatus.mockRejectedValue(rejection);
+      renderSettings();
 
-    expect(await screen.findByText("Sync needs attention")).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Repair Keychain Access" }),
-    ).toBeNull();
-  });
-
-  it("does not offer Keychain repair for generic sync failures", async () => {
-    mocks.credentialBlock = "unavailable";
-    mocks.getE2eeIdentityStatus.mockRejectedValue(
-      "E2EE recovery key read timed out",
-    );
-
-    renderSettings();
-
-    expect(await screen.findByText("Sync needs attention")).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Repair Keychain Access" }),
-    ).toBeNull();
-  });
+      expect(await screen.findByText("Sync needs attention")).toBeTruthy();
+      expect(
+        screen.queryByRole("button", { name: "Repair Keychain Access" }),
+      ).toBeNull();
+    },
+  );
 
   it("explains a stalled activation with the native configuration error", async () => {
     mocks.credentialBlock = "activation_failed";

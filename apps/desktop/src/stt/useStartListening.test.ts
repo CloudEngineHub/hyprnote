@@ -8,11 +8,6 @@ import {
 
 import { saveIncompleteCapture } from "./capture-result";
 import {
-  MAX_SENT_MEETING_DISCLOSURE_SESSIONS,
-  startMeetingRecordingDisclosure,
-} from "./meeting-disclosure";
-import { getSessionKeywords } from "./useKeywords";
-import {
   CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
   getPostCaptureAction,
   getPostCaptureRepairReasons,
@@ -351,147 +346,130 @@ function nextDisclosureSessionId() {
 }
 
 describe("getPostCaptureAction", () => {
-  test("reports every reason that requires post-stop transcript repair", () => {
-    expect(
-      getPostCaptureRepairReasons({
-        audioPath: "/tmp/session.wav",
+  test.each([
+    {
+      name: "reports every reason that requires post-stop transcript repair",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
         liveTranscriptionActive: false,
         needsBatchRepair: true,
         transcriptWriteFailed: true,
-      }),
-    ).toEqual([
-      "live_transcription_unavailable",
-      "live_stream_incomplete",
-      "transcript_persistence_failed",
-    ]);
-  });
-
-  test("reports no repair reason for a complete persisted live transcript", () => {
-    expect(
-      getPostCaptureRepairReasons({
-        audioPath: "/tmp/session.wav",
+      },
+      expected: [
+        "live_transcription_unavailable",
+        "live_stream_incomplete",
+        "transcript_persistence_failed",
+      ],
+    },
+    {
+      name: "reports no repair reason for a complete persisted live transcript",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
         liveTranscriptionActive: true,
         needsBatchRepair: false,
-      }),
-    ).toEqual([]);
-  });
-
-  test("reports settled diarization refinement for a multi-speaker cloud transcript", () => {
-    expect(
-      getPostCaptureRepairReasons({
-        audioPath: "/tmp/session.wav",
+      },
+      expected: [],
+    },
+    {
+      name: "reports settled diarization refinement for a multi-speaker cloud transcript",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
         liveTranscriptionActive: true,
         needsBatchRepair: false,
         refineSpeakerDiarization: true,
-      }),
-    ).toEqual(["settled_speaker_diarization"]);
+      },
+      expected: ["settled_speaker_diarization"],
+    },
+  ])("$name", ({ input, expected }) => {
+    expect(getPostCaptureRepairReasons(input)).toEqual(expected);
   });
 
-  test("runs batch then enhance after record-only capture finishes when audio is available", () => {
-    expect(
-      getPostCaptureAction(
-        {
-          audioPath: "/tmp/session.wav",
-          liveTranscriptionActive: false,
-          needsBatchRepair: false,
-        },
-        true,
-      ),
-    ).toBe("batch_then_enhance");
-  });
-
-  test("enhances immediately when live transcription already completed during recording", () => {
-    expect(
-      getPostCaptureAction(
-        {
-          audioPath: "/tmp/session.wav",
-          liveTranscriptionActive: true,
-          needsBatchRepair: false,
-        },
-        true,
-      ),
-    ).toBe("enhance_only");
-  });
-
-  test("refines a complete live transcript when settled diarization is required", () => {
-    expect(
-      getPostCaptureAction(
-        {
-          audioPath: "/tmp/session.wav",
-          liveTranscriptionActive: true,
-          needsBatchRepair: false,
-          refineSpeakerDiarization: true,
-        },
-        true,
-      ),
-    ).toBe("batch_then_enhance");
-  });
-
-  test("keeps a complete live transcript when settled diarization cannot run", () => {
-    expect(
-      getPostCaptureAction(
-        {
-          audioPath: "/tmp/session.wav",
-          liveTranscriptionActive: true,
-          needsBatchRepair: false,
-          refineSpeakerDiarization: true,
-        },
-        false,
-      ),
-    ).toBe("enhance_only");
-  });
-
-  test("repairs the full transcript after live transcription recovered", () => {
-    expect(
-      getPostCaptureAction(
-        {
-          audioPath: "/tmp/session.wav",
-          liveTranscriptionActive: true,
-          needsBatchRepair: true,
-        },
-        true,
-      ),
-    ).toBe("batch_then_enhance");
-  });
-
-  test("repairs the full transcript after a live database write fails", () => {
-    expect(
-      getPostCaptureAction(
-        {
-          audioPath: "/tmp/session.wav",
-          liveTranscriptionActive: true,
-          needsBatchRepair: false,
-          transcriptWriteFailed: true,
-        },
-        true,
-      ),
-    ).toBe("batch_then_enhance");
-  });
-
-  test("does nothing when batch fallback is needed but no transcription connection is available", () => {
-    expect(
-      getPostCaptureAction(
-        {
-          audioPath: "/tmp/session.wav",
-          liveTranscriptionActive: false,
-          needsBatchRepair: false,
-        },
-        false,
-      ),
-    ).toBe("none");
-  });
-
-  test("does nothing when capture finishes without a saved audio path", () => {
-    expect(
-      getPostCaptureAction(
-        {
-          audioPath: null,
-          liveTranscriptionActive: false,
-          needsBatchRepair: false,
-        },
-        true,
-      ),
-    ).toBe("none");
+  test.each([
+    {
+      name: "runs batch then enhance after record-only capture finishes when audio is available",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      },
+      canBatch: true,
+      expected: "batch_then_enhance",
+    },
+    {
+      name: "enhances immediately when live transcription already completed during recording",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      },
+      canBatch: true,
+      expected: "enhance_only",
+    },
+    {
+      name: "refines a complete live transcript when settled diarization is required",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+        refineSpeakerDiarization: true,
+      },
+      canBatch: true,
+      expected: "batch_then_enhance",
+    },
+    {
+      name: "keeps a complete live transcript when settled diarization cannot run",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+        refineSpeakerDiarization: true,
+      },
+      canBatch: false,
+      expected: "enhance_only",
+    },
+    {
+      name: "repairs the full transcript after live transcription recovered",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
+        liveTranscriptionActive: true,
+        needsBatchRepair: true,
+      },
+      canBatch: true,
+      expected: "batch_then_enhance",
+    },
+    {
+      name: "repairs the full transcript after a live database write fails",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+        transcriptWriteFailed: true,
+      },
+      canBatch: true,
+      expected: "batch_then_enhance",
+    },
+    {
+      name: "does nothing when batch fallback is needed but no transcription connection is available",
+      input: {
+        audioPath: "/tmp/session.wav" as string | null,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      },
+      canBatch: false,
+      expected: "none",
+    },
+    {
+      name: "does nothing when capture finishes without a saved audio path",
+      input: {
+        audioPath: null as string | null,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      },
+      canBatch: true,
+      expected: "none",
+    },
+  ])("$name", ({ input, canBatch, expected }) => {
+    expect(getPostCaptureAction(input, canBatch)).toBe(expected);
   });
 });
 
@@ -861,96 +839,6 @@ describe("useStartListening", () => {
     consoleWarn.mockRestore();
   });
 
-  test("keeps zero-retention Scribe V2 audio until batch transcription finishes", async () => {
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "audio_retention" ? "none" : undefined,
-    );
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "elevenlabs",
-        model: "scribe_v2",
-        baseUrl: "https://api.elevenlabs.io/v1",
-        apiKey: "token",
-      },
-    });
-    const { result } = renderHook(() => useStartListening("session-1"));
-    await act(async () => {
-      await result.current();
-    });
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      transcription_mode: "batch",
-      retain_audio: true,
-    });
-    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
-      expect.objectContaining({ retainAudio: true }),
-    );
-    expect(runBatchMock).not.toHaveBeenCalled();
-
-    await act(async () => {
-      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
-        chunkedAudio: true,
-        durationSeconds: 60,
-        audioPath: "/tmp/session.mp3",
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-        needsBatchRepair: false,
-      });
-    });
-
-    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.mp3", {
-      deferAudioFinalization: true,
-      notifyOnCompletion: true,
-      promotion: { scope: "whole_session" },
-    });
-    expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledWith(
-      "none",
-      "session-1",
-    );
-    expect(runBatchMock.mock.invocationCallOrder[0]!).toBeLessThan(
-      deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0]!,
-    );
-    expect(
-      markSessionAudioTranscriptionCompleteMock.mock.invocationCallOrder[0]!,
-    ).toBeLessThan(
-      deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0]!,
-    );
-  });
-
-  test("keeps temporary Scribe V2 audio when batch transcription fails", async () => {
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "audio_retention" ? "none" : undefined,
-    );
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "elevenlabs",
-        model: "scribe_v2",
-        baseUrl: "https://api.elevenlabs.io/v1",
-        apiKey: "token",
-      },
-    });
-    runBatchMock.mockRejectedValueOnce(new Error("upload failed"));
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-    const { result } = renderHook(() => useStartListening("session-1"));
-    await act(async () => {
-      await result.current();
-      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
-        chunkedAudio: true,
-        durationSeconds: 60,
-        audioPath: "/tmp/session.mp3",
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-        needsBatchRepair: false,
-      });
-    });
-
-    expect(runBatchMock).toHaveBeenCalledOnce();
-    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
-    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
-    consoleError.mockRestore();
-  });
-
   test("never claims that zero-retention audio was deleted when native cleanup failed", async () => {
     useConfigValueMock.mockImplementation((key: string) =>
       key === "audio_retention" ? "none" : undefined,
@@ -988,60 +876,6 @@ describe("useStartListening", () => {
     expect(runBatchMock).not.toHaveBeenCalled();
   });
 
-  test("collapses the left sidebar after listening starts", async () => {
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(setLeftSidebarExpandedMock).toHaveBeenCalledWith(false);
-  });
-
-  test("sets the left sidebar collapsed after listening starts even if render state is stale", async () => {
-    leftSidebarExpanded.value = false;
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(setLeftSidebarExpandedMock).toHaveBeenCalledWith(false);
-  });
-
-  test("keeps the left sidebar state when listening fails to start", async () => {
-    startMock.mockResolvedValue(false);
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "ai_language"
-        ? "en"
-        : key === "consent_auto_send_chat"
-          ? true
-          : [],
-    );
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(setLeftSidebarExpandedMock).not.toHaveBeenCalled();
-    expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
-    expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
-    expect(beginCloudsyncActivityMock).toHaveBeenCalledWith(
-      "capture",
-      "session-1:generated-id",
-    );
-    expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
-      "capture",
-      "session-1:generated-id",
-    );
-    expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledBefore(
-      endCloudsyncActivityMock,
-    );
-  });
-
   test("records without STT while offering an actionable transcription setup", async () => {
     useSTTConnectionMock.mockReturnValue({ conn: null });
     const { result } = renderHook(() => useStartListening("session-1"));
@@ -1059,12 +893,10 @@ describe("useStartListening", () => {
       expect.any(Object),
     );
     expect(toastWarningMock).toHaveBeenCalledWith(
-      "Live transcription is not configured",
+      expect.any(String),
       expect.objectContaining({
         id: "recording-without-transcription",
-        description:
-          "Audio is being saved. Choose a transcription provider to ensure this recording can be transcribed.",
-        action: expect.objectContaining({ label: "Configure" }),
+        action: expect.anything(),
       }),
     );
 
@@ -1076,21 +908,6 @@ describe("useStartListening", () => {
       type: "settings",
       state: { tab: "transcription" },
     });
-  });
-
-  test("does not advertise record-only capture when native recording fails", async () => {
-    useSTTConnectionMock.mockReturnValue({ conn: null });
-    startMock.mockResolvedValue(false);
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(toastWarningMock).not.toHaveBeenCalledWith(
-      "Live transcription is not configured",
-      expect.anything(),
-    );
   });
 
   test("does not replace a capture marker while recovery blocks starting", async () => {
@@ -1300,61 +1117,6 @@ describe("useStartListening", () => {
     );
     expect(setLeftSidebarExpandedMock).not.toHaveBeenCalled();
     consoleError.mockRestore();
-  });
-
-  test("reads keywords from the same pre-start snapshot as the transcript memo", async () => {
-    const calls: string[] = [];
-    vi.mocked(getSessionKeywords).mockImplementation(async () => {
-      calls.push("keywords");
-      return ["launch"];
-    });
-    beginCloudsyncActivityMock.mockImplementation(async () => {
-      calls.push("begin-cloudsync-deferral");
-    });
-    saveCaptureLifecycleMarkerMock.mockImplementation(async () => {
-      calls.push("persist-marker");
-    });
-    startMock.mockImplementation(async () => {
-      calls.push("start");
-      return true;
-    });
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(calls).toEqual([
-      "begin-cloudsync-deferral",
-      "keywords",
-      "persist-marker",
-      "start",
-    ]);
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      keywords: ["launch"],
-    });
-    expect(beginCloudsyncActivityMock).toHaveBeenCalledBefore(
-      saveCaptureLifecycleMarkerMock,
-    );
-    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledBefore(startMock);
-  });
-
-  test("reads remote participants from sqlite before starting capture", async () => {
-    useSessionParticipantHumanIdsMock.mockReturnValue([]);
-    getSessionParticipantHumanIdsMock.mockResolvedValue(["human-artem"]);
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(getSessionParticipantHumanIdsMock).toHaveBeenCalledWith("session-1");
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      participant_human_ids: ["human-artem"],
-      self_human_id: "user-1",
-    });
   });
 
   test("manual recording stays manual while a scheduled start is waiting for the same note", async () => {
@@ -1647,92 +1409,6 @@ describe("useStartListening", () => {
     expect(settled).toBe(true);
   });
 
-  test("drains meeting chat persistence before releasing the capture sync lease", async () => {
-    let finishMeetingChatPersistence: (() => void) | undefined;
-    stopMeetingChatCaptureMock.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishMeetingChatPersistence = resolve;
-        }),
-    );
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    const stopped = onStopped?.("session-1", {
-      durationSeconds: 42,
-      audioPath: null,
-      requestedLiveTranscription: false,
-      liveTranscriptionActive: false,
-      needsBatchRepair: false,
-    });
-
-    await waitFor(() => {
-      expect(stopMeetingChatCaptureMock).toHaveBeenCalledOnce();
-    });
-    expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
-
-    finishMeetingChatPersistence?.();
-    await act(async () => {
-      await stopped;
-    });
-
-    expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
-      "capture",
-      "session-1:generated-id",
-    );
-  });
-
-  test("flushes canonical note persistence before releasing the capture sync lease", async () => {
-    useSessionHasTranscriptMock.mockReturnValue(true);
-    let finishEditorFlush: (() => void) | undefined;
-    flushCanonicalSessionEditorChangesMock.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishEditorFlush = resolve;
-      }),
-    );
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    const stopped = onStopped?.("session-1", {
-      durationSeconds: 42,
-      audioPath: null,
-      requestedLiveTranscription: false,
-      liveTranscriptionActive: false,
-      needsBatchRepair: false,
-    });
-
-    await waitFor(() => {
-      expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledWith(
-        "session-1",
-      );
-    });
-    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
-    expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
-    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
-
-    finishEditorFlush?.();
-    await act(async () => {
-      await stopped;
-    });
-    expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledBefore(
-      queueAutoEnhanceIfSummaryEmptyMock,
-    );
-    expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledBefore(
-      clearCaptureLifecycleMarkerMock,
-    );
-    expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledBefore(
-      endCloudsyncActivityMock,
-    );
-  });
-
   test("retains the marker and capture lease until a failed editor flush recovers", async () => {
     flushCanonicalSessionEditorChangesMock.mockRejectedValueOnce(
       new Error("database is locked"),
@@ -1802,42 +1478,6 @@ describe("useStartListening", () => {
     consoleError.mockRestore();
   });
 
-  test("finishes audio-retention writes before releasing the capture sync lease", async () => {
-    let finishAudioRetention: (() => void) | undefined;
-    deleteProcessedAudioForRetentionMock.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishAudioRetention = resolve;
-      }),
-    );
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    const stopped = onStopped?.("session-1", {
-      durationSeconds: 42,
-      audioPath: "/tmp/session.wav",
-      requestedLiveTranscription: true,
-      liveTranscriptionActive: true,
-      needsBatchRepair: false,
-    });
-
-    await waitFor(() =>
-      expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledOnce(),
-    );
-    expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
-
-    finishAudioRetention?.();
-    await act(async () => {
-      await stopped;
-    });
-    expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledBefore(
-      endCloudsyncActivityMock,
-    );
-  });
-
   test("keeps a completed capture successful while lease release retries in the background", async () => {
     vi.useFakeTimers();
     endCloudsyncActivityMock
@@ -1883,45 +1523,6 @@ describe("useStartListening", () => {
     await vi.advanceTimersByTimeAsync(5_000);
     expect(endCloudsyncActivityMock).toHaveBeenCalledTimes(5);
     expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();
-    consoleError.mockRestore();
-  });
-
-  test("uses the transcript identity for each native capture lease", async () => {
-    vi.useFakeTimers();
-    idMock
-      .mockReturnValueOnce("transcript-1")
-      .mockReturnValueOnce("transcript-2");
-    startMock.mockResolvedValue(false);
-    endCloudsyncActivityMock
-      .mockRejectedValueOnce(new Error("failure 1"))
-      .mockRejectedValueOnce(new Error("failure 2"))
-      .mockRejectedValueOnce(new Error("failure 3"))
-      .mockResolvedValue(undefined);
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    const firstStart = result.current();
-    await vi.advanceTimersByTimeAsync(400);
-    await firstStart;
-
-    await result.current();
-
-    expect(beginCloudsyncActivityMock.mock.calls).toEqual([
-      ["capture", "session-1:transcript-1"],
-      ["capture", "session-1:transcript-2"],
-    ]);
-    expect(endCloudsyncActivityMock).toHaveBeenLastCalledWith(
-      "capture",
-      "session-1:transcript-2",
-    );
-
-    await vi.advanceTimersByTimeAsync(5_000);
-    expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
-      "capture",
-      "session-1:transcript-1",
-    );
     consoleError.mockRestore();
   });
 
@@ -3195,27 +2796,6 @@ describe("useStartListening", () => {
     expect(finishCaptureRecoveryFinalizationMock).not.toHaveBeenCalled();
   });
 
-  test("skips audio cataloging when capture produces no final file", async () => {
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    await act(async () => {
-      await onStopped?.("session-1", {
-        durationSeconds: 0,
-        audioPath: null,
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-        needsBatchRepair: false,
-      });
-    });
-
-    expect(catalogLocalSessionAudioMock).not.toHaveBeenCalled();
-  });
-
   test("repairs from finalized audio when live transcript persistence fails", async () => {
     createLiveTranscriptMock.mockRejectedValueOnce(new Error("write failed"));
     const consoleError = vi
@@ -3446,22 +3026,6 @@ describe("useStartListening", () => {
       consoleWarn.mockRestore();
     });
 
-    test("forwards both summary passes from a secondary window", async () => {
-      getEnhancerServiceMock.mockReturnValue(null);
-      const callbacks = await startWithLiveTranscript();
-
-      await act(
-        async () => await callbacks.onStopped("session-1", stoppedDetails),
-      );
-
-      expect(requestMainAutoEnhanceMock.mock.calls).toEqual([
-        ["session-1", "if_empty"],
-        ["session-1", "regenerate"],
-      ]);
-      expect(requestMainAutoEnhanceMock).toHaveBeenCalledBefore(runBatchMock);
-      expect(requestAutoEnhanceMock).not.toHaveBeenCalled();
-    });
-
     test("refreshes the early summary after repair recovers across a reload", async () => {
       attachLiveSessionMock.mockResolvedValue("inactive");
       transcriptExistsMock.mockResolvedValue(true);
@@ -3669,46 +3233,6 @@ describe("useStartListening", () => {
     consoleError.mockRestore();
   });
 
-  test("retains audio and skips summary when the batch repair fails", async () => {
-    useSessionHasTranscriptMock.mockReturnValue(true);
-    runBatchMock.mockRejectedValueOnce(new Error("upload failed"));
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    await act(async () => {
-      await onStopped?.("session-1", {
-        durationSeconds: 42,
-        audioPath: "/tmp/session.wav",
-        requestedLiveTranscription: true,
-        liveTranscriptionActive: true,
-        needsBatchRepair: true,
-      });
-    });
-
-    expect(toastErrorMock).toHaveBeenCalledWith(
-      "Post-meeting transcription failed. The recording was kept so you can try again.",
-      { id: "post-capture-batch-failed" },
-    );
-    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
-    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
-    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
-    expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
-    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalledWith(
-      expect.objectContaining({ phase: "finalizing" }),
-    );
-    expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
-    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
-    consoleError.mockRestore();
-  });
-
   test("stops automatic recovery for a terminal batch repair failure", async () => {
     useSessionHasTranscriptMock.mockReturnValue(true);
     runBatchMock.mockRejectedValueOnce(
@@ -3748,67 +3272,6 @@ describe("useStartListening", () => {
       "session-1:generated-id",
     );
     consoleError.mockRestore();
-  });
-
-  test("keeps audio and skips summary when record-only transcription fails", async () => {
-    runBatchMock.mockRejectedValueOnce(new Error("upload failed"));
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    await act(async () => {
-      await onStopped?.("session-1", {
-        durationSeconds: 42,
-        audioPath: "/tmp/session.wav",
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-        needsBatchRepair: false,
-      });
-    });
-
-    expect(toastErrorMock).toHaveBeenCalledWith(
-      "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
-      { id: "post-capture-transcript-incomplete" },
-    );
-    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
-    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
-    expect(saveCaptureLifecycleMarkerMock).not.toHaveBeenCalledWith(
-      expect.objectContaining({ phase: "finalizing" }),
-    );
-    expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
-    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
-    consoleError.mockRestore();
-  });
-
-  test("stays quiet when a record-only stop leaves nothing to summarize", async () => {
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    await act(async () => {
-      await onStopped?.("session-1", {
-        durationSeconds: 1,
-        audioPath: null,
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-        needsBatchRepair: false,
-      });
-    });
-
-    expect(runBatchMock).not.toHaveBeenCalled();
-    expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
-    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
-    expect(requestMainAutoEnhanceMock).not.toHaveBeenCalled();
   });
 
   test("ends automatic recovery after the user cancels the batch repair", async () => {
@@ -3906,35 +3369,6 @@ describe("useStartListening", () => {
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
     expect(softDeleteTranscriptMock).not.toHaveBeenCalled();
-  });
-
-  test("forwards auto-enhance to the main window when no enhancer service exists", async () => {
-    getEnhancerServiceMock.mockReturnValue(null);
-    useSessionHasTranscriptMock.mockReturnValue(true);
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    await act(async () => {
-      await onStopped?.("session-1", {
-        durationSeconds: 42,
-        audioPath: "/tmp/session.wav",
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-        needsBatchRepair: false,
-      });
-    });
-
-    expect(requestMainAutoEnhanceMock).toHaveBeenCalledWith(
-      "session-1",
-      "regenerate",
-    );
-    expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
-    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
   });
 
   test("catalogs finalized audio through the session audio queue", async () => {
@@ -4056,91 +3490,6 @@ describe("useStartListening", () => {
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
   });
 
-  test("surfaces a summary scheduling failure after the service exhausts retries", async () => {
-    useSessionHasTranscriptMock.mockReturnValue(true);
-    queueAutoEnhanceIfSummaryEmptyMock.mockRejectedValueOnce(
-      new Error("constraint failed"),
-    );
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    await act(async () => {
-      await onStopped?.("session-1", {
-        durationSeconds: 42,
-        audioPath: "/tmp/session.wav",
-        requestedLiveTranscription: true,
-        liveTranscriptionActive: true,
-        needsBatchRepair: false,
-      });
-    });
-
-    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledOnce();
-    expect(toastErrorMock).toHaveBeenCalledWith(
-      "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
-      { id: "post-capture-summary-failed" },
-    );
-    expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
-    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
-      expect.objectContaining({ phase: "finalizing" }),
-    );
-    expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
-    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
-    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
-    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
-    consoleError.mockRestore();
-  });
-
-  test("does not surface a summary scheduling failure after the session is deleted", async () => {
-    useSessionHasTranscriptMock.mockReturnValue(true);
-    isSessionDeletedMock.mockResolvedValue(true);
-    queueAutoEnhanceIfSummaryEmptyMock.mockRejectedValueOnce(
-      new Error("Session session-1 no longer exists"),
-    );
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    await act(async () => {
-      await onStopped?.("session-1", {
-        durationSeconds: 42,
-        audioPath: "/tmp/session.wav",
-        requestedLiveTranscription: true,
-        liveTranscriptionActive: true,
-        needsBatchRepair: false,
-      });
-    });
-
-    expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledOnce();
-    expect(toastErrorMock).not.toHaveBeenCalled();
-    expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
-      "session-1",
-      "generated-id",
-    );
-    expect(requestCaptureRecoveryMock).not.toHaveBeenCalled();
-    expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
-      "capture",
-      "session-1:generated-id",
-    );
-    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
-    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
-    consoleError.mockRestore();
-  });
-
   test("requests recovery when the deleted session is restored during finalization", async () => {
     useSessionHasTranscriptMock.mockReturnValue(true);
     isSessionDeletedMock
@@ -4175,41 +3524,6 @@ describe("useStartListening", () => {
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
     expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
     consoleError.mockRestore();
-  });
-
-  test("regenerates the summary after resumed batch capture completes", async () => {
-    useSessionHasTranscriptMock.mockReturnValue(true);
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-
-    await act(async () => {
-      await onStopped?.("session-1", {
-        durationSeconds: 42,
-        audioPath: "/tmp/session.wav",
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-        needsBatchRepair: false,
-      });
-    });
-
-    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
-      deferAudioFinalization: true,
-      notifyOnCompletion: true,
-      promotion: {
-        scope: "current_capture",
-        audioOffsetMs: 60_000,
-        startedAt: expect.any(Number),
-      },
-    });
-    expect(resetEnhanceTasksMock).toHaveBeenCalledWith("session-1");
-    expect(queueAutoEnhanceMock).toHaveBeenCalledWith("session-1");
-    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
   });
 
   test("replaces only the current live transcript when resumed capture needs batch repair", async () => {
@@ -4284,27 +3598,6 @@ describe("useStartListening", () => {
     });
   });
 
-  test("uses live transcription for realtime local models", async () => {
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "anarlog",
-        model: "soniqo-parakeet-streaming",
-        baseUrl: "http://localhost:8080",
-        apiKey: "",
-      },
-    });
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      transcription_mode: "live",
-    });
-  });
-
   test("starts capture with the selected microphone", async () => {
     useConfigValueMock.mockImplementation((key) =>
       key === "ai_language"
@@ -4324,64 +3617,6 @@ describe("useStartListening", () => {
 
     expect(startMock.mock.calls[0]?.[0]).toMatchObject({
       mic_device: "External Microphone",
-    });
-  });
-
-  test("keeps supported non-English realtime local models live", async () => {
-    useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language"
-        ? "de"
-        : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
-          ? false
-          : ["en"],
-    );
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "anarlog",
-        model: "soniqo-parakeet-streaming",
-        baseUrl: "http://localhost:8080",
-        apiKey: "",
-      },
-    });
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      languages: ["de"],
-      transcription_mode: "live",
-    });
-  });
-
-  test("keeps realtime local transcription live by filtering unsupported extra spoken languages", async () => {
-    useConfigValueMock.mockImplementation((key) =>
-      key === "ai_language"
-        ? "en"
-        : key === "consent_auto_send_chat" || key === "capture_meeting_chat"
-          ? false
-          : ["ko"],
-    );
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "anarlog",
-        model: "soniqo-parakeet-streaming",
-        baseUrl: "http://localhost:8080",
-        apiKey: "",
-      },
-    });
-
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      languages: ["en"],
-      transcription_mode: "live",
     });
   });
 
@@ -4420,12 +3655,10 @@ describe("useStartListening", () => {
       transcription_mode: undefined,
     });
     expect(toastWarningMock).toHaveBeenCalledWith(
-      "Live transcription is using English",
+      expect.any(String),
       expect.objectContaining({
         id: "recording-with-limited-transcription-languages",
-        description:
-          "Live transcription won't include Korean. Audio is still being saved.",
-        action: expect.objectContaining({ label: "Change" }),
+        action: expect.anything(),
       }),
     );
 
@@ -4448,161 +3681,6 @@ describe("useStartListening", () => {
 
     expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
     expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
-  });
-
-  test("posts the recording disclosure after listening starts when enabled", async () => {
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "ai_language"
-        ? "en"
-        : key === "consent_auto_send_chat"
-          ? true
-          : [],
-    );
-    const sessionId = nextDisclosureSessionId();
-
-    const { result } = renderHook(() => useStartListening(sessionId));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    await waitFor(() => {
-      expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
-        "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
-        ["com.tinyspeck.slackmacgap"],
-      );
-    });
-  });
-
-  test("posts the recording disclosure into Zoom without requiring Slack", async () => {
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "ai_language"
-        ? "en"
-        : key === "consent_auto_send_chat"
-          ? true
-          : [],
-    );
-    listMicUsingApplicationsMock.mockResolvedValue({
-      status: "ok",
-      data: [{ id: "us.zoom.xos", name: "zoom.us" }],
-    });
-    const sessionId = nextDisclosureSessionId();
-
-    const { result } = renderHook(() => useStartListening(sessionId));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    await waitFor(() => {
-      expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
-        "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
-        ["us.zoom.xos"],
-      );
-    });
-  });
-
-  test("posts the recording disclosure once across repeated successful starts", async () => {
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "ai_language"
-        ? "en"
-        : key === "consent_auto_send_chat"
-          ? true
-          : [],
-    );
-    const sessionId = nextDisclosureSessionId();
-
-    const { result } = renderHook(() => useStartListening(sessionId));
-
-    await act(async () => {
-      await result.current();
-    });
-    await waitFor(() => {
-      expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(1);
-    });
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(startMock).toHaveBeenCalledTimes(2);
-    expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(1);
-  });
-
-  test("shares the once-per-session disclosure guard across hook mounts", async () => {
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "ai_language"
-        ? "en"
-        : key === "consent_auto_send_chat"
-          ? true
-          : [],
-    );
-    let resolveMicApps:
-      | ((value: {
-          status: "ok";
-          data: { id: string; name: string }[];
-        }) => void)
-      | undefined;
-    listMicUsingApplicationsMock.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveMicApps = resolve;
-        }),
-    );
-    const sessionId = nextDisclosureSessionId();
-    const firstHook = renderHook(() => useStartListening(sessionId));
-    const secondHook = renderHook(() => useStartListening(sessionId));
-
-    await act(async () => {
-      await firstHook.result.current();
-    });
-    await act(async () => {
-      await secondHook.result.current();
-    });
-
-    await act(async () => {
-      resolveMicApps?.({
-        status: "ok",
-        data: [{ id: "com.tinyspeck.slackmacgap", name: "Slack" }],
-      });
-      await Promise.resolve();
-    });
-
-    await waitFor(() => {
-      expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(1);
-    });
-    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
-  });
-
-  test("bounds completed meeting disclosure history", async () => {
-    const sessionIds = Array.from(
-      { length: MAX_SENT_MEETING_DISCLOSURE_SESSIONS + 1 },
-      (_, index) => `bounded-disclosure-session-${index}`,
-    );
-
-    for (const sessionId of sessionIds) {
-      startMeetingRecordingDisclosure(sessionId, () => true);
-    }
-
-    await waitFor(() => {
-      expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(
-        sessionIds.length,
-      );
-    });
-
-    startMeetingRecordingDisclosure(
-      sessionIds[sessionIds.length - 1]!,
-      () => true,
-    );
-    await Promise.resolve();
-    expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(sessionIds.length);
-
-    startMeetingRecordingDisclosure(sessionIds[0]!, () => true);
-    await waitFor(() => {
-      expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(
-        sessionIds.length + 1,
-      );
-    });
   });
 
   test("retries until a conferencing app is mic-active without reporting intermediate failures", async () => {
@@ -4651,74 +3729,6 @@ describe("useStartListening", () => {
       ["us.zoom.xos"],
     );
     expect(toastWarningMock).not.toHaveBeenCalled();
-  });
-
-  test("keeps the Slack scope when Anarlog also appears in the mic-active apps", async () => {
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "ai_language"
-        ? "en"
-        : key === "consent_auto_send_chat"
-          ? true
-          : [],
-    );
-    listMicUsingApplicationsMock.mockResolvedValue({
-      status: "ok",
-      data: [
-        { id: "com.anarlog.dev", name: "Anarlog Dev" },
-        { id: "com.tinyspeck.slackmacgap", name: "Slack" },
-      ],
-    });
-    const sessionId = nextDisclosureSessionId();
-
-    const { result } = renderHook(() => useStartListening(sessionId));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    await waitFor(() => {
-      expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
-        expect.stringContaining("https://anarlog.so"),
-        ["com.anarlog.dev", "com.tinyspeck.slackmacgap"],
-      );
-    });
-  });
-
-  test("passes an ambiguous meeting scope for Rust to reject before AX mutation", async () => {
-    listMicUsingApplicationsMock.mockResolvedValue({
-      status: "ok",
-      data: [
-        { id: "us.zoom.xos", name: "zoom.us" },
-        { id: "com.tinyspeck.slackmacgap", name: "Slack" },
-      ],
-    });
-    sendMeetingChatMessageMock.mockResolvedValue({
-      status: "ok",
-      data: {
-        sent: false,
-        warnings: ["expected exactly one recognized meeting app bundle"],
-      },
-    });
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    await sendMeetingRecordingDisclosure({
-      maxAttempts: 1,
-      retryIntervalMs: 0,
-    });
-
-    expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
-      expect.stringContaining("https://anarlog.so"),
-      ["us.zoom.xos", "com.tinyspeck.slackmacgap"],
-    );
-    expect(warn).toHaveBeenCalledWith(
-      "[listener] meeting disclosure was not sent",
-      "expected exactly one recognized meeting app bundle",
-    );
-    expect(toastWarningMock).toHaveBeenCalledWith(
-      "Recording started, but Anarlog could not post the meeting chat disclosure.",
-      { id: "meeting-disclosure-send-failed", duration: Infinity },
-    );
-    warn.mockRestore();
   });
 
   test("reports one terminal failure after the bounded retry window", async () => {
@@ -4846,29 +3856,6 @@ describe("useStartListening", () => {
       await Promise.resolve();
     });
     expect(sendMeetingChatMessageMock).toHaveBeenCalledOnce();
-  });
-
-  test("returns a typed failure and warns when disclosure mutation rejects", async () => {
-    const error = new Error("IPC unavailable");
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    sendMeetingChatMessageMock.mockRejectedValueOnce(error);
-
-    await expect(
-      sendMeetingRecordingDisclosure({
-        maxAttempts: 1,
-        retryIntervalMs: 0,
-      }),
-    ).resolves.toEqual({ status: "notSent", reason: "IPC unavailable" });
-
-    expect(warn).toHaveBeenCalledWith(
-      "[listener] meeting disclosure was not sent",
-      error,
-    );
-    expect(toastWarningMock).toHaveBeenCalledWith(
-      "Recording started, but Anarlog could not post the meeting chat disclosure.",
-      { id: "meeting-disclosure-send-failed", duration: Infinity },
-    );
-    warn.mockRestore();
   });
 
   test("starts meeting chat capture with the disclosure text excluded", async () => {

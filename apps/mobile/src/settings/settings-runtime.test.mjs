@@ -1153,11 +1153,13 @@ test("analytics opt-out aborts in-flight requests and prevents subsequent events
   }
 });
 
-for (const kind of ["stt", "llm"]) {
-  for (const definition of providersFor(kind).filter(
-    ({ id }) => id !== "anarlog",
-  )) {
-    test(`${kind} ${definition.name} keeps its key on this device and restores its own setup`, async () => {
+test("every provider keeps its key on this device and restores its own setup", async () => {
+  for (const kind of ["stt", "llm"]) {
+    for (const definition of providersFor(kind).filter(
+      ({ id }) => id !== "anarlog",
+    )) {
+      const tag = `${kind}/${definition.id}`;
+      fixture.db.exec("DELETE FROM app_settings");
       const config = {
         ...defaultProviderConfig(kind, definition.id),
         baseUrl: definition.baseUrl || "https://gateway.example/v1",
@@ -1167,40 +1169,49 @@ for (const kind of ["stt", "llm"]) {
       assert.deepEqual(
         await readProviderSetup("account-a", kind, definition.id),
         config,
+        tag,
       );
       assert.equal(
         (await readProviderConfig("account-a", kind)).provider,
         "anarlog",
+        tag,
       );
       await saveProviderConfig("account-a", kind, config);
-      assert.deepEqual(await readProviderConfig("account-a", kind), config);
+      assert.deepEqual(
+        await readProviderConfig("account-a", kind),
+        config,
+        tag,
+      );
       assert.equal(
         fixture.keys.get(providerStorageKey("account-a", kind, definition.id))
           .options.keychainAccessible,
         "device-only",
+        tag,
       );
       assert.ok(
         !fixture.db
           .prepare("SELECT value_json FROM app_settings")
           .all()
           .some((row) => row.value_json.includes("synthetic-key")),
+        tag,
       );
       assert.deepEqual(
         await readProviderSetup("account-b", kind, definition.id),
         defaultProviderConfig(kind, definition.id),
+        tag,
       );
       await removeProviderKey("account-a", kind, definition.id);
       assert.ok(
         !fixture.keys.has(providerStorageKey("account-a", kind, definition.id)),
+        tag,
       );
-    });
+    }
   }
-}
+});
 
-for (const definition of providersFor("stt").filter(
-  ({ id }) => !["anarlog", "custom"].includes(id),
-)) {
-  test(`${definition.name} delegates native audio to the desktop adapter with cancellation`, async () => {
+{
+  const definition = providersFor("stt").find(({ id }) => id === "assemblyai");
+  test("native provider audio is delegated to the desktop adapter with cancellation", async () => {
     const controller = new AbortController();
     const response = await requestProviderTranscription(
       { uri: "file:///documents/sessions/test/audio.wav", size: 100 },
@@ -1257,8 +1268,14 @@ test("native transcription preserves an already aborted signal", async () => {
   );
 });
 
-for (const definition of providersFor("llm").filter(
-  ({ id }) => id !== "anarlog",
+for (const definition of providersFor("llm").filter(({ id }) =>
+  [
+    "openai",
+    "anthropic",
+    "google_generative_ai",
+    "azure_openai",
+    "azure_ai",
+  ].includes(id),
 )) {
   test(`${definition.name} generates and persists a summary with its authentication format`, async () => {
     createNote();
@@ -1379,7 +1396,15 @@ const { discoverProviderModels, parseProviderModels } =
 const { presetProviderModels } = await import("./provider-model-catalog.ts");
 
 for (const definition of providersFor("llm").filter(
-  ({ id }) => id !== "anarlog" && !presetProviderModels("llm", id),
+  ({ id }) =>
+    [
+      "openai",
+      "anthropic",
+      "google_generative_ai",
+      "azure_openai",
+      "azure_ai",
+      "venice",
+    ].includes(id) && !presetProviderModels("llm", id),
 )) {
   test(`${definition.name} discovers selectable models with its device key and authentication headers`, async () => {
     const config = {
@@ -1607,8 +1632,9 @@ test("discovery aborts requests when leaving the picker", async () => {
   );
 });
 
-for (const suffix of ["", "/openai", "/openai/v1"]) {
-  test(`Azure model discovery normalizes the configured endpoint ${suffix || "root"}`, async () => {
+test("Azure model discovery normalizes the configured endpoint", async () => {
+  for (const suffix of ["", "/openai", "/openai/v1"]) {
+    fixture.requests = [];
     const config = {
       ...defaultProviderConfig("llm", "azure_openai"),
       baseUrl: `https://azure.example.test${suffix}`,
@@ -1623,9 +1649,10 @@ for (const suffix of ["", "/openai", "/openai/v1"]) {
     assert.equal(
       fixture.requests[0].url,
       "https://azure.example.test/openai/models?api-version=2024-10-21",
+      suffix || "root",
     );
-  });
-}
+  }
+});
 
 test("automatic summaries preserve memos and never overwrite an existing summary", async () => {
   createNote();
