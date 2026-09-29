@@ -6,6 +6,8 @@ import { loadCaptureLifecycleMarkers } from "./capture-lifecycle-storage";
 import { listenCaptureRecoveryRequests } from "./capture-recovery-requests";
 import { useResumeListeningLifecycle } from "./useStartListening";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+
 const CAPTURE_RECOVERY_BASE_RETRY_MS = 2_000;
 const CAPTURE_RECOVERY_MAX_ATTEMPTS = 5;
 
@@ -27,7 +29,7 @@ export function LiveCaptureRecovery() {
     [],
   );
 
-  useEffect(() => {
+  useMountEffect(() => {
     let active = true;
     let unlisten: (() => void) | undefined;
 
@@ -103,7 +105,7 @@ export function LiveCaptureRecovery() {
       active = false;
       unlisten?.();
     };
-  }, []);
+  });
 
   return Object.entries(recoveryTokens).map(([sessionId, recoveryToken]) => (
     <LiveCaptureSessionRecovery

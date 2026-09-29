@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
 import {
@@ -25,6 +25,7 @@ import type { Part } from "./types";
 
 import { hasRenderableContent } from "~/chat/components/shared";
 import type { AnlgUIMessage } from "~/chat/types";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 function getMessageText(message: AnlgUIMessage): string {
   return message.parts
@@ -57,13 +58,13 @@ export function NormalMessage({
   const [copied, setCopied] = useState(false);
   const copiedResetTimeoutRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => {
       if (copiedResetTimeoutRef.current !== null) {
         window.clearTimeout(copiedResetTimeoutRef.current);
       }
     };
-  }, []);
+  });
 
   const handleCopy = useCallback(async () => {
     const text = getMessageText(message);

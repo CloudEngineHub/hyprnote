@@ -14,6 +14,7 @@ import { cn } from "@anlg/utils";
 import { BrandLoadingView } from "./brand-loading-view";
 
 import { captureOperationalError } from "~/error-reporting";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export const LONG_LOAD_SPLASH_DELAY_MS = 400;
 const STARTUP_STATUS_REFETCH_INTERVAL_MS = 250;
@@ -40,7 +41,7 @@ export function LongLoadGate({ children }: { children: ReactNode }) {
     }
   }, [ready, showSplash, error]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     let cancelled = false;
     const splashTimer = window.setTimeout(() => {
       if (!cancelled) {
@@ -67,7 +68,7 @@ export function LongLoadGate({ children }: { children: ReactNode }) {
       cancelled = true;
       window.clearTimeout(splashTimer);
     };
-  }, []);
+  });
 
   if (error) {
     return <StartupErrorView error={error} />;

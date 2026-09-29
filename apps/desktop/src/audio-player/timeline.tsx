@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Pause, Play } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
@@ -7,6 +7,7 @@ import { useAudioPlayer, useAudioTime } from "./provider";
 import { TimelineMeta, TimelineShell } from "./timeline-shell";
 
 import { useBillingAccess } from "~/auth/billing-context";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -33,7 +34,7 @@ export function Timeline({
   const [showRateMenu, setShowRateMenu] = useState(false);
   const rateMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
         rateMenuRef.current &&
@@ -44,7 +45,7 @@ export function Timeline({
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  });
 
   const handleClick = () => {
     if (state === "playing") {

@@ -3,7 +3,6 @@ import {
   createContext,
   type ReactNode,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -17,6 +16,7 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useConfigValues } from "~/shared/config";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { DownloadProgress } from "~/sidebar/toast/types";
 import { useTabs } from "~/store/zustand/tabs";
 import { isConfiguredSttModel, isOnDeviceSttModel } from "~/stt/capabilities";
@@ -88,7 +88,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     Map<LocalModel, number>
   >(new Map());
 
-  useEffect(() => {
+  useMountEffect(() => {
     const unlisten = localSttEvents.downloadProgressPayload.listen((event) => {
       const { model: eventModel, status } = event.payload;
       const isFailed = typeof status === "object" && "failed" in status;
@@ -114,7 +114,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, []);
+  });
 
   const hasActiveEnhancement = false;
 

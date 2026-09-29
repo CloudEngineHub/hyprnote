@@ -410,13 +410,13 @@ function CalendarSyncHeaderControls() {
   const [showManualRefreshFeedback, setShowManualRefreshFeedback] =
     useState(false);
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => {
       if (refreshFeedbackTimeoutRef.current) {
         clearTimeout(refreshFeedbackTimeoutRef.current);
       }
     };
-  }, []);
+  });
 
   const handleRefresh = useCallback(() => {
     if (refreshFeedbackTimeoutRef.current) {

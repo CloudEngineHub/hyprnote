@@ -150,13 +150,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return request;
   }, [currentWindowLabel]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     miscCommands.getFingerprint().then((result) => {
       if (result.status === "ok") {
         setFingerprint(result.data);
       }
     });
-  }, []);
+  });
 
   const setSessionFromTokens = useCallback(
     async (accessToken: string, refreshToken: string) => {

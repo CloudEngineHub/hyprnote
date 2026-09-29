@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   setReactInspecting,
@@ -9,10 +9,12 @@ import {
 import { setRenderOutlinesEnabled } from "./render-tracker";
 import { ScanPanel } from "./scan-panel";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+
 export function ReactScanControls() {
   const state = useReactToolsState();
   const [error, setError] = useState(false);
-  useEffect(() => {
+  useMountEffect(() => {
     let canceled = false;
     let dispose: (() => void) | undefined;
     // The bar is mounted only after the native showDevtool gate succeeds.
@@ -30,7 +32,7 @@ export function ReactScanControls() {
       canceled = true;
       dispose?.();
     };
-  }, []);
+  });
 
   const buttonClass =
     "shrink-0 px-2 hover:bg-white/8 aria-pressed:bg-white/15 disabled:opacity-40";

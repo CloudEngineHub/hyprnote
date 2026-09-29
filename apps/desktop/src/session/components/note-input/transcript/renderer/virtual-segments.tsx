@@ -3,7 +3,6 @@ import {
   type FocusEvent,
   type ReactNode,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -18,6 +17,7 @@ import {
   type TranscriptSearchSource,
 } from "../../search/matching";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { Segment } from "~/stt/live-segment";
 
 const ESTIMATED_LINE_HEIGHT = 22;
@@ -76,7 +76,7 @@ export function useVirtualSegments({
   const pendingHeightsRef = useRef(new Map<string, number>());
   const measurementFrameRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => {
       if (measurementFrameRef.current !== null) {
         cancelAnimationFrame(measurementFrameRef.current);
@@ -84,7 +84,7 @@ export function useVirtualSegments({
       }
       pendingHeightsRef.current.clear();
     };
-  }, []);
+  });
 
   const estimatedHeights = useMemo(
     () =>

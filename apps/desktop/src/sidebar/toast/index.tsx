@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   toast as notificationToast,
@@ -56,21 +56,22 @@ export function ToastNotifications() {
     }
   }
 
-  useEffect(() => {
-    if (hasActiveDownload) {
-      return;
+  const [observedHasActiveDownload, setObservedHasActiveDownload] =
+    useState(hasActiveDownload);
+  if (observedHasActiveDownload !== hasActiveDownload) {
+    setObservedHasActiveDownload(hasActiveDownload);
+    if (!hasActiveDownload) {
+      setSessionDismissedToastIds((current) => {
+        if (!current.has("downloading-model")) {
+          return current;
+        }
+
+        const next = new Set(current);
+        next.delete("downloading-model");
+        return next;
+      });
     }
-
-    setSessionDismissedToastIds((current) => {
-      if (!current.has("downloading-model")) {
-        return current;
-      }
-
-      const next = new Set(current);
-      next.delete("downloading-model");
-      return next;
-    });
-  }, [hasActiveDownload]);
+  }
 
   const isAuthenticated = !!auth?.session;
   const isAuthLoading = auth.session === undefined;

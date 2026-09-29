@@ -16,6 +16,7 @@ import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { WindowsWindowControls } from "~/main/windows-window-controls";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { usesWindowsStyleTitleBar } from "~/shared/hooks/useWindowControlsGutter";
 
 export type InstructionType = "sign-in" | "billing" | "integration";
@@ -27,11 +28,11 @@ function useInstructionCleanup(onCleanup?: () => void) {
     cleanupRef.current = onCleanup;
   }, [onCleanup]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => {
       cleanupRef.current?.();
     };
-  }, []);
+  });
 }
 
 function InstructionShell({

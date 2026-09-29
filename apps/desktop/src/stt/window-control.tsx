@@ -6,6 +6,7 @@ import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 import { useListener } from "./contexts";
 import { useStartListeningWithBatchOverride } from "./useStartListeningWithBatchOverride";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 const LISTENER_CONTROL_EVENT = "anlg:listener-control";
@@ -36,7 +37,7 @@ export async function requestMainListenerControl(
 export function MainListenerControlBridge() {
   const [requests, setRequests] = useState<ListenerControlRequest[]>([]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     let active = true;
     let unlisten: (() => void) | undefined;
 
@@ -58,7 +59,7 @@ export function MainListenerControlBridge() {
       active = false;
       unlisten?.();
     };
-  }, []);
+  });
 
   const handleRequestHandled = useCallback((requestId: string) => {
     setRequests((current) => {

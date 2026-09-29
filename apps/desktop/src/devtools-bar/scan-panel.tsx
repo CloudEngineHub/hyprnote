@@ -20,6 +20,8 @@ import {
 } from "./scan-data";
 import { RESIZE_HANDLES, useScanPanelLayout } from "./scan-panel-layout";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+
 const buttonClass =
   "rounded-lg px-2 py-1 text-muted-foreground hover:bg-background/50 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring";
 type View = "ranked" | "overview" | "prompts" | "settings";
@@ -493,9 +495,8 @@ function Overview({ event }: Readonly<{ event: ScanEvent }>) {
 
 function Inspector() {
   const host = useRef<HTMLDivElement>(null);
-  useEffect(
-    () => (host.current ? mountScanInspector(host.current) : undefined),
-    [],
+  useMountEffect(() =>
+    host.current ? mountScanInspector(host.current) : undefined,
   );
   return (
     <div className="flex min-h-0 flex-1 flex-col">

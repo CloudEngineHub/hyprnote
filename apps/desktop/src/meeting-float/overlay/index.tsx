@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   commands as windowsCommands,
@@ -8,10 +8,12 @@ import {
 
 import { FloatingBarOverlay } from "./bar";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
+
 export function FloatingBarOverlayScreen() {
   const [state, setState] = useState<FloatingBarState | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     document.documentElement.dataset.floatingBar = "";
 
     let cancelled = false;
@@ -62,7 +64,7 @@ export function FloatingBarOverlayScreen() {
       delete document.documentElement.dataset.floatingBar;
       unlisteners.forEach((unlisten) => unlisten());
     };
-  }, []);
+  });
 
   if (!state) {
     return <div className="h-screen w-screen bg-transparent" />;

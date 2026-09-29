@@ -6,7 +6,7 @@ import "./styles/cursor.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
-import { StrictMode, useEffect, useMemo } from "react";
+import { StrictMode, useMemo } from "react";
 import ReactDOM from "react-dom/client";
 
 import "@anlg/ui/globals.css";
@@ -52,6 +52,8 @@ import { AppThemeProvider } from "./shared/theme/provider";
 import type { ThemePreference } from "./shared/theme/resolve";
 import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
+
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const toolRegistry = createToolRegistry();
 const queryClient = new QueryClient({
@@ -111,9 +113,9 @@ function ReadyApp() {
   const theme = useConfigValue("theme") as ThemePreference;
   useRemoteSessionDeletionUndoListener(isMainWindow);
 
-  useEffect(() => {
+  useMountEffect(() => {
     runMainWindowStartupTasks();
-  }, []);
+  });
 
   return (
     <AppThemeProvider>
