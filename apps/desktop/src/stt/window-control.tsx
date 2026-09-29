@@ -1,6 +1,7 @@
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { commands as listenerCommands } from "@anlg/plugin-transcription";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 
 import { useListener } from "./contexts";
@@ -10,6 +11,9 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 const LISTENER_CONTROL_EVENT = "anlg:listener-control";
+// The main webview may be dead or reloading; if it hasn't stopped the
+// capture by then, stop it natively.
+const MAIN_STOP_FALLBACK_DELAY_MS = 1_500;
 
 type ListenerControlAction = "start" | "stop";
 
@@ -27,11 +31,31 @@ export async function requestMainListenerControl(
   action: ListenerControlAction,
   sessionId: string,
 ) {
-  await emitTo("main", LISTENER_CONTROL_EVENT, {
+  const request = emitTo("main", LISTENER_CONTROL_EVENT, {
     action,
     requestId: crypto.randomUUID(),
     sessionId,
   } satisfies ListenerControlRequest);
+
+  if (action !== "stop") {
+    await request;
+    return;
+  }
+
+  await request.catch((error) => {
+    console.error("Failed to request stop from the main window:", error);
+  });
+  await new Promise((resolve) =>
+    setTimeout(resolve, MAIN_STOP_FALLBACK_DELAY_MS),
+  );
+  await stopCaptureForSession(sessionId);
+}
+
+async function stopCaptureForSession(sessionId: string) {
+  const result = await listenerCommands.stopCaptureForSession(sessionId);
+  if (result.status === "error") {
+    console.error("Failed to stop capture:", result.error);
+  }
 }
 
 export function MainListenerControlBridge() {

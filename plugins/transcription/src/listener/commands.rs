@@ -157,6 +157,15 @@ pub async fn stop_capture<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result
 
 #[tauri::command]
 #[specta::specta]
+pub async fn stop_capture_for_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<bool, String> {
+    Ok(crate::stop_capture_for_session(&app, &session_id).await)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn update_capture_config<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     update: CaptureConfigUpdate,

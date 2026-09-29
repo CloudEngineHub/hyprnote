@@ -167,6 +167,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
+    pub async fn stop_capture_for_session(&self, session_id: String) -> bool {
+        let Some(cell) = registry::where_is(RootActor::name()) else {
+            return false;
+        };
+        let actor: ActorRef<RootMsg> = cell.into();
+        ractor::call!(actor, RootMsg::StopSessionIfActive, session_id).unwrap_or(false)
+    }
+
+    #[tracing::instrument(skip_all)]
     pub async fn update_capture_config(&self, update: CaptureConfigUpdate) {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();

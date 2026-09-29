@@ -71,6 +71,8 @@ pub struct FloatingBarState {
     pub transcript_bubbles: Option<Vec<FloatingTranscriptBubble>>,
     #[serde(default)]
     pub layout: Option<FloatingBarOverlayLayout>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
 pub const WINDOW_LABEL: &str = "floating-bar";
@@ -566,12 +568,30 @@ pub fn show() -> Result<(), Error> {
     platform::show()
 }
 
+static SESSION_ID: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+pub fn session_id() -> Option<String> {
+    SESSION_ID.lock().ok().and_then(|guard| guard.clone())
+}
+
 pub fn hide() -> Result<(), Error> {
-    platform::hide()
+    let hidden_session_id = session_id();
+    platform::hide()?;
+    if let Ok(mut session_id) = SESSION_ID.lock()
+        && *session_id == hidden_session_id
+    {
+        *session_id = None;
+    }
+    Ok(())
 }
 
 pub fn update(state: FloatingBarState) -> Result<(), Error> {
-    platform::update(state)
+    let next_session_id = state.session_id.clone();
+    platform::update(state)?;
+    if let Ok(mut session_id) = SESSION_ID.lock() {
+        *session_id = next_session_id;
+    }
+    Ok(())
 }
 
 pub fn update_amplitude(amplitude: f64) -> Result<(), Error> {

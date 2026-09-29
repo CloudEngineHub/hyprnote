@@ -5,6 +5,7 @@ const COMMANDS: &[&str] = &[
     "set_mic_muted",
     "start_capture",
     "stop_capture",
+    "stop_capture_for_session",
     "get_capture_state",
     "get_capture_snapshot",
     "update_capture_credentials",

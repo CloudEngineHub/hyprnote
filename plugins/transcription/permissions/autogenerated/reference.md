@@ -8,6 +8,7 @@ Default permissions for the plugin
 - `allow-get-current-microphone-device`
 - `allow-start-capture`
 - `allow-stop-capture`
+- `allow-stop-capture-for-session`
 - `allow-get-mic-muted`
 - `allow-set-mic-muted`
 - `allow-get-capture-state`
@@ -746,6 +747,32 @@ Enables the stop_capture command without any pre-configured scope.
 <td>
 
 Denies the stop_capture command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-stop-capture-for-session`
+
+</td>
+<td>
+
+Enables the stop_capture_for_session command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-stop-capture-for-session`
+
+</td>
+<td>
+
+Denies the stop_capture_for_session command without any pre-configured scope.
 
 </td>
 </tr>

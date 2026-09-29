@@ -32,6 +32,22 @@ use anlg_transcription_core::listener::actors::{RootActor, RootArgs};
 
 const PLUGIN_NAME: &str = "transcription";
 
+pub async fn stop_capture_for_session<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    session_id: &str,
+) -> bool {
+    let stopped = app
+        .listener()
+        .stop_capture_for_session(session_id.to_string())
+        .await;
+    if stopped {
+        app.listener2()
+            .stop_transcription(format!("{session_id}:recovery"))
+            .await;
+    }
+    stopped
+}
+
 pub type SharedState = Arc<Mutex<PluginState>>;
 
 pub struct PluginState {
@@ -119,6 +135,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::set_mic_muted::<tauri::Wry>,
             listener::commands::start_capture::<tauri::Wry>,
             listener::commands::stop_capture::<tauri::Wry>,
+            listener::commands::stop_capture_for_session::<tauri::Wry>,
             listener::commands::update_capture_config::<tauri::Wry>,
             listener::commands::get_capture_state::<tauri::Wry>,
             listener::commands::get_capture_snapshot::<tauri::Wry>,

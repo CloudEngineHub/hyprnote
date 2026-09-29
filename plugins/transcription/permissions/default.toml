@@ -5,6 +5,7 @@ permissions = [
     "allow-get-current-microphone-device",
     "allow-start-capture",
     "allow-stop-capture",
+    "allow-stop-capture-for-session",
     "allow-get-mic-muted",
     "allow-set-mic-muted",
     "allow-get-capture-state",

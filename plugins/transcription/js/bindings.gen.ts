@@ -54,6 +54,14 @@ async stopCapture() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async stopCaptureForSession(sessionId: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|stop_capture_for_session", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async updateCaptureConfig(update: CaptureConfigUpdate) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|update_capture_config", { update }) };

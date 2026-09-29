@@ -179,6 +179,7 @@ export async function showFloatingMeetingWindow(
         liveCaptionPosition: routeState.liveCaptionPosition,
         liveCaptionMinimized: routeState.liveCaptionMinimized,
         liveCaptionToggleVisible: routeState.liveCaptionToggleVisible,
+        sessionId: routeState.sessionId,
         transcriptBubbles: shouldSendTranscript
           ? routeState.transcriptBubbles
           : null,
