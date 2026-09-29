@@ -316,7 +316,7 @@ export function useCaptureLifecycle(sessionId: string) {
           shouldUseLocalBatchForSpeakerDiarization());
       const cloudsyncLeaseKey = `${sessionId}:${transcriptId}`;
       let pendingSummaryMode = recoveredMarker?.summaryMode;
-      let refreshSummaryAfterRepair =
+      const refreshSummaryAfterRepair =
         recoveredMarker?.refreshSummaryAfterRepair ?? false;
       let completionTracked = false;
       let capturePhase =
@@ -896,37 +896,6 @@ export function useCaptureLifecycle(sessionId: string) {
               refineSpeakerDiarization,
               transcriptWriteFailed: Boolean(transcriptWriteError),
             });
-
-        if (
-          postCaptureAction === "batch_then_enhance" &&
-          transcriptCreated &&
-          !transcriptWriteError &&
-          !recoveredMarker
-        ) {
-          try {
-            // The enhancer owns summary recovery; the capture marker must still
-            // recover the batch pass until its transcript has been saved.
-            refreshSummaryAfterRepair = true;
-            await persistTranscriptWrite(async () => {
-              await saveCaptureLifecycleMarker(await marker());
-            });
-            await flushCanonicalSessionEditorChanges(sessionId);
-            const summaryMode = preserveExistingTranscript
-              ? "regenerate"
-              : "if_empty";
-            const service = getEnhancerService();
-            if (service) {
-              await service.requestAutoEnhance(sessionId, summaryMode);
-            } else {
-              await requestMainAutoEnhance(sessionId, summaryMode);
-            }
-          } catch (error) {
-            console.warn(
-              "[listener] failed to start live transcript summary",
-              error,
-            );
-          }
-        }
 
         let batchCompleted = false;
         if (postCaptureAction === "batch_then_enhance") {
