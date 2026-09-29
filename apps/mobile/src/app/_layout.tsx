@@ -58,9 +58,9 @@ function AnalyticsLifecycle() {
   const pathname = usePathname();
   const previousPathRef = useRef<string | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     void initializeAnalytics();
-  }, []);
+  });
 
   useEffect(() => {
     const normalizedPathname = pathname.replace(/^\/note\/[^/]+/, "/note/:id");
