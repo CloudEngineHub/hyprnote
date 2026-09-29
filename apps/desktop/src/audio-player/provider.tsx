@@ -15,6 +15,7 @@ import WaveSurfer from "wavesurfer.js";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 import { configureCenteredPlayback } from "./playback";
+import { loadWaveform } from "./waveform";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import {
@@ -169,7 +170,6 @@ export function AudioPlayerProvider({
 
     const ws = WaveSurfer.create({
       container,
-      url,
       media,
       height: 24,
       waveColor: "#e5e5e5",
@@ -263,7 +263,15 @@ export function AudioPlayerProvider({
 
     setWavesurfer(ws);
 
+    const loadController = new AbortController();
+    void loadWaveform(ws, {
+      url,
+      sessionId,
+      signal: loadController.signal,
+    }).catch(() => {});
+
     return () => {
+      loadController.abort();
       stopRequestedRef.current = false;
       if (audioContextRef.current === audioContext) {
         audioContextRef.current = null;
@@ -279,7 +287,7 @@ export function AudioPlayerProvider({
       setWavesurfer(null);
       void audioContext?.close();
     };
-  }, [container, url]);
+  }, [container, sessionId, url]);
 
   const play = useCallback(() => {
     if (!wavesurfer) {

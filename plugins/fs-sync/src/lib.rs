@@ -29,6 +29,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::audio_source_metadata,
             commands::audio_has_speech::<tauri::Wry>,
             commands::audio_path::<tauri::Wry>,
+            commands::audio_peaks::<tauri::Wry>,
             commands::audio_copy::<tauri::Wry>,
             commands::session_dir::<tauri::Wry>,
             commands::load_session_content::<tauri::Wry>,
