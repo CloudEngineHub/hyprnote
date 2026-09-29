@@ -543,7 +543,13 @@ pub(crate) fn drive_markdown(
     }
     export.meeting.note = None;
     export.meeting.action_items.clear();
-    let filename = configured_markdown_filename(&export.meeting, &MarkdownExportOptions::default());
+    let filename = configured_markdown_filename(
+        &export.meeting,
+        &MarkdownExportOptions {
+            include_id_suffix: false,
+            ..Default::default()
+        },
+    );
     let mut markdown = export.to_markdown();
     if markdown == export.meeting.to_markdown() {
         markdown.push_str("\n\n## Transcript\n\nNo transcript is available for this note.");

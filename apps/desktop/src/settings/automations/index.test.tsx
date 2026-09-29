@@ -35,7 +35,9 @@ const mocks = vi.hoisted(() => ({
   removeDraft: vi.fn(),
   removeStarterDraft: vi.fn(),
   selection: null as unknown,
-  setSettingValue: vi.fn(() => Promise.resolve()),
+  setSettingValue: vi.fn<(...args: unknown[]) => Promise<void>>(() =>
+    Promise.resolve(),
+  ),
   workflows: [] as Array<{
     id: string;
     title: string;
@@ -109,6 +111,11 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
   },
 }));
 
+vi.mock("./google-drive-config", () => ({
+  GoogleDriveConfig: () => <div data-testid="config-drive" />,
+  DriveExportResult: () => null,
+}));
+
 import { AutomationsContent } from ".";
 
 function renderAutomations() {
@@ -147,6 +154,42 @@ describe("AutomationsContent", () => {
     mocks.toastError.mockClear();
     mocks.toastSuccess.mockClear();
     mocks.toastWarning.mockClear();
+  });
+
+  it("opens the Drive starter without saving and uses the shared template controls", async () => {
+    mocks.selection = { kind: "starter", starterId: "google-drive" };
+    renderAutomations();
+    expect(screen.getByTestId("config-drive")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Save & enable" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(mocks.setSettingValue).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(
+      screen.getByText(
+        "A Markdown file or Google document with the meeting summary and transcript.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() =>
+      expect(mocks.setSettingValue).toHaveBeenCalledWith(
+        "automation_draft_template",
+        "google-drive",
+      ),
+    );
+    const call = mocks.setSettingValue.mock.calls.find(
+      ([key]) => key === "automation_workflows",
+    );
+    expect(JSON.parse(call![1] as string)).toMatchObject([
+      {
+        id: "starter-google-drive",
+        enabled: false,
+        steps: [{ type: "google_drive_export" }],
+      },
+    ]);
   });
 
   it("shows the overview when nothing is selected", () => {

@@ -226,6 +226,10 @@ msgid "A little more history will help"
 msgstr ""
 
 #: src/automations/starters.tsx
+msgid "A Markdown file or Google document with the meeting summary and transcript."
+msgstr ""
+
+#: src/automations/starters.tsx
 msgid "A Markdown file with the note, summary, and transcript."
 msgstr ""
 
@@ -1098,6 +1102,10 @@ msgstr ""
 
 #: src/settings/automations/google-drive-config.tsx
 msgid "Choose a folder in your browser…"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Choose a Google Drive folder first."
 msgstr ""
 
 #: src/settings/ai/llm/select.tsx
@@ -2402,7 +2410,7 @@ msgid "Every conversation adds to your story."
 msgstr ""
 
 #: src/settings/automations/google-drive-config.tsx
-msgid "Every note summarized after enabling this automation is saved here as one Markdown file with its summary and transcript. Anarlog must be open."
+msgid "Every note summarized after enabling this automation is saved here as one file with its summary and transcript in the selected format. Anarlog must be open."
 msgstr ""
 
 #. placeholder {0}: owned.workspaceName
@@ -2511,6 +2519,7 @@ msgid "File each action item as an issue in the selected team."
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/google-drive-config.tsx
 msgid "File format"
 msgstr ""
 
@@ -2689,6 +2698,10 @@ msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Good Listener"
+msgstr ""
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Google Docs"
 msgstr ""
 
 #: src/settings/automations/google-drive-config.tsx
@@ -3316,6 +3329,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Manual sync"
+msgstr ""
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Markdown (.md)"
 msgstr ""
 
 #: src/settings/automations/workflow-builder.tsx
@@ -4746,6 +4763,14 @@ msgstr ""
 msgid "Save draft"
 msgstr ""
 
+#: src/automations/starters.tsx
+msgid "Save meeting summaries and transcripts to a Google Drive folder."
+msgstr ""
+
+#: src/automations/starters.tsx
+msgid "Save meetings to Google Drive"
+msgstr ""
+
 #: src/settings/general/storage/export-location.tsx
 msgid "Save PDF, text, Markdown, and Org exports to this folder."
 msgstr ""
@@ -4760,6 +4785,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Save subdomain"
+msgstr ""
+
+#: src/automations/starters.tsx
+msgid "Save the summary and transcript to the selected folder."
 msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
@@ -5611,6 +5640,7 @@ msgstr ""
 msgid "Summary length"
 msgstr ""
 
+#: src/automations/starters.tsx
 #: src/services/enhancer/summary-notification.ts
 msgid "Summary ready"
 msgstr ""
@@ -6107,6 +6137,10 @@ msgstr ""
 msgid "Update your personal contact card. Your sign-in email is managed separately."
 msgstr ""
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Updating a note replaces the Google document's content, including edits made in Google Docs. Changing formats keeps previously exported files."
+msgstr ""
+
 #: src/session-sharing/access-management.tsx
 msgid "Updating access"
 msgstr ""
@@ -6151,6 +6185,10 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Upload audio or a transcript file to populate this note."
+msgstr ""
+
+#: src/automations/starters.tsx
+msgid "Upload to Google Drive folder"
 msgstr ""
 
 #: src/session/components/note-input/transcript/screens/empty.tsx
@@ -6270,6 +6308,10 @@ msgstr ""
 
 #: src/settings/general/notification.tsx
 msgid "Wait before treating microphone activity as a meeting."
+msgstr ""
+
+#: src/automations/starters.tsx
+msgid "Wait until the meeting recording ends."
 msgstr ""
 
 #: src/automations/starters.tsx

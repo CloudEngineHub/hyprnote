@@ -7336,6 +7336,13 @@
           }
         }
       },
+      "DriveExportFormat": {
+        "type": "string",
+        "enum": [
+          "markdown",
+          "google_docs"
+        ]
+      },
       "DriveExportRequest": {
         "type": "object",
         "required": [
@@ -7358,6 +7365,9 @@
           },
           "folder_id": {
             "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DriveExportFormat"
           },
           "markdown": {
             "type": "string"
@@ -7418,6 +7428,9 @@
           },
           "folder_id": {
             "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DriveExportFormat"
           },
           "meeting_id": {
             "type": "string"

@@ -508,11 +508,14 @@ export type DriveExportFile = {
     url: string;
 };
 
+export type DriveExportFormat = 'markdown' | 'google_docs';
+
 export type DriveExportRequest = {
     connection_id: string;
     file_id: string;
     filename: string;
     folder_id: string;
+    format?: DriveExportFormat;
     markdown: string;
     meeting_id: string;
 };
@@ -531,6 +534,7 @@ export type DriveFolderRequest = {
 export type DrivePrepareExportRequest = {
     connection_id: string;
     folder_id: string;
+    format?: DriveExportFormat;
     meeting_id: string;
 };
 

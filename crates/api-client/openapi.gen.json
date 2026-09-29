@@ -782,6 +782,13 @@
         ],
         "type": "object"
       },
+      "DriveExportFormat": {
+        "enum": [
+          "markdown",
+          "google_docs"
+        ],
+        "type": "string"
+      },
       "DriveExportRequest": {
         "additionalProperties": false,
         "properties": {
@@ -796,6 +803,9 @@
           },
           "folder_id": {
             "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DriveExportFormat"
           },
           "markdown": {
             "type": "string"
@@ -857,6 +867,9 @@
           },
           "folder_id": {
             "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DriveExportFormat"
           },
           "meeting_id": {
             "type": "string"

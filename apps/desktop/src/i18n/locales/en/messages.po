@@ -226,6 +226,10 @@ msgid "A little more history will help"
 msgstr "A little more history will help"
 
 #: src/automations/starters.tsx
+msgid "A Markdown file or Google document with the meeting summary and transcript."
+msgstr "A Markdown file or Google document with the meeting summary and transcript."
+
+#: src/automations/starters.tsx
 msgid "A Markdown file with the note, summary, and transcript."
 msgstr "A Markdown file with the note, summary, and transcript."
 
@@ -1099,6 +1103,10 @@ msgstr "Choose a file format and what to include."
 #: src/settings/automations/google-drive-config.tsx
 msgid "Choose a folder in your browser…"
 msgstr "Choose a folder in your browser…"
+
+#: src/settings/automations/index.tsx
+msgid "Choose a Google Drive folder first."
+msgstr "Choose a Google Drive folder first."
 
 #: src/settings/ai/llm/select.tsx
 msgid "Choose a language model for summaries and chat."
@@ -2402,8 +2410,8 @@ msgid "Every conversation adds to your story."
 msgstr "Every conversation adds to your story."
 
 #: src/settings/automations/google-drive-config.tsx
-msgid "Every note summarized after enabling this automation is saved here as one Markdown file with its summary and transcript. Anarlog must be open."
-msgstr "Every note summarized after enabling this automation is saved here as one Markdown file with its summary and transcript. Anarlog must be open."
+msgid "Every note summarized after enabling this automation is saved here as one file with its summary and transcript in the selected format. Anarlog must be open."
+msgstr "Every note summarized after enabling this automation is saved here as one file with its summary and transcript in the selected format. Anarlog must be open."
 
 #. placeholder {0}: owned.workspaceName
 #. placeholder {0}: workspace.name
@@ -2511,6 +2519,7 @@ msgid "File each action item as an issue in the selected team."
 msgstr "File each action item as an issue in the selected team."
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
+#: src/settings/automations/google-drive-config.tsx
 msgid "File format"
 msgstr "File format"
 
@@ -2690,6 +2699,10 @@ msgstr "Go to recent"
 #: src/settings/stats/badge-collection.tsx
 msgid "Good Listener"
 msgstr "Good Listener"
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Google Docs"
+msgstr "Google Docs"
 
 #: src/settings/automations/google-drive-config.tsx
 msgid "Google Drive export did not finish."
@@ -3317,6 +3330,10 @@ msgstr "Manage your sign-in methods on the Anarlog website."
 #: src/settings/sync/index.tsx
 msgid "Manual sync"
 msgstr "Manual sync"
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Markdown (.md)"
+msgstr "Markdown (.md)"
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "Markdown export"
@@ -4746,6 +4763,14 @@ msgstr "Save date"
 msgid "Save draft"
 msgstr "Save draft"
 
+#: src/automations/starters.tsx
+msgid "Save meeting summaries and transcripts to a Google Drive folder."
+msgstr "Save meeting summaries and transcripts to a Google Drive folder."
+
+#: src/automations/starters.tsx
+msgid "Save meetings to Google Drive"
+msgstr "Save meetings to Google Drive"
+
 #: src/settings/general/storage/export-location.tsx
 msgid "Save PDF, text, Markdown, and Org exports to this folder."
 msgstr "Save PDF, text, Markdown, and Org exports to this folder."
@@ -4761,6 +4786,10 @@ msgstr "Save SCIM token"
 #: src/settings/team/index.tsx
 msgid "Save subdomain"
 msgstr "Save subdomain"
+
+#: src/automations/starters.tsx
+msgid "Save the summary and transcript to the selected folder."
+msgstr "Save the summary and transcript to the selected folder."
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Save this key in a password manager. New devices can usually be approved from another device; this key is your fallback and will not be shown again."
@@ -5611,6 +5640,7 @@ msgstr "Summary generation failed"
 msgid "Summary length"
 msgstr "Summary length"
 
+#: src/automations/starters.tsx
 #: src/services/enhancer/summary-notification.ts
 msgid "Summary ready"
 msgstr "Summary ready"
@@ -6107,6 +6137,10 @@ msgstr "Update project notes in Notion"
 msgid "Update your personal contact card. Your sign-in email is managed separately."
 msgstr "Update your personal contact card. Your sign-in email is managed separately."
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Updating a note replaces the Google document's content, including edits made in Google Docs. Changing formats keeps previously exported files."
+msgstr "Updating a note replaces the Google document's content, including edits made in Google Docs. Changing formats keeps previously exported files."
+
 #: src/session-sharing/access-management.tsx
 msgid "Updating access"
 msgstr "Updating access"
@@ -6152,6 +6186,10 @@ msgstr "Upload audio"
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Upload audio or a transcript file to populate this note."
 msgstr "Upload audio or a transcript file to populate this note."
+
+#: src/automations/starters.tsx
+msgid "Upload to Google Drive folder"
+msgstr "Upload to Google Drive folder"
 
 #: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/overflow/index.tsx
@@ -6271,6 +6309,10 @@ msgstr "Voice input is unavailable while Anarlog is recording a meeting."
 #: src/settings/general/notification.tsx
 msgid "Wait before treating microphone activity as a meeting."
 msgstr "Wait before treating microphone activity as a meeting."
+
+#: src/automations/starters.tsx
+msgid "Wait until the meeting recording ends."
+msgstr "Wait until the meeting recording ends."
 
 #: src/automations/starters.tsx
 msgid "Wait until the transcript and note are complete."
