@@ -282,7 +282,7 @@ msgstr "Accessibility"
 
 #: src/onboarding/index.tsx
 #: src/settings/general/account.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Account"
 msgstr "Account"
 
@@ -475,7 +475,7 @@ msgid "Admin"
 msgstr "Admin"
 
 #: src/settings/ai/shared/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Advanced"
 msgstr "Advanced"
 
@@ -661,7 +661,7 @@ msgstr "API Key"
 msgid "API key saved"
 msgstr "API key saved"
 
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "App"
 msgstr "App"
 
@@ -670,7 +670,7 @@ msgid "App icon"
 msgstr "App icon"
 
 #: src/settings/appearance/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Appearance"
 msgstr "Appearance"
 
@@ -809,7 +809,7 @@ msgid "Automation removed"
 msgstr "Automation removed"
 
 #: src/settings/automations/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Automations"
 msgstr "Automations"
 
@@ -854,7 +854,7 @@ msgid "Beta"
 msgstr "Beta"
 
 #: src/settings/general/billing.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Billing"
 msgstr "Billing"
 
@@ -899,7 +899,7 @@ msgid "Busy"
 msgstr "Busy"
 
 #: src/settings/general/permissions.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Calendar"
 msgstr "Calendar"
 
@@ -1599,7 +1599,7 @@ msgstr "Connector"
 msgid "Contact options"
 msgstr "Contact options"
 
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Contacts"
 msgstr "Contacts"
 
@@ -1968,7 +1968,7 @@ msgid "Crisp"
 msgstr "Crisp"
 
 #: src/settings/crm/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "CRM"
 msgstr "CRM"
 
@@ -2005,7 +2005,7 @@ msgstr "Daily conversations"
 msgid "Dark"
 msgstr "Dark"
 
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Data"
 msgstr "Data"
 
@@ -2134,7 +2134,7 @@ msgid "Detection delay"
 msgstr "Detection delay"
 
 #: src/settings/developers/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Developers"
 msgstr "Developers"
 
@@ -2156,7 +2156,7 @@ msgid "Devices"
 msgstr "Devices"
 
 #: src/settings/dictation.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Dictation"
 msgstr "Dictation"
 
@@ -2170,7 +2170,7 @@ msgstr "Dictation uses your microphone, transcription provider, languages, and d
 
 #: src/settings/dictation.tsx
 #: src/settings/dictionary/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Dictionary"
 msgstr "Dictionary"
 
@@ -2538,10 +2538,6 @@ msgstr "Filename"
 msgid "Filled {filled} from {provider}."
 msgstr "Filled {filled} from {provider}."
 
-#: src/shared/open-note-dialog.tsx
-msgid "Find a note..."
-msgstr "Find a note..."
-
 #: src/chat/components/body/empty.tsx
 msgid "Find key decisions."
 msgstr "Find key decisions."
@@ -2608,7 +2604,7 @@ msgstr "Folder name"
 msgid "Folder: {currentPath}"
 msgstr "Folder: {currentPath}"
 
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Folders"
 msgstr "Folders"
 
@@ -2642,7 +2638,7 @@ msgid "Full Screen"
 msgstr "Full Screen"
 
 #: src/settings/general/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "General"
 msgstr "General"
 
@@ -2686,6 +2682,10 @@ msgstr "Go back to now"
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Go home"
 msgstr "Go home"
+
+#: src/shared/open-note-dialog.tsx
+msgid "Go to"
+msgstr "Go to"
 
 #: src/shared/control.tsx
 msgid "Go to Home"
@@ -2875,7 +2875,7 @@ msgid "Importing audio..."
 msgstr "Importing audio..."
 
 #: src/settings/imports/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Imports"
 msgstr "Imports"
 
@@ -2932,7 +2932,7 @@ msgstr "Insert above"
 msgid "Insert below"
 msgstr "Insert below"
 
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Insights"
 msgstr "Insights"
 
@@ -2953,7 +2953,7 @@ msgid "Installed"
 msgstr "Installed"
 
 #: src/settings/ai/llm/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Intelligence"
 msgstr "Intelligence"
 
@@ -3438,7 +3438,7 @@ msgid "Meeting notes sent."
 msgstr "Meeting notes sent."
 
 #: src/settings/general/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Meetings"
 msgstr "Meetings"
 
@@ -3763,10 +3763,6 @@ msgstr "No models available."
 msgid "No models ready to use."
 msgstr "No models ready to use."
 
-#: src/shared/open-note-dialog.tsx
-msgid "No notes found."
-msgstr "No notes found."
-
 #: src/settings/automations/starter-config.tsx
 msgid "No page selected yet."
 msgstr "No page selected yet."
@@ -3801,6 +3797,7 @@ msgstr "No related notes found"
 #: src/contacts/related-notes.tsx
 #: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/general/searchable-select.tsx
+#: src/shared/open-note-dialog.tsx
 #: src/sidebar/settings.tsx
 msgid "No results found."
 msgstr "No results found."
@@ -3897,7 +3894,7 @@ msgid "Notes stay in All notes. Materials in this folder will be deleted."
 msgstr "Notes stay in All notes. This folder, its nested folders, and all their materials will be deleted."
 
 #: src/settings/general/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Notifications"
 msgstr "Notifications"
 
@@ -4188,7 +4185,7 @@ msgstr "permission panel."
 #: src/settings/dictation.tsx
 #: src/settings/general/index.tsx
 #: src/settings/team/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Permissions"
 msgstr "Permissions"
 
@@ -4639,6 +4636,7 @@ msgstr "Require Touch ID or your password when opening Anarlog."
 msgid "Require Windows Hello face, PIN, or password when opening Anarlog."
 msgstr "Require Windows Hello face, PIN, or password when opening Anarlog."
 
+#: src/shared/open-note-dialog.tsx
 #: src/sidebar/settings.tsx
 msgid "Requires Anarlog Pro"
 msgstr "Requires Anarlog Pro"
@@ -4867,6 +4865,10 @@ msgstr "Search installed apps..."
 msgid "Search language..."
 msgstr "Search language..."
 
+#: src/shared/open-note-dialog.tsx
+msgid "Search notes and pages..."
+msgstr "Search notes and pages..."
+
 #: src/contacts/details.tsx
 msgid "Search or add company"
 msgstr "Search or add company"
@@ -5065,6 +5067,7 @@ msgstr "Setting up encrypted cloud sync."
 
 #: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
+#: src/shared/open-note-dialog.tsx
 #: src/sidebar/toast/registry.tsx
 msgid "Settings"
 msgstr "Settings"
@@ -5665,7 +5668,7 @@ msgid "Symbols"
 msgstr "Symbols"
 
 #: src/settings/sync/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Sync"
 msgstr "Sync"
 
@@ -5781,7 +5784,7 @@ msgid "teammate@company.com"
 msgstr "teammate@company.com"
 
 #: src/settings/team/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Teams"
 msgstr "Teams"
 
@@ -5799,7 +5802,7 @@ msgstr "Template actions"
 msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr "Template content with Jinja2: {{ variable }}, {% if condition %}"
 
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Templates"
 msgstr "Templates"
 
@@ -5958,7 +5961,7 @@ msgid "Transcript"
 msgstr "Transcript"
 
 #: src/settings/ai/stt/index.tsx
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Transcription"
 msgstr "Transcription"
 
@@ -6386,7 +6389,7 @@ msgstr "Work on this task"
 msgid "Workflow"
 msgstr "Workflow"
 
-#: src/sidebar/settings.tsx
+#: src/sidebar/settings-nav-groups.ts
 msgid "Workspace"
 msgstr "Workspace"
 
