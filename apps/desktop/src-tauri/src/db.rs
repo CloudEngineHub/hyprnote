@@ -50,18 +50,6 @@ pub async fn open_desktop_db(identifier: &str) -> Result<Arc<Db>, String> {
     Ok(Arc::new(db))
 }
 
-/// "Start fresh on this device" only leaves a marker; the next launch moves the
-/// database aside before opening it, so the running process never has to tear
-/// down a live database and sync runtime. The old file stays as a backup.
-pub fn request_database_reset(identifier: &str) -> Result<(), String> {
-    let dir = desktop_db_dir(identifier)
-        .ok_or_else(|| "application data directory is unavailable".to_string())?;
-    std::fs::create_dir_all(&dir)
-        .map_err(|error| format!("failed to create application data directory: {error}"))?;
-    std::fs::write(dir.join(DB_RESET_MARKER), b"")
-        .map_err(|error| format!("failed to request a database reset: {error}"))
-}
-
 fn apply_pending_database_reset(
     dir: &std::path::Path,
 ) -> Result<Option<std::path::PathBuf>, String> {
