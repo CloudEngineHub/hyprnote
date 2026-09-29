@@ -16,6 +16,12 @@ import {
   MEETING_DISCLOSURE_MESSAGE,
   startMeetingRecordingDisclosure,
 } from "./meeting-disclosure";
+import {
+  classifyStartFailure,
+  getMicrophonePermission,
+  showStartFailureToast,
+  type StartFailureStage,
+} from "./start-failure";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useShell } from "~/contexts/shell";
@@ -62,6 +68,7 @@ export function useStartListeningState(
   const participantHumanIds = useSessionParticipantHumanIds(sessionId);
   const getSessionMode = useListener((state) => state.getSessionMode);
   const canStartLiveSession = useListener((state) => state.canStartLiveSession);
+  const getLiveStartError = useListener((state) => state.getLiveStartError);
 
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
@@ -79,6 +86,18 @@ export function useStartListeningState(
   const { leftsidebar } = useShell();
   const setLeftSidebarExpanded = leftsidebar.setExpanded;
   const openNew = useTabs((state) => state.openNew);
+
+  const reportStartFailure = useCallback(
+    async (stage: StartFailureStage, error: string | null) => {
+      const microphonePermission =
+        stage === "recovery_marker" ? null : await getMicrophonePermission();
+      showStartFailureToast(
+        classifyStartFailure({ stage, error, microphonePermission }),
+        (tab) => openNew({ type: "settings", state: { tab } }),
+      );
+    },
+    [openNew],
+  );
 
   const startListening = useCallback(async () => {
     if (!canStartLiveSession(sessionId)) {
@@ -159,10 +178,7 @@ export function useStartListeningState(
         );
       }
       await releaseCloudsyncDeferral();
-      toast.error(
-        "Anarlog could not safely start recording. Please try again.",
-        { id: "capture-state-persist-failed" },
-      );
+      await reportStartFailure("recovery_marker", null);
       return;
     }
 
@@ -203,9 +219,9 @@ export function useStartListeningState(
       } finally {
         await releaseCloudsyncDeferral();
       }
-      toast.error(
-        "Anarlog could not safely start recording. Please try again.",
-        { id: "capture-state-persist-failed" },
+      await reportStartFailure(
+        "capture_start",
+        error instanceof Error ? error.message : String(error),
       );
       return;
     }
@@ -219,13 +235,13 @@ export function useStartListeningState(
         await lifecycle.cleanupFailedStart();
       } catch (error) {
         console.error("[listener] failed to clean up capture state", error);
-        toast.error(
-          "Anarlog could not safely start recording. Please try again.",
-          { id: "capture-state-persist-failed" },
-        );
       } finally {
         await releaseCloudsyncDeferral();
       }
+      await reportStartFailure(
+        "capture_rejected",
+        getLiveStartError(sessionId),
+      );
       return;
     }
 
@@ -314,8 +330,10 @@ export function useStartListeningState(
     conn,
     createCaptureLifecycle,
     dictionaryTerms,
+    getLiveStartError,
     getSessionMode,
     microphoneDevice,
+    reportStartFailure,
     retainAudio,
     openNew,
     participantHumanIds,

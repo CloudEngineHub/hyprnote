@@ -69,6 +69,7 @@ export type GeneralActions = {
   ) => Promise<void>;
   stopTranscription: (sessionId: string) => Promise<void>;
   canStartLiveSession: (sessionId: string) => boolean;
+  getLiveStartError: (sessionId: string) => string | null;
   getSessionMode: (sessionId: string) => SessionMode;
 };
 
@@ -251,6 +252,10 @@ export const createGeneralSlice = <
     } catch (error) {
       console.error(error);
     }
+  },
+  getLiveStartError: (sessionId) => {
+    const { live } = get();
+    return live.lastErrorSessionId === sessionId ? live.lastError : null;
   },
   canStartLiveSession: (sessionId) => {
     if (!sessionId) {

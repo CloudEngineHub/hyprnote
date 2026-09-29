@@ -150,6 +150,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
                 Ok(Err(StartSessionError::SessionAlreadyRunning)) => {
                     Err(crate::Error::SessionAlreadyRunning)
                 }
+                Ok(Err(StartSessionError::FailedToResolveSessionsDir)) => {
+                    Err(crate::Error::SessionStorageUnavailable)
+                }
                 Ok(Err(_)) => Err(crate::Error::StartSessionFailed),
                 Err(_) => Err(crate::Error::StartSessionFailed),
             }

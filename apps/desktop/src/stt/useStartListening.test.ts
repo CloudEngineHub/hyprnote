@@ -29,6 +29,7 @@ const {
   finishCaptureRecoveryFinalizationMock,
   canStartLiveSessionMock,
   startMock,
+  getLiveStartErrorMock,
   stopMock,
   getSessionModeMock,
   setBatchTranscriptionPendingMock,
@@ -89,6 +90,7 @@ const {
   finishCaptureRecoveryFinalizationMock: vi.fn(),
   canStartLiveSessionMock: vi.fn(),
   startMock: vi.fn(),
+  getLiveStartErrorMock: vi.fn((): string | null => null),
   stopMock: vi.fn(),
   getSessionModeMock: vi.fn(),
   setBatchTranscriptionPendingMock: vi.fn(),
@@ -175,6 +177,16 @@ vi.mock("./capture-result", () => ({
 
 vi.mock("./contexts", () => ({
   useListener: useListenerMock,
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => "macos",
+}));
+
+vi.mock("@anlg/plugin-permissions", () => ({
+  commands: {
+    checkPermission: vi.fn(async () => ({ status: "ok", data: "authorized" })),
+  },
 }));
 
 vi.mock("@anlg/plugin-detect", () => ({
@@ -507,6 +519,7 @@ describe("useStartListening", () => {
           finishCaptureRecoveryFinalizationMock,
         canStartLiveSession: canStartLiveSessionMock,
         getSessionMode: getSessionModeMock,
+        getLiveStartError: getLiveStartErrorMock,
         setBatchTranscriptionPending: setBatchTranscriptionPendingMock,
         start: startMock,
         stop: stopMock,
@@ -2207,6 +2220,22 @@ describe("useStartListening", () => {
     expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
       "capture",
       "session-1:transcript-before-reload",
+    );
+  });
+
+  test("shows the stored start error when native capture rejects the start", async () => {
+    startMock.mockResolvedValueOnce(false);
+    getLiveStartErrorMock.mockReturnValueOnce("session already running");
+    const { result } = renderHook(() => useStartListening("session-1"));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(getLiveStartErrorMock).toHaveBeenCalledWith("session-1");
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      "Another recording is still running",
+      expect.objectContaining({ id: "capture-start-failed" }),
     );
   });
 
