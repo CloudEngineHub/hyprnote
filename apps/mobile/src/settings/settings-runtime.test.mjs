@@ -125,6 +125,7 @@ const {
   automaticSummaryOptions,
 } = await import("../data/summarize.ts");
 const { queryClient } = await import("../lib/query-client.ts");
+const { dismissToast, getToast } = await import("../lib/toast.ts");
 const { loadSessionTranscripts } = await import("../data/transcripts.ts");
 const { Platform } = await import("react-native");
 
@@ -1856,7 +1857,12 @@ test("summaries read the full visible transcript, including uncompact live revis
     )
     .run(
       "live-transcript",
-      JSON.stringify([word("first", "First snapshot", 0)]),
+      JSON.stringify([
+        word("first", "First snapshot covers the launch plan", 0),
+        word("pricing", "the pricing review and onboarding checklist", 10),
+        word("support", "the support rotation for next week", 20),
+        word("questions", "and every open question before Friday", 30),
+      ]),
       JSON.stringify([
         {
           word_id: "first",
@@ -1897,13 +1903,76 @@ test("summaries read the full visible transcript, including uncompact live revis
   const exported = await loadSessionTranscripts("note-1");
   assert.deepEqual(
     exported.map(({ speaker, text }) => ({ speaker, text })),
-    [{ speaker: "John", text: "First snapshot Corrected ending" }],
+    [
+      {
+        speaker: "John",
+        text: "First snapshot covers the launch plan the pricing review and onboarding checklist the support rotation for next week and every open question before Friday Corrected ending",
+      },
+    ],
   );
   assert.deepEqual(await loadSessionTranscripts("missing-session"), []);
   await summarizeSession("note-1");
   const request = JSON.stringify(JSON.parse(fixture.requests[0].options.body));
-  assert.match(request, /John: First snapshot Corrected ending/);
+  assert.match(request, /John: First snapshot .* Friday Corrected ending/);
   assert.doesNotMatch(request, /Wrong ending/);
+});
+
+function insertTranscript(texts) {
+  fixture.db
+    .prepare(
+      "INSERT INTO transcripts (id, workspace_id, session_id, words_json) VALUES ('short-transcript', 'workspace-a', 'note-1', ?)",
+    )
+    .run(
+      JSON.stringify(
+        texts.map((text, index) => ({
+          id: `word-${index}`,
+          text,
+          start_ms: index * 100,
+          end_ms: index * 100 + 50,
+          channel: 0,
+        })),
+      ),
+    );
+}
+
+function summaryCount() {
+  return fixture.db
+    .prepare(
+      "SELECT COUNT(*) AS count FROM session_documents WHERE kind = 'summary'",
+    )
+    .get().count;
+}
+
+test("short transcripts skip summaries without a provider request and show a warning", async () => {
+  createNote();
+  signedInWith({
+    subscription_status: "active",
+    entitlements: ["hyprnote_pro"],
+  });
+  insertTranscript(["Cool."]);
+  dismissToast();
+
+  await assert.rejects(summarizeSession("note-1", { automatic: true }), {
+    name: "SummarySkippedError",
+    reason: "Not enough words recorded (1/5 minimum)",
+  });
+  generateSummaryAfterTranscription("note-1");
+  while (!getToast()) await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(getToast(), {
+    id: "auto-summary-too-short-note-1",
+    title: "Summary wasn't generated",
+    description: "Not enough words recorded (1/5 minimum)",
+  });
+  dismissToast();
+
+  fixture.db.prepare("DELETE FROM transcripts").run();
+  insertTranscript(["Sounds", "good", "to", "me", "then."]);
+  await assert.rejects(summarizeSession("note-1"), {
+    name: "SummarySkippedError",
+    reason: "Transcript too short to summarize (23/160 characters minimum)",
+  });
+  assert.equal(fixture.requests.length, 0);
+  assert.equal(summaryCount(), 0);
 });
 
 test("a preparation error is replaced by the next successful automatic summary state", async () => {

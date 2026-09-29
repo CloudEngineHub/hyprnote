@@ -61,6 +61,8 @@ import {
 } from "@/data/session";
 import { sessionView, type SessionViewSelection } from "@/data/session-view";
 import {
+  notifySummarySkipped,
+  SummarySkippedError,
   summarizeSession,
   useAutomaticSummary,
   useSessionSummaryState,
@@ -337,6 +339,7 @@ export default function NoteScreen() {
   const summaryPending =
     summaryState?.status === "pending" || automaticSummary.isFetching;
   const summaryError = summaryState?.error;
+  const summarySkipped = summaryError instanceof SummarySkippedError;
   const needsTranscription =
     Boolean(audio.data) && audio.data?.transcriptStatus !== "complete";
   const localNoteAttachments = noteAttachments.map((attachment) => {
@@ -909,7 +912,7 @@ export default function NoteScreen() {
                     label={
                       !canSummarize
                         ? "Choose summary provider"
-                        : summaryError
+                        : summaryError && !summarySkipped
                           ? "Retry summary"
                           : data.summary
                             ? "Regenerate summary"
@@ -923,7 +926,7 @@ export default function NoteScreen() {
                       canSummarize
                         ? void summarizeSession(id, {
                             beforeGenerate: () => flush(true),
-                          }).catch(() => {})
+                          }).catch((error) => notifySummarySkipped(id, error))
                         : router.push("/settings/summary-provider")
                     }
                   />
