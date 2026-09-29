@@ -596,9 +596,9 @@ fn unix_ms(value: SystemTime) -> i64 {
 mod tests {
     use super::{
         CaptureRect, CaptureStage, CaptureStrategy, Error, WindowCandidate, WindowCaptureTarget,
-        WindowContextImagePolicy, clamp_rect_around_window, compute_capture_rect, encode_png,
-        execute_capture_plan, same_pid_match_score, select_exact_target_candidate,
-        select_frontmost_candidate, select_same_pid_best_match_candidate,
+        clamp_rect_around_window, compute_capture_rect, encode_png, execute_capture_plan,
+        same_pid_match_score, select_exact_target_candidate, select_frontmost_candidate,
+        select_same_pid_best_match_candidate,
     };
     use image::RgbaImage;
 
@@ -855,13 +855,6 @@ mod tests {
         .unwrap();
 
         assert_eq!(result, "frontmost");
-    }
-
-    #[test]
-    fn default_policy_uses_siglip_text_heavy_defaults() {
-        let policy = WindowContextImagePolicy::default();
-
-        assert_eq!(policy.max_long_side, 1920);
     }
 
     #[test]

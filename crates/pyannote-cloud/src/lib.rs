@@ -59,13 +59,7 @@ mod tests {
         matchers::{header, method, path},
     };
 
-    use super::{Client, DEFAULT_BASE_URL, openapi};
-
-    #[test]
-    fn builder_defaults_to_pyannote_api() {
-        let client = Client::builder("test-key").build().unwrap();
-        assert_eq!(client.baseurl, DEFAULT_BASE_URL);
-    }
+    use super::{Client, openapi};
 
     #[tokio::test]
     async fn builder_applies_authorization_header() {

@@ -1,5 +1,3 @@
-#[cfg(test)]
-use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -459,18 +457,6 @@ async fn run_sync_or_shutdown(
             }
         }
         result = &mut sync => Some(result),
-    }
-}
-
-#[cfg(test)]
-pub(super) async fn run_or_shutdown<T>(
-    future: impl Future<Output = T>,
-    shutdown_rx: &mut oneshot::Receiver<()>,
-) -> Option<T> {
-    tokio::select! {
-        biased;
-        _ = &mut *shutdown_rx => None,
-        result = future => Some(result),
     }
 }
 
