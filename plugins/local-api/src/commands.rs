@@ -502,6 +502,7 @@ pub async fn list_cloud_snapshot_ids<R: tauri::Runtime>(
             anlg_agent_access::ListMeetingsInput {
                 query: None,
                 series_id: None,
+                folder_path: None,
                 limit: Some(anlg_agent_access::MAX_LIST_LIMIT),
                 offset: Some(offset),
             },

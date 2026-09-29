@@ -679,6 +679,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                 timezone: "Asia/Seoul".to_string(),
                 language: "en".to_string(),
                 series_id: String::new(),
+                folder_path: None,
                 note: None,
                 summaries: Vec::new(),
                 participants: Vec::new(),

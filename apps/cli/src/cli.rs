@@ -47,6 +47,7 @@ impl Args {
             Command::Doctor => "doctor",
             Command::Meetings { command, .. } => match command {
                 MeetingCommand::List { .. } => "meetings_list",
+                MeetingCommand::Folders { .. } => "meetings_folders",
                 MeetingCommand::Get { .. } => "meetings_get",
                 MeetingCommand::Note { .. } => "meetings_note",
                 MeetingCommand::Transcript { .. } => "meetings_transcript",
@@ -166,13 +167,28 @@ pub enum MeetingSource {
 
 #[derive(Debug, Subcommand)]
 pub enum MeetingCommand {
-    /// List meetings, optionally filtered by text or recurring series
+    /// List meetings, optionally filtered by text, recurring series, or folder
     List {
         #[arg(short, long)]
         query: Option<String>,
         #[arg(long)]
         series_id: Option<String>,
+        #[arg(
+            long,
+            value_name = "PATH",
+            help = "Folder path, including its subfolders (local source only)"
+        )]
+        folder: Option<String>,
         #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=200), help = "Maximum results (1-200)")]
+        limit: u32,
+        #[arg(long, default_value_t = 0, help = "Number of results to skip")]
+        offset: u32,
+    },
+    /// List meeting folders, including empty and parent folders (local source only)
+    Folders {
+        #[arg(short, long, help = "Case-insensitive folder path substring")]
+        query: Option<String>,
+        #[arg(long, default_value_t = anlg_agent_access::DEFAULT_FOLDER_LIST_LIMIT, value_parser = clap::value_parser!(u32).range(1..=200), help = "Maximum results (1-200)")]
         limit: u32,
         #[arg(long, default_value_t = 0, help = "Number of results to skip")]
         offset: u32,
@@ -248,6 +264,31 @@ mod tests {
         };
         assert_eq!(query.as_deref(), Some("planning"));
         assert_eq!(limit, 10);
+
+        let Command::Meetings { command, .. } =
+            Args::parse_from(["anarlog", "meetings", "list", "--folder", "Projects/Launch"])
+                .command
+        else {
+            panic!("expected meetings command");
+        };
+        let MeetingCommand::List { folder, .. } = command else {
+            panic!("expected list command");
+        };
+        assert_eq!(folder.as_deref(), Some("Projects/Launch"));
+
+        let Command::Meetings { command, .. } =
+            Args::parse_from(["anarlog", "meetings", "folders", "--query", "acme"]).command
+        else {
+            panic!("expected meetings command");
+        };
+        assert!(matches!(
+            command,
+            MeetingCommand::Folders {
+                query: Some(_),
+                limit: 100,
+                offset: 0,
+            }
+        ));
     }
 
     #[test]
