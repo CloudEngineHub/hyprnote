@@ -41,7 +41,7 @@ impl ClientBuilder {
 
 pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut spec: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
+        env!("OUT_DIR"),
         "/openapi-filtered.gen.json"
     )))
     .expect("invalid pyannote openapi json");
