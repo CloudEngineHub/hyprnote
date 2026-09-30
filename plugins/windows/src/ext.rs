@@ -87,6 +87,20 @@ pub(crate) fn run_on_main_thread<R: Send + 'static>(
     rx.recv().map_err(|_| crate::Error::MainThreadRecvFailed)
 }
 
+// window-state holds its restore lock while querying the window, which blocks a
+// worker thread on the main thread; the main thread may be waiting on that lock
+// in the plugin's window-created handler.
+fn restore_window_state(
+    app: &AppHandle<tauri::Wry>,
+    window: &WebviewWindow,
+    flags: tauri_plugin_window_state::StateFlags,
+) {
+    use tauri_plugin_window_state::WindowExt;
+
+    let window = window.clone();
+    let _ = run_on_main_thread(app, move || window.restore_state(flags));
+}
+
 impl AppWindow {
     #[cfg(target_os = "macos")]
     fn reload_main_webview(app: &AppHandle<tauri::Wry>) -> Result<(), crate::Error> {
@@ -166,11 +180,17 @@ impl AppWindow {
         let saved = app
             .try_state::<crate::SavedFrames>()
             .and_then(|frames| frames.take(&label));
-        {
+        let save_app = app.clone();
+        let save_result = run_on_main_thread(app, move || {
             use tauri_plugin_window_state::AppHandleExt;
-            if let Err(error) = app.save_window_state(crate::persisted_window_state_flags()) {
-                tracing::warn!(%error, "failed to save window state before main window rebuild");
-            }
+            save_app
+                .save_window_state(crate::persisted_window_state_flags())
+                .map_err(|e| e.to_string())
+        })
+        .map_err(|e| e.to_string())
+        .and_then(|result| result);
+        if let Err(error) = save_result {
+            tracing::warn!(%error, "failed to save window state before main window rebuild");
         }
 
         tracing::error!("rebuilding main window to recover main webview");
@@ -214,9 +234,8 @@ impl AppWindow {
 
         // A hidden main window still has to run the frontend (auto-start,
         // listener recovery), but must not pop up on its own.
-        use tauri_plugin_window_state::WindowExt;
         let window = Self::Main.build_window(app)?;
-        let _ = window.restore_state(crate::persisted_window_state_flags());
+        restore_window_state(app, &window, crate::persisted_window_state_flags());
         Self::Main.position_new_window(app, &window)?;
         if crate::take_main_window_show_requested() {
             Self::Main.show(app)?;
@@ -642,14 +661,14 @@ impl AppWindow {
     where
         Self: WindowImpl,
     {
-        use tauri_plugin_window_state::{StateFlags, WindowExt};
+        use tauri_plugin_window_state::StateFlags;
 
         let state_flags = if matches!(self, Self::Main) {
             crate::persisted_window_state_flags()
         } else {
             StateFlags::SIZE
         };
-        let _ = window.restore_state(state_flags);
+        restore_window_state(app, window, state_flags);
 
         self.position_new_window(app, window)?;
         self.ensure_visible(app, window);
