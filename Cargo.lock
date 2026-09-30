@@ -17758,6 +17758,7 @@ dependencies = [
  "tauri-plugin",
  "tauri-plugin-anlg-tray",
  "tauri-plugin-db",
+ "tauri-plugin-fs-sync",
  "tauri-plugin-hooks",
  "tauri-plugin-local-stt",
  "tauri-plugin-settings",

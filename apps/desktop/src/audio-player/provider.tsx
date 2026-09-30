@@ -13,6 +13,7 @@ import {
 import WaveSurfer from "wavesurfer.js";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import type { SessionAudioRetentionEvent } from "@anlg/plugin-transcription";
 
 import { configureCenteredPlayback } from "./playback";
 import { loadWaveform } from "./waveform";
@@ -346,10 +347,10 @@ export function AudioPlayerProvider({
     });
   }, [queryClient, sessionId]);
   const retentionHandlerRef = useRef(
-    (_event: { phase: "deleting" | "deleted"; sessionId: string }) => {},
+    (_event: SessionAudioRetentionEvent) => {},
   );
   retentionHandlerRef.current = (event) => {
-    if (event.sessionId !== sessionId) {
+    if (event.session_id !== sessionId) {
       return;
     }
     stop();

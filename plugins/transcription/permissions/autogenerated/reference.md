@@ -43,7 +43,7 @@ Default permissions for the plugin
 - `allow-acknowledge-completed-transcription`
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
-- `allow-cleanup-expired-voiceprint-candidates`
+- `allow-delete-processed-session-audio`
 - `allow-parse-subtitle`
 - `allow-export-to-vtt`
 - `allow-is-supported-languages-batch`
@@ -53,7 +53,6 @@ Default permissions for the plugin
 - `allow-reconcile-refined-speaker-clusters`
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
-- `allow-cleanup-expired-voiceprint-candidates`
 
 ## Permission Table
 
@@ -171,32 +170,6 @@ Denies the acknowledge_stopped_capture command without any pre-configured scope.
 <tr>
 <td>
 
-`transcription:allow-cleanup-expired-voiceprint-candidates`
-
-</td>
-<td>
-
-Enables the cleanup_expired_voiceprint_candidates command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:deny-cleanup-expired-voiceprint-candidates`
-
-</td>
-<td>
-
-Denies the cleanup_expired_voiceprint_candidates command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `transcription:allow-clear-capture-audio-saved`
 
 </td>
@@ -242,6 +215,32 @@ Enables the clear_capture_lifecycle_marker command without any pre-configured sc
 <td>
 
 Denies the clear_capture_lifecycle_marker command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-delete-processed-session-audio`
+
+</td>
+<td>
+
+Enables the delete_processed_session_audio command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-delete-processed-session-audio`
+
+</td>
+<td>
+
+Denies the delete_processed_session_audio command without any pre-configured scope.
 
 </td>
 </tr>

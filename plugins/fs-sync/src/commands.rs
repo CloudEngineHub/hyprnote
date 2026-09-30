@@ -25,7 +25,7 @@ macro_rules! spawn_blocking {
     };
 }
 
-fn resolve_session_dir<R: tauri::Runtime>(
+pub(crate) fn resolve_session_dir<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     session_id: &str,
 ) -> Result<PathBuf, String> {
@@ -270,10 +270,8 @@ pub(crate) async fn audio_delete<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,
 ) -> Result<bool, String> {
-    let session_dir = resolve_session_dir(&app, &session_id)?;
-    let deleted = crate::audio::delete(&session_dir).map_err(|e| e.to_string())?;
-    remove_audio_peaks_cache(&app, &session_id);
-    Ok(deleted)
+    let _guard = app.fs_sync().lock_session_audio(&session_id).await;
+    app.fs_sync().delete_session_audio_locked(&session_id)
 }
 
 #[tauri::command]
@@ -318,6 +316,7 @@ pub(crate) async fn audio_import<R: tauri::Runtime>(
     session_id: String,
     source_path: String,
 ) -> Result<String, String> {
+    let _guard = app.fs_sync().lock_session_audio(&session_id).await;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     let source_path = PathBuf::from(&source_path);
     let runtime = crate::runtime::TauriAudioImportRuntime::new(app);
@@ -391,6 +390,7 @@ pub(crate) async fn audio_import_data<R: tauri::Runtime>(
     filename: String,
     content_type: Option<String>,
 ) -> Result<String, String> {
+    let _guard = app.fs_sync().lock_session_audio(&session_id).await;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     let runtime = crate::runtime::TauriAudioImportRuntime::new(app);
     spawn_blocking!({
@@ -473,7 +473,10 @@ pub(crate) async fn audio_peaks<R: tauri::Runtime>(
     })
 }
 
-fn remove_audio_peaks_cache<R: tauri::Runtime>(app: &tauri::AppHandle<R>, session_id: &str) {
+pub(crate) fn remove_audio_peaks_cache<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    session_id: &str,
+) {
     if let Ok(cache_path) = audio_peaks_cache_path(app, session_id) {
         let _ = std::fs::remove_file(cache_path);
     }
@@ -503,6 +506,10 @@ pub(crate) async fn audio_copy<R: tauri::Runtime>(
         return Err("audio_copy_same_session".into());
     }
 
+    let _guards = app
+        .state::<crate::SessionAudioLocks>()
+        .lock_pair(&source_session_id, &target_session_id)
+        .await;
     let source_dir = resolve_session_dir(&app, &source_session_id)?;
     let target_dir = resolve_session_dir(&app, &target_session_id)?;
     spawn_blocking!({ crate::audio::copy(&source_dir, &target_dir).map_err(|e| e.to_string()) })

@@ -8,6 +8,7 @@ use crate::{
 use anlg_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
 use anlg_transcription_core::listener::actors::recorder::{self, RecoveryAudioChunk};
 use anlg_transcription_core::listener2 as listener2_core;
+use tauri_plugin_fs_sync::FsSyncPluginExt;
 
 fn session_audio_dir<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -141,6 +142,7 @@ pub async fn start_capture<R: tauri::Runtime>(
     use tauri::Manager;
 
     let session_id = params.session_id.clone();
+    let _audio_guard = app.fs_sync().lock_session_audio(&session_id).await;
     let live_transcript = params.live_transcript.clone();
     let registry = app.state::<LiveJournalRegistry>();
     let registration = live_transcript

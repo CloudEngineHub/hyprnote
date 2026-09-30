@@ -40,7 +40,7 @@ permissions = [
     "allow-acknowledge-completed-transcription",
     "allow-extract-voiceprint-candidates",
     "allow-promote-voiceprint-candidates",
-    "allow-cleanup-expired-voiceprint-candidates",
+    "allow-delete-processed-session-audio",
     "allow-parse-subtitle",
     "allow-export-to-vtt",
     "allow-is-supported-languages-batch",
@@ -50,5 +50,4 @@ permissions = [
     "allow-reconcile-refined-speaker-clusters",
     "allow-extract-voiceprint-candidates",
     "allow-promote-voiceprint-candidates",
-    "allow-cleanup-expired-voiceprint-candidates",
 ]

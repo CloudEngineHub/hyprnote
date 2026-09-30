@@ -547,74 +547,19 @@ export async function setAttachmentCloudSyncEnabled(
   }
 }
 
-export async function deleteLocalSessionAudio(
-  inputSessionId: string,
-  canDelete: () => boolean,
-): Promise<boolean> {
-  return deleteSessionAudioWithMode(inputSessionId, false, canDelete);
-}
-
 export async function deleteSessionAudio(
   inputSessionId: string,
   canDelete: () => boolean,
 ): Promise<boolean> {
-  return deleteSessionAudioWithMode(inputSessionId, true, canDelete);
-}
-
-export async function cleanupDeletedSessionAudio(
-  inputSessionId: string,
-  canDelete: () => boolean,
-): Promise<boolean> {
   const sessionId = requireText(inputSessionId, "session ID", 512);
   return enqueueSessionAudioOperation(sessionId, () =>
     enqueueDatabaseWrite(`session:${sessionId}`, async () => {
       if (!canDelete()) {
         return false;
       }
-
-      const rows = await liveQueryClient.execute<{ is_deleted: number }>(
-        `
-          SELECT EXISTS(
-            SELECT 1
-            FROM session_attachments
-            WHERE id = ?
-              AND session_id = ?
-              AND deleted_at IS NOT NULL
-              AND NOT EXISTS (
-                SELECT 1
-                FROM attachment_local_state AS local
-                WHERE local.attachment_id = session_attachments.id
-                  AND local.availability = 'absent'
-              )
-          ) AS is_deleted
-        `,
-        [`session-audio:${sessionId}`, sessionId],
-      );
-      if (rows[0]?.is_deleted !== 1) {
-        return false;
-      }
-
-      return deleteSessionAudioFile(sessionId);
-    }),
-  );
-}
-
-async function deleteSessionAudioWithMode(
-  inputSessionId: string,
-  deleteMetadata: boolean,
-  canDelete: () => boolean,
-): Promise<boolean> {
-  const sessionId = requireText(inputSessionId, "session ID", 512);
-  return enqueueSessionAudioOperation(sessionId, () =>
-    enqueueDatabaseWrite(`session:${sessionId}`, async () => {
-      if (!canDelete()) {
-        return false;
-      }
-      if (deleteMetadata) {
-        await tombstoneSessionAudioMetadata(sessionId);
-      }
-      const deletedLocalFile = await deleteSessionAudioFile(sessionId);
-      return deleteMetadata || deletedLocalFile;
+      await tombstoneSessionAudioMetadata(sessionId);
+      await deleteSessionAudioFile(sessionId);
+      return true;
     }),
   );
 }

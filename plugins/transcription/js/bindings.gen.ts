@@ -382,9 +382,12 @@ async promoteVoiceprintCandidates(transcriptId: string, speakerChannel: number, 
     else return { status: "error", error: e  as any };
 }
 },
-async cleanupExpiredVoiceprintCandidates() : Promise<Result<number, string>> {
+/**
+ * Deletes local audio right after processing when the retention policy is `none`.
+ */
+async deleteProcessedSessionAudio(sessionId: string) : Promise<Result<boolean, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|cleanup_expired_voiceprint_candidates") };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|delete_processed_session_audio", { sessionId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -400,12 +403,14 @@ captureDataEvent: CaptureDataEvent,
 captureLifecycleEvent: CaptureLifecycleEvent,
 captureStatusEvent: CaptureStatusEvent,
 liveTranscriptPersistenceEvent: LiveTranscriptPersistenceEvent,
+sessionAudioRetentionEvent: SessionAudioRetentionEvent,
 transcriptionEvent: TranscriptionEvent
 }>({
 captureDataEvent: "plugin:transcription:capture-data-event",
 captureLifecycleEvent: "plugin:transcription:capture-lifecycle-event",
 captureStatusEvent: "plugin:transcription:capture-status-event",
 liveTranscriptPersistenceEvent: "plugin:transcription:live-transcript-persistence-event",
+sessionAudioRetentionEvent: "plugin:transcription:session-audio-retention-event",
 transcriptionEvent: "plugin:transcription:transcription-event"
 })
 
@@ -464,6 +469,8 @@ export type RenderTranscriptWordInput = { id: string; text: string; start_ms: nu
 export type RenderedTranscriptSegment = { provisional_speaker?: ProvisionalSpeakerLabel | null; id: string; key: SegmentKey; speaker_label: string; start_ms: number; end_ms: number; text: string; words: SegmentWord[] }
 export type SegmentKey = { channel: ChannelProfile; speaker_index?: number | null; speaker_human_id?: string | null }
 export type SegmentWord = { text: string; start_ms: number; end_ms: number; channel: ChannelProfile; is_final: boolean; id?: string | null }
+export type SessionAudioRetentionEvent = { session_id: string; phase: SessionAudioRetentionPhase }
+export type SessionAudioRetentionPhase = "deleting" | "deleted"
 export type SpeakerClusterReconciliationRequest = { source: BatchRefinementSource; words: StoredTranscriptWord[]; hints: StoredSpeakerHint[] }
 export type SpeakerContext = { intervals: SpeakerContextInterval[] }
 export type SpeakerContextInterval = { start_ms: number; end_ms: number; active_call: boolean; calendar_call: boolean; mic_isolated: boolean | null; shared_microphone: boolean; title: string; self_names: string[]; participants: RenderTranscriptHuman[] }
@@ -488,7 +495,7 @@ export type TranscriptionSession = { session_id: string; file_path: string; prov
 export type VttWord = { text: string; start_ms: number; end_ms: number; speaker: string | null }
 /**
  * Whether a finalized word is stable or awaiting correction.
- *
+ * 
  * A word is `Pending` when it has been confirmed by the STT model but a
  * correction source (cloud STT fallback, LLM postprocessor, etc.) is still
  * processing it. The word has an ID and is persisted, but its text may be

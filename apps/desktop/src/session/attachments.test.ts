@@ -29,8 +29,6 @@ vi.mock("~/db/write-queue", () => ({
 import {
   catalogLocalNoteAttachment,
   catalogLocalSessionAudio,
-  cleanupDeletedSessionAudio,
-  deleteLocalSessionAudio,
   deleteSessionAudio,
   markSessionAudioTranscriptionComplete,
   setAttachmentCloudSyncEnabled,
@@ -294,21 +292,6 @@ describe("attachment catalog", () => {
     expect(mocks.execute.mock.calls[0]![0]).toContain("'complete'");
   });
 
-  it("keeps canonical metadata when retention deletes only local audio bytes", async () => {
-    await expect(
-      deleteLocalSessionAudio("session-1", () => true),
-    ).resolves.toBe(true);
-    expect(mocks.audioDelete).toHaveBeenCalledWith("session-1");
-    const localState = mocks.executeTransaction.mock.calls[0]![0][0];
-    expect(localState.sql).toContain("attachment_local_state");
-    expect(localState.params).toEqual([
-      "session-audio:session-1",
-      "session-1",
-      "absent",
-    ]);
-    expect(localState.sql).not.toContain("UPDATE session_attachments");
-  });
-
   it("tombstones logical audio before deleting local bytes", async () => {
     mocks.executeTransaction.mockResolvedValue([1]);
 
@@ -347,39 +330,6 @@ describe("attachment catalog", () => {
       true,
     );
     expect(mocks.executeTransaction).toHaveBeenCalledTimes(2);
-  });
-
-  it("records local absence when retention finds no local audio", async () => {
-    mocks.audioDelete.mockResolvedValue({ status: "ok", data: false });
-
-    await expect(
-      deleteLocalSessionAudio("session-1", () => true),
-    ).resolves.toBe(false);
-    expect(mocks.executeTransaction.mock.calls[0]![0][0].params).toEqual([
-      "session-audio:session-1",
-      "session-1",
-      "absent",
-    ]);
-  });
-
-  it("revalidates a logical tombstone before retrying file cleanup", async () => {
-    await expect(
-      cleanupDeletedSessionAudio("session-1", () => true),
-    ).resolves.toBe(true);
-    expect(mocks.execute).toHaveBeenCalledWith(
-      expect.stringMatching(
-        /deleted_at IS NOT NULL[\s\S]*attachment_local_state[\s\S]*availability = 'absent'/,
-      ),
-      ["session-audio:session-1", "session-1"],
-    );
-    expect(mocks.audioDelete).toHaveBeenCalledWith("session-1");
-
-    vi.clearAllMocks();
-    mocks.execute.mockResolvedValue([{ is_deleted: 0 }]);
-    await expect(
-      cleanupDeletedSessionAudio("session-1", () => true),
-    ).resolves.toBe(false);
-    expect(mocks.audioDelete).not.toHaveBeenCalled();
   });
 
   it("rechecks capture safety inside the serialized delete operation", async () => {

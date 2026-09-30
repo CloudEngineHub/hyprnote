@@ -175,6 +175,7 @@ mod encrypted_replica;
 mod entities;
 mod migrations;
 mod search_index;
+mod session_audio;
 mod shared_session_cache;
 mod transcript_live_deltas;
 mod voiceprints;

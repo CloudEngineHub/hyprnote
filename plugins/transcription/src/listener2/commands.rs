@@ -4,6 +4,7 @@ use anlg_transcription_core::listener2 as core;
 
 use crate::TranscriptionParams;
 use crate::listener2::Listener2PluginExt;
+use tauri_plugin_fs_sync::FsSyncPluginExt;
 
 #[tauri::command]
 #[specta::specta]
@@ -11,6 +12,8 @@ pub async fn start_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     params: TranscriptionParams,
 ) -> Result<(), String> {
+    let audio_session_id = params.session_id.split(':').next().unwrap_or_default();
+    let _audio_guard = app.fs_sync().lock_session_audio(audio_session_id).await;
     app.listener2()
         .start_transcription(params)
         .await

@@ -519,33 +519,25 @@ fn direct_mic_speakers(embeddings: &[SpanEmbedding]) -> Vec<Option<i64>> {
     speakers
 }
 
-#[tauri::command]
-#[specta::specta]
-pub async fn cleanup_expired_voiceprint_candidates<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<u32, String> {
-    let pool = app
-        .try_state::<tauri_plugin_db::ManagedState>()
-        .map(|state| state.pool().clone())
-        .ok_or_else(|| "database is not ready yet".to_string())?;
-
+pub(crate) async fn cleanup_expired_voiceprint_candidates<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    pool: &sqlx::SqlitePool,
+) -> Result<(), sqlx::Error> {
     let now = chrono::Utc::now()
         .format("%Y-%m-%dT%H:%M:%S%.3fZ")
         .to_string();
-    let expired = anlg_db_app::tombstone_expired_voiceprint_candidates(&pool, &now)
-        .await
-        .map_err(|error| error.to_string())?;
-    let removed = expired.len() as u32;
+    let expired = anlg_db_app::tombstone_expired_voiceprint_candidates(pool, &now).await?;
+    let removed = expired.len();
 
     for secret in expired {
-        delete_secret(&app, secret.keyring_scope, secret.keyring_key).await;
+        delete_secret(app, secret.keyring_scope, secret.keyring_key).await;
     }
-    let _ = anlg_db_app::purge_expired_tombstoned_voiceprint_candidates(&pool, &now).await;
+    let _ = anlg_db_app::purge_expired_tombstoned_voiceprint_candidates(pool, &now).await;
 
     if removed > 0 {
         tracing::info!(removed, "voiceprint_candidates_expired");
     }
-    Ok(removed)
+    Ok(())
 }
 
 /// Confirmed voiceprints of the session's participants, for the on-device
