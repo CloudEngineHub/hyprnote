@@ -11,6 +11,10 @@ Default permissions for the plugin
 - `allow-list-events`
 - `allow-open-calendar`
 - `allow-create-event`
+- `allow-apply-calendar-inventory`
+- `allow-tombstone-calendar-connection`
+- `allow-set-calendar-enabled`
+- `allow-update-ignored-calendar-item`
 
 ## Permission Table
 
@@ -20,6 +24,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`calendar:allow-apply-calendar-inventory`
+
+</td>
+<td>
+
+Enables the apply_calendar_inventory command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-apply-calendar-inventory`
+
+</td>
+<td>
+
+Denies the apply_calendar_inventory command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -199,6 +229,84 @@ Enables the open_calendar command without any pre-configured scope.
 <td>
 
 Denies the open_calendar command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-set-calendar-enabled`
+
+</td>
+<td>
+
+Enables the set_calendar_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-set-calendar-enabled`
+
+</td>
+<td>
+
+Denies the set_calendar_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-tombstone-calendar-connection`
+
+</td>
+<td>
+
+Enables the tombstone_calendar_connection command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-tombstone-calendar-connection`
+
+</td>
+<td>
+
+Denies the tombstone_calendar_connection command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-update-ignored-calendar-item`
+
+</td>
+<td>
+
+Enables the update_ignored_calendar_item command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-update-ignored-calendar-item`
+
+</td>
+<td>
+
+Denies the update_ignored_calendar_item command without any pre-configured scope.
 
 </td>
 </tr>

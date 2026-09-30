@@ -2,6 +2,7 @@
 
 mod attachment_ops;
 mod calendar_ops;
+mod calendar_sync_ops;
 mod calendar_types;
 mod capture_lifecycle_ops;
 mod cloudsync;
@@ -32,6 +33,7 @@ mod webhook_types;
 
 pub use attachment_ops::*;
 pub use calendar_ops::*;
+pub use calendar_sync_ops::*;
 pub use calendar_types::*;
 pub use capture_lifecycle_ops::*;
 pub use cloudsync::*;

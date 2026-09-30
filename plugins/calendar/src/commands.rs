@@ -3,6 +3,7 @@ use anlg_calendar_interface::{
 };
 use tauri::Manager;
 use tauri_plugin_auth::AuthPluginExt;
+#[cfg(target_os = "macos")]
 use tauri_plugin_permissions::PermissionsPluginExt;
 
 use crate::error::Error;
@@ -136,4 +137,60 @@ async fn is_apple_authorized<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Re
         let _ = app;
         Ok(false)
     }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn apply_calendar_inventory<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    request: crate::storage::ApplyCalendarInventoryRequest,
+) -> Result<(), String> {
+    let runtime = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+    let _guard = runtime.synced_write_guard().await;
+    crate::storage::apply_calendar_inventory(runtime.pool(), request).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn tombstone_calendar_connection<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    request: crate::storage::TombstoneCalendarConnectionRequest,
+) -> Result<(), String> {
+    let runtime = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+    let _guard = runtime.synced_write_guard().await;
+    crate::storage::tombstone_calendar_connection(runtime.pool(), request).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_calendar_enabled<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    request: crate::storage::SetCalendarEnabledRequest,
+) -> Result<(), String> {
+    let runtime = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+    let _guard = runtime.synced_write_guard().await;
+    crate::storage::set_calendar_enabled(runtime.pool(), request).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_ignored_calendar_item<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    request: crate::storage::UpdateIgnoredCalendarItemRequest,
+) -> Result<(), String> {
+    let runtime = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+    let _guard = runtime.synced_write_guard().await;
+    crate::storage::update_ignored_calendar_item(runtime.pool(), request).await
 }

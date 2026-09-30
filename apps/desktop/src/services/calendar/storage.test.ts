@@ -17,25 +17,7 @@ vi.mock("~/shared/utils", () => ({
 }));
 
 import { syncEvents } from "./process/events";
-import {
-  applyCalendarInventory,
-  applyConnectionSync,
-  loadEventsForSync,
-  tombstoneCalendarConnection,
-} from "./storage";
-
-const calendar = {
-  id: "cal-work",
-  tracking_id_calendar: "primary",
-  name: "Work",
-  enabled: 1,
-  provider: "google",
-  source: "work@example.com",
-  color: "#4285f4",
-  connection_id: "conn-work",
-  created_at: "2026-01-01T00:00:00.000Z",
-  deleted_at: null,
-};
+import { applyConnectionSync, loadEventsForSync } from "./storage";
 
 const ctx = {
   provider: "google" as const,
@@ -52,88 +34,6 @@ describe("calendar SQLite storage", () => {
     mocks.execute.mockResolvedValue([]);
     mocks.executeTransaction.mockResolvedValue([]);
     mocks.id.mockReturnValue("generated-id");
-  });
-
-  test("soft-deletes a disconnected calendar and its events atomically", async () => {
-    mocks.execute.mockResolvedValue([calendar]);
-
-    await applyCalendarInventory({
-      provider: "google",
-      requestedConnectionIds: [],
-      successfulConnections: [],
-    });
-
-    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements).toHaveLength(2);
-    expect(
-      statements.every((statement) => statement.params.includes("cal-work")),
-    ).toBe(true);
-    expect(
-      statements.every((statement) => !statement.sql.includes("DELETE")),
-    ).toBe(true);
-  });
-
-  test("tombstones only the disconnected provider connection", async () => {
-    await tombstoneCalendarConnection("google", "conn-personal");
-
-    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements).toHaveLength(2);
-    for (const statement of statements) {
-      expect(statement.params.slice(2)).toEqual(["google", "conn-personal"]);
-      expect(statement.sql).not.toContain("DELETE");
-    }
-  });
-
-  test("preserves calendars when a requested connection fails to refresh", async () => {
-    mocks.execute.mockResolvedValue([calendar]);
-
-    await applyCalendarInventory({
-      provider: "google",
-      requestedConnectionIds: ["conn-work"],
-      successfulConnections: [],
-    });
-
-    expect(mocks.executeTransaction).not.toHaveBeenCalled();
-  });
-
-  test("resurrects a calendar with its durable id and disables it", async () => {
-    mocks.execute.mockResolvedValue([
-      { ...calendar, enabled: 1, deleted_at: "2026-06-01T00:00:00.000Z" },
-    ]);
-
-    await applyCalendarInventory({
-      provider: "google",
-      requestedConnectionIds: ["conn-work"],
-      successfulConnections: [
-        {
-          connectionId: "conn-work",
-          calendars: [
-            {
-              provider: "google",
-              id: "primary",
-              title: "Work restored",
-              source: "work@example.com",
-              color: null,
-              is_primary: true,
-              can_edit: true,
-              raw: "{}",
-            },
-          ],
-        },
-      ],
-    });
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.params[0]).toBe("cal-work");
-    expect(statement.params).toContain("Work restored");
   });
 
   test("loads tombstoned matching events for durable-id resurrection", async () => {

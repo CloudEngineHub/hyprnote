@@ -1,6 +1,7 @@
-import type {
-  CalendarListItem,
-  CalendarProviderType,
+import {
+  commands as calendarCommands,
+  type CalendarListItem,
+  type CalendarProviderType,
 } from "@anlg/plugin-calendar";
 
 import type { Ctx } from "./ctx";
@@ -10,7 +11,6 @@ import { migrateIgnoredEventIds } from "./process/events/ignored";
 import type { EventsSyncOutput } from "./process/events/types";
 import type { ParticipantsSyncOutput } from "./process/participants/types";
 
-import { getCalendarTrackingKey } from "~/calendar/utils";
 import { HUMAN_NAME_IS_PLACEHOLDER_SQL } from "~/contacts/identity";
 import { executeTransaction, liveQueryClient } from "~/db";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
@@ -156,150 +156,18 @@ export async function applyCalendarInventory({
     calendars: CalendarListItem[];
   }>;
 }): Promise<void> {
-  const rows = await liveQueryClient.execute<CalendarSqlRow>(
-    `
-      SELECT
-        id,
-        tracking_id_calendar,
-        name,
-        enabled,
-        provider,
-        source,
-        color,
-        connection_id,
-        created_at,
-        deleted_at
-      FROM calendars
-      WHERE provider = ?
-      ORDER BY created_at, id
-    `,
-    [provider],
-  );
-  const existing = rows.map(normalizeCalendar);
-  const existingByTrackingKey = new Map<string, StoredCalendar>();
-  for (const calendar of existing) {
-    const key = calendarKey(calendar);
-    const current = existingByTrackingKey.get(key);
-    if (!current || (current.deleted_at && !calendar.deleted_at)) {
-      existingByTrackingKey.set(key, calendar);
-    }
-  }
-
-  const requested = new Set(requestedConnectionIds);
-  const successful = new Set(
-    successfulConnections.map(({ connectionId }) => connectionId),
-  );
-  const incomingKeys = new Set(
-    successfulConnections.flatMap(({ connectionId, calendars }) =>
-      calendars.map((calendar) =>
-        getCalendarTrackingKey({
-          provider,
-          connectionId,
-          trackingId: calendar.id,
-        }),
-      ),
+  const result = await calendarCommands.applyCalendarInventory({
+    provider,
+    requested_connection_ids: requestedConnectionIds,
+    successful_connections: successfulConnections.map(
+      ({ connectionId, calendars }) => ({
+        connection_id: connectionId,
+        calendars,
+      }),
     ),
-  );
-  const now = new Date().toISOString();
-  const statements: Statement[] = [];
-  const calendarIdsToClear = new Set<string>();
-
-  for (const calendar of existing) {
-    if (calendar.deleted_at) continue;
-
-    const disconnected = !requested.has(calendar.connection_id);
-    const missingFromSuccessfulRefresh =
-      successful.has(calendar.connection_id) &&
-      !incomingKeys.has(calendarKey(calendar));
-
-    if (disconnected || missingFromSuccessfulRefresh) {
-      statements.push({
-        sql: `
-          UPDATE calendars
-          SET deleted_at = ?, updated_at = ?
-          WHERE id = ? AND deleted_at IS NULL
-        `,
-        params: [now, now, calendar.id],
-      });
-      calendarIdsToClear.add(calendar.id);
-    } else if (!calendar.enabled) {
-      calendarIdsToClear.add(calendar.id);
-    }
-  }
-
-  if (calendarIdsToClear.size > 0) {
-    const calendarIds = Array.from(calendarIdsToClear);
-    statements.push({
-      sql: `
-        UPDATE events
-        SET deleted_at = ?, updated_at = ?
-        WHERE deleted_at IS NULL
-          AND calendar_id IN (${placeholders(calendarIds.length)})
-      `,
-      params: [now, now, ...calendarIds],
-    });
-  }
-
-  const seenIncomingKeys = new Set<string>();
-  for (const { connectionId, calendars } of successfulConnections) {
-    for (const calendar of calendars) {
-      const key = getCalendarTrackingKey({
-        provider,
-        connectionId,
-        trackingId: calendar.id,
-      });
-      if (seenIncomingKeys.has(key)) continue;
-      seenIncomingKeys.add(key);
-
-      const stored = existingByTrackingKey.get(key);
-      const calendarId = stored?.id ?? id();
-      statements.push({
-        sql: `
-          INSERT INTO calendars (
-            id,
-            tracking_id_calendar,
-            name,
-            enabled,
-            provider,
-            source,
-            color,
-            connection_id,
-            created_at,
-            updated_at,
-            deleted_at
-          )
-          VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, NULL)
-          ON CONFLICT(id) DO UPDATE SET
-            tracking_id_calendar = excluded.tracking_id_calendar,
-            name = excluded.name,
-            enabled = CASE
-              WHEN calendars.deleted_at IS NULL THEN calendars.enabled
-              ELSE 0
-            END,
-            provider = excluded.provider,
-            source = excluded.source,
-            color = excluded.color,
-            connection_id = excluded.connection_id,
-            updated_at = excluded.updated_at,
-            deleted_at = NULL
-        `,
-        params: [
-          calendarId,
-          calendar.id,
-          calendar.title,
-          provider,
-          calendar.source ?? "",
-          calendar.color ?? "#888",
-          connectionId,
-          stored?.created_at ?? now,
-          now,
-        ],
-      });
-    }
-  }
-
-  if (statements.length > 0) {
-    await executeTransaction(statements);
+  });
+  if (result.status === "error") {
+    throw new Error(result.error);
   }
 }
 
@@ -307,34 +175,13 @@ export async function tombstoneCalendarConnection(
   provider: CalendarProviderType,
   connectionId: string,
 ): Promise<void> {
-  const now = new Date().toISOString();
-  await executeTransaction([
-    {
-      sql: `
-        UPDATE events
-        SET deleted_at = ?, updated_at = ?
-        WHERE deleted_at IS NULL
-          AND calendar_id IN (
-            SELECT id
-            FROM calendars
-            WHERE provider = ?
-              AND connection_id = ?
-              AND deleted_at IS NULL
-          )
-      `,
-      params: [now, now, provider, connectionId],
-    },
-    {
-      sql: `
-        UPDATE calendars
-        SET deleted_at = ?, updated_at = ?
-        WHERE provider = ?
-          AND connection_id = ?
-          AND deleted_at IS NULL
-      `,
-      params: [now, now, provider, connectionId],
-    },
-  ]);
+  const result = await calendarCommands.tombstoneCalendarConnection({
+    provider,
+    connection_id: connectionId,
+  });
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
 }
 
 export async function loadEventsForSync(
@@ -905,14 +752,6 @@ export async function applyConnectionSync({
 
 function normalizeCalendar(row: CalendarSqlRow): StoredCalendar {
   return { ...row, enabled: Boolean(row.enabled) };
-}
-
-function calendarKey(calendar: StoredCalendar): string {
-  return getCalendarTrackingKey({
-    provider: calendar.provider,
-    connectionId: calendar.connection_id,
-    trackingId: calendar.tracking_id_calendar,
-  });
 }
 
 function eventKey(calendarId: string, trackingId: string): string {

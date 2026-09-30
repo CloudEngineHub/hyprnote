@@ -16759,15 +16759,24 @@ version = "0.1.0"
 dependencies = [
  "calendar",
  "calendar-interface",
+ "chrono",
+ "db-app",
+ "db-core",
+ "indexmap 2.14.0",
  "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
+ "sqlx",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-auth",
+ "tauri-plugin-db",
  "tauri-plugin-permissions",
  "tauri-specta",
  "thiserror 2.0.18",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

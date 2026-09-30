@@ -56,6 +56,38 @@ async createEvent(provider: CalendarProviderType, input: CreateEventInput) : Pro
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async applyCalendarInventory(request: ApplyCalendarInventoryRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|apply_calendar_inventory", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async tombstoneCalendarConnection(request: TombstoneCalendarConnectionRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|tombstone_calendar_connection", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setCalendarEnabled(request: SetCalendarEnabledRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|set_calendar_enabled", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateIgnoredCalendarItem(request: UpdateIgnoredCalendarItemRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|update_ignored_calendar_item", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -74,6 +106,7 @@ calendarChangedEvent: "plugin:calendar:calendar-changed-event"
 
 /** user-defined types **/
 
+export type ApplyCalendarInventoryRequest = { provider: CalendarProviderType; requested_connection_ids: string[]; successful_connections: CalendarInventoryConnection[] }
 export type AttendeeRole = "chair" | "required" | "optional" | "nonparticipant"
 export type AttendeeStatus = "pending" | "accepted" | "tentative" | "declined"
 export type CalendarChangedEvent = null
@@ -122,6 +155,7 @@ recurring_event_id: string | null;
  * Raw data. JSON for both Apple and Google.
  */
 raw: string }
+export type CalendarInventoryConnection = { connection_id: string; calendars: CalendarListItem[] }
 export type CalendarListItem = { provider: CalendarProviderType; id: string; title: string; source: string | null; color: string | null; is_primary: boolean | null; can_edit: boolean | null; raw: string }
 export type CalendarProviderType = "apple" | "google" | "outlook"
 export type CreateEventInput = { calendar_tracking_id: string; title: string; started_at: string; ended_at: string; is_all_day: boolean | null; location: string | null; notes: string | null; url: string | null }
@@ -161,7 +195,11 @@ email: string | null;
  */
 is_current_user: boolean }
 export type EventStatus = "confirmed" | "tentative" | "cancelled"
+export type IgnoredCalendarItemKind = "events" | "series"
 export type ProviderConnectionIds = { provider: CalendarProviderType; connection_ids: string[] }
+export type SetCalendarEnabledRequest = { calendar_id: string; enabled: boolean }
+export type TombstoneCalendarConnectionRequest = { provider: CalendarProviderType; connection_id: string }
+export type UpdateIgnoredCalendarItemRequest = { kind: IgnoredCalendarItemKind; item_id: string; ignored: boolean }
 
 /** tauri-specta globals **/
 

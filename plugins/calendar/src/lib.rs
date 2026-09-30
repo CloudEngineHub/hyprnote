@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod events;
 mod runtime;
+mod storage;
 
 pub use anlg_calendar::ProviderConnectionIds;
 pub use error::Error;
@@ -24,6 +25,10 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::list_events::<tauri::Wry>,
             commands::open_calendar::<tauri::Wry>,
             commands::create_event::<tauri::Wry>,
+            commands::apply_calendar_inventory::<tauri::Wry>,
+            commands::tombstone_calendar_connection::<tauri::Wry>,
+            commands::set_calendar_enabled::<tauri::Wry>,
+            commands::update_ignored_calendar_item::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![CalendarChangedEvent])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
