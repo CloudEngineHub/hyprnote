@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Connection, Executor, Sqlite, SqliteConnection};
 
 use crate::error::Error;
+use crate::locked::{RawArg, execute_on_locked_handle};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -438,6 +439,17 @@ where
     Ok(serde_json::from_str(&response)?)
 }
 
+pub async fn network_status_on_connection(
+    connection: &mut SqliteConnection,
+) -> Result<NetworkStatus, Error> {
+    let response =
+        execute_on_locked_handle(connection, "SELECT cloudsync_network_status()", Vec::new())
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)?;
+
+    Ok(serde_json::from_str(&response)?)
+}
+
 pub async fn reconcile_confirmed_pending_payload(
     connection: &mut SqliteConnection,
     batch: PendingPayloadBatch,
@@ -526,6 +538,21 @@ where
     Ok(serde_json::from_str(&response)?)
 }
 
+pub async fn network_send_changes_bounded_on_connection(
+    connection: &mut SqliteConnection,
+    max_db_versions: i64,
+) -> Result<NetworkResult, Error> {
+    let response = execute_on_locked_handle(
+        connection,
+        "SELECT cloudsync_network_send_changes(?)",
+        vec![RawArg::Int(max_db_versions)],
+    )
+    .await?
+    .ok_or(sqlx::Error::RowNotFound)?;
+
+    Ok(serde_json::from_str(&response)?)
+}
+
 pub const CLOUDSYNC_NETWORK_CONNECT_TIMEOUT_SECONDS: u32 = 5;
 pub const CLOUDSYNC_NETWORK_REQUEST_TIMEOUT_SECONDS: u32 = 30;
 
@@ -561,6 +588,24 @@ where
                 .await?
         }
     };
+
+    Ok(serde_json::from_str(&response)?)
+}
+
+pub async fn network_receive_changes_on_connection(
+    connection: &mut SqliteConnection,
+    max_chunks: Option<i64>,
+) -> Result<NetworkResult, Error> {
+    let (sql, args) = match max_chunks {
+        Some(max_chunks) => (
+            "SELECT cloudsync_network_receive_changes(?)",
+            vec![RawArg::Int(max_chunks)],
+        ),
+        None => ("SELECT cloudsync_network_receive_changes()", Vec::new()),
+    };
+    let response = execute_on_locked_handle(connection, sql, args)
+        .await?
+        .ok_or(sqlx::Error::RowNotFound)?;
 
     Ok(serde_json::from_str(&response)?)
 }
@@ -654,6 +699,12 @@ where
     sqlx::query("SELECT cloudsync_network_logout()")
         .fetch_optional(executor)
         .await?;
+
+    Ok(())
+}
+
+pub async fn network_logout_on_connection(connection: &mut SqliteConnection) -> Result<(), Error> {
+    execute_on_locked_handle(connection, "SELECT cloudsync_network_logout()", Vec::new()).await?;
 
     Ok(())
 }

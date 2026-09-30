@@ -4,6 +4,7 @@ mod api;
 mod bundle;
 mod close;
 mod error;
+mod locked;
 mod network;
 
 use std::path::PathBuf;
@@ -11,8 +12,9 @@ use std::path::PathBuf;
 use sqlx::sqlite::SqliteConnectOptions;
 
 pub use api::{
-    CloudsyncConnectionInitializer, CloudsyncTableSpec, begin_alter, cleanup, commit_alter,
-    db_version, disable, enable, init, is_enabled, set_filter, siteid, terminate, uuid, version,
+    CloudsyncConnectionInitializer, CloudsyncTableSpec, begin_alter, cleanup,
+    cleanup_on_connection, commit_alter, db_version, disable, enable, init, init_on_connection,
+    is_enabled, set_filter, siteid, terminate, uuid, version,
 };
 pub use bundle::bundled_extension_path;
 pub use close::install_transaction_observer;
@@ -21,10 +23,12 @@ pub use network::{
     CLOUDSYNC_NETWORK_CONNECT_TIMEOUT_SECONDS, CLOUDSYNC_NETWORK_REQUEST_TIMEOUT_SECONDS,
     NetworkReceiveResult, NetworkResult, NetworkSendResult, NetworkStatus, NetworkStatusFailures,
     PendingPayloadBatch, network_check_changes, network_cleanup, network_has_unsent_changes,
-    network_init, network_logout, network_receive_changes, network_reset_receive_version,
+    network_init, network_logout, network_logout_on_connection, network_receive_changes,
+    network_receive_changes_on_connection, network_reset_receive_version,
     network_reset_sync_version, network_send_changes, network_send_changes_bounded,
-    network_set_apikey, network_set_request_deadlines, network_set_token, network_status,
-    network_sync, pending_payload_batch, reconcile_confirmed_pending_payload,
+    network_send_changes_bounded_on_connection, network_set_apikey, network_set_request_deadlines,
+    network_set_token, network_status, network_status_on_connection, network_sync,
+    pending_payload_batch, reconcile_confirmed_pending_payload,
 };
 
 pub const CLOUDSYNC_VERSION: &str = "1.2.0";
@@ -66,7 +70,9 @@ pub fn apply_with_initializer(
 ))]
 mod tests {
     use super::*;
+    use std::future::Future;
     use std::str::FromStr;
+    use std::time::{Duration, Instant};
 
     use sqlx::sqlite::SqlitePoolOptions;
 
@@ -84,6 +90,149 @@ mod tests {
 
         assert_eq!(version, CLOUDSYNC_VERSION);
         pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn sqlite_misuse_does_not_kill_the_sqlx_connection_worker() {
+        let options = SqliteConnectOptions::from_str("sqlite::memory:").unwrap();
+        let (options, _) = apply(options).unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+        let mut connection = pool.acquire().await.unwrap();
+
+        let error = locked::execute_on_locked_handle(
+            &mut connection,
+            "SELECT cloudsync_payload_decode('x')",
+            Vec::new(),
+        )
+        .await
+        .unwrap_err();
+        assert!(
+            matches!(&error, Error::Sqlite { code: 21, .. }),
+            "unexpected error: {error}"
+        );
+
+        let result: i64 = sqlx::query_scalar("SELECT 1")
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap();
+        assert_eq!(result, 1);
+
+        drop(connection);
+        pool.close().await;
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn cancelling_raw_sqlite_interrupts_the_worker_and_releases_the_connection() {
+        let options = SqliteConnectOptions::from_str("sqlite::memory:").unwrap();
+        let (options, _) = apply(options).unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+        let mut connection = pool.acquire().await.unwrap();
+
+        let started = Instant::now();
+        let result = tokio::time::timeout(
+            Duration::from_millis(100),
+            locked::execute_on_locked_handle(
+                &mut connection,
+                "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c) SELECT count(*) FROM c",
+                vec![],
+            ),
+        )
+        .await;
+        assert!(result.is_err(), "raw SQLite query did not time out");
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "cancelled SQLite query took {elapsed:?}"
+        );
+
+        let result: i64 = sqlx::query_scalar("SELECT 1")
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap();
+        assert_eq!(result, 1);
+
+        drop(connection);
+        pool.close().await;
+    }
+
+    #[test]
+    fn cancelling_raw_sqlite_before_worker_start_interrupts_the_worker() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .max_blocking_threads(1)
+            .enable_time()
+            .build()
+            .unwrap();
+
+        runtime.block_on(async {
+            let options = SqliteConnectOptions::from_str("sqlite::memory:").unwrap();
+            let (options, _) = apply(options).unwrap();
+            let pool = SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect_with(options)
+                .await
+                .unwrap();
+            let mut connection = pool.acquire().await.unwrap();
+            let result: i64 = sqlx::query_scalar("SELECT 1")
+                .fetch_one(&mut *connection)
+                .await
+                .unwrap();
+            assert_eq!(result, 1);
+
+            let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+            let (release_tx, release_rx) = std::sync::mpsc::channel();
+            let blocker = tokio::task::spawn_blocking(move || {
+                let _ = started_tx.send(());
+                release_rx.recv().unwrap();
+            });
+            started_rx.await.unwrap();
+
+            let mut operation = Box::pin(locked::execute_on_locked_handle(
+                &mut connection,
+                "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c) SELECT count(*) FROM c",
+                vec![],
+            ));
+            for _ in 0..4 {
+                futures_util::future::poll_fn(|cx| match operation.as_mut().poll(cx) {
+                    std::task::Poll::Pending => std::task::Poll::Ready(()),
+                    std::task::Poll::Ready(result) => {
+                        panic!("raw SQLite query completed before cancellation: {result:?}")
+                    }
+                })
+                .await;
+                tokio::task::yield_now().await;
+            }
+
+            let started = Instant::now();
+            let releaser = std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(50));
+                release_tx.send(()).unwrap();
+            });
+            drop(operation);
+            let elapsed = started.elapsed();
+            assert!(
+                elapsed < Duration::from_secs(2),
+                "pre-step cancellation took {elapsed:?}"
+            );
+
+            let result: i64 = sqlx::query_scalar("SELECT 1")
+                .fetch_one(&mut *connection)
+                .await
+                .unwrap();
+            assert_eq!(result, 1);
+
+            blocker.await.unwrap();
+            releaser.join().unwrap();
+            drop(connection);
+            pool.close().await;
+        });
     }
 
     #[tokio::test]

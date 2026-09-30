@@ -20,7 +20,8 @@ pub(crate) async fn interruptible_network_receive_changes(
     interrupt: &CloudsyncInterruptHandle,
 ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
     let registration = interrupt.register(connection).await?;
-    let result = anlg_cloudsync::network_receive_changes(&mut *connection, Some(1)).await;
+    let result =
+        anlg_cloudsync::network_receive_changes_on_connection(&mut *connection, Some(1)).await;
     registration.finish(connection).await?;
     result
 }
@@ -30,7 +31,7 @@ pub(crate) async fn interruptible_network_logout(
     interrupt: &CloudsyncInterruptHandle,
 ) -> Result<(), anlg_cloudsync::Error> {
     let registration = interrupt.register(connection).await?;
-    let result = anlg_cloudsync::network_logout(&mut *connection).await;
+    let result = anlg_cloudsync::network_logout_on_connection(&mut *connection).await;
     registration.finish(connection).await?;
     result
 }
@@ -110,8 +111,11 @@ async fn interruptible_network_send_changes(
     max_db_versions: i64,
 ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
     let registration = interrupt.register(connection).await?;
-    let result =
-        anlg_cloudsync::network_send_changes_bounded(&mut *connection, max_db_versions).await;
+    let result = anlg_cloudsync::network_send_changes_bounded_on_connection(
+        &mut *connection,
+        max_db_versions,
+    )
+    .await;
     registration.finish(connection).await?;
     result
 }
@@ -124,7 +128,7 @@ pub(super) async fn interruptible_network_status(
         return anlg_cloudsync::network_status(connection).await;
     };
     let registration = interrupt.register(connection).await?;
-    let result = anlg_cloudsync::network_status(&mut *connection).await;
+    let result = anlg_cloudsync::network_status_on_connection(&mut *connection).await;
     registration.finish(connection).await?;
     result
 }

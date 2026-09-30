@@ -17,7 +17,7 @@ pub(crate) async fn interruptible_cleanup(
             return Err(error.into());
         }
     };
-    let result = anlg_cloudsync::cleanup(&mut *connection, table_name).await;
+    let result = anlg_cloudsync::cleanup_on_connection(&mut *connection, table_name).await;
     if let Err(error) = registration.finish(connection).await {
         rollback_cleanup_savepoint(connection).await?;
         return Err(error.into());
@@ -58,7 +58,9 @@ pub(crate) async fn interruptible_init(
     interrupt: &CloudsyncInterruptHandle,
 ) -> Result<(), anlg_cloudsync::Error> {
     let registration = interrupt.register(connection).await?;
-    let result = anlg_cloudsync::init(&mut *connection, table_name, crdt_algo, init_flags).await;
+    let result =
+        anlg_cloudsync::init_on_connection(&mut *connection, table_name, crdt_algo, init_flags)
+            .await;
     registration.finish(connection).await?;
     result
 }
