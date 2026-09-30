@@ -60,6 +60,12 @@ pub struct StoppedCapture {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct CaptureRecovery {
+    pub session_id: String,
+    pub process_stopped: bool,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct CaptureParams {
     pub session_id: String,

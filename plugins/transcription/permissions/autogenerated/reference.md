@@ -16,6 +16,7 @@ Default permissions for the plugin
 - `allow-clear-capture-lifecycle-marker`
 - `allow-get-capture-lifecycle-marker`
 - `allow-list-capture-lifecycle-markers`
+- `allow-list-capture-recoveries`
 - `allow-mark-capture-audio-saved`
 - `allow-clear-capture-audio-saved`
 - `allow-stop-capture`
@@ -654,6 +655,32 @@ Enables the list_capture_lifecycle_markers command without any pre-configured sc
 <td>
 
 Denies the list_capture_lifecycle_markers command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-list-capture-recoveries`
+
+</td>
+<td>
+
+Enables the list_capture_recoveries command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-list-capture-recoveries`
+
+</td>
+<td>
+
+Denies the list_capture_recoveries command without any pre-configured scope.
 
 </td>
 </tr>

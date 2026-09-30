@@ -3,10 +3,57 @@ use std::{
     sync::{Arc, Mutex as StdMutex},
 };
 
-use crate::api::StoppedCapture;
+use crate::api::{CaptureRecovery, StoppedCapture};
 
 #[derive(Clone, Default)]
 pub struct StoppedCaptureRegistry(Arc<StdMutex<HashMap<String, StoppedCapture>>>);
+
+pub(crate) fn merge_capture_recoveries(
+    stopped_session_ids: impl IntoIterator<Item = String>,
+    active_session_id: Option<String>,
+    finalizing_session_ids: impl IntoIterator<Item = String>,
+    marker_session_ids: impl IntoIterator<Item = String>,
+) -> Vec<CaptureRecovery> {
+    fn add(
+        recoveries: &mut Vec<CaptureRecovery>,
+        indexes: &mut HashMap<String, usize>,
+        session_id: String,
+        process_stopped: bool,
+    ) {
+        if session_id.is_empty() {
+            return;
+        }
+
+        if let Some(index) = indexes.get(&session_id) {
+            recoveries[*index].process_stopped |= process_stopped;
+            return;
+        }
+
+        indexes.insert(session_id.clone(), recoveries.len());
+        recoveries.push(CaptureRecovery {
+            session_id,
+            process_stopped,
+        });
+    }
+
+    let mut recoveries = Vec::new();
+    let mut indexes = HashMap::new();
+
+    for session_id in stopped_session_ids {
+        add(&mut recoveries, &mut indexes, session_id, true);
+    }
+    if let Some(session_id) = active_session_id {
+        add(&mut recoveries, &mut indexes, session_id, false);
+    }
+    for session_id in finalizing_session_ids {
+        add(&mut recoveries, &mut indexes, session_id, false);
+    }
+    for session_id in marker_session_ids {
+        add(&mut recoveries, &mut indexes, session_id, false);
+    }
+
+    recoveries
+}
 
 impl StoppedCaptureRegistry {
     pub fn record(&self, stopped_capture: StoppedCapture) {
@@ -66,6 +113,38 @@ impl StoppedCaptureRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn capture_recoveries_keep_first_seen_order_and_stopped_status() {
+        let recoveries = merge_capture_recoveries(
+            ["shared", "stopped-only"].map(str::to_string),
+            Some("shared".to_string()),
+            ["finalizing-only"].map(str::to_string),
+            ["shared", "marker-only"].map(str::to_string),
+        );
+
+        assert_eq!(
+            recoveries,
+            vec![
+                CaptureRecovery {
+                    session_id: "shared".to_string(),
+                    process_stopped: true,
+                },
+                CaptureRecovery {
+                    session_id: "stopped-only".to_string(),
+                    process_stopped: true,
+                },
+                CaptureRecovery {
+                    session_id: "finalizing-only".to_string(),
+                    process_stopped: false,
+                },
+                CaptureRecovery {
+                    session_id: "marker-only".to_string(),
+                    process_stopped: false,
+                },
+            ]
+        );
+    }
 
     fn stopped_capture(stopped_at_ms: i64) -> StoppedCapture {
         StoppedCapture {

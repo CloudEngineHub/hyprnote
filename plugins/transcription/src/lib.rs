@@ -148,6 +148,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::clear_capture_lifecycle_marker::<tauri::Wry>,
             listener::commands::get_capture_lifecycle_marker::<tauri::Wry>,
             listener::commands::list_capture_lifecycle_markers::<tauri::Wry>,
+            listener::commands::list_capture_recoveries::<tauri::Wry>,
             listener::commands::mark_capture_audio_saved::<tauri::Wry>,
             listener::commands::clear_capture_audio_saved::<tauri::Wry>,
             listener::commands::stop_capture::<tauri::Wry>,

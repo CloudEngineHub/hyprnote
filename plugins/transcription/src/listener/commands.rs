@@ -282,6 +282,51 @@ pub async fn list_capture_lifecycle_markers<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn list_capture_recoveries<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<crate::CaptureRecovery>, String> {
+    use tauri::Manager;
+
+    let (active_session_id, finalizing_session_ids) =
+        match app.listener().get_capture_snapshot().await {
+            Ok(snapshot) => (snapshot.active_session_id, snapshot.finalizing_session_ids),
+            Err(error) => {
+                tracing::warn!(?error, "failed to list active captures for recovery");
+                (None, Vec::new())
+            }
+        };
+    let stopped_session_ids =
+        if let Some(registry) = app.try_state::<crate::StoppedCaptureRegistry>() {
+            registry
+                .list()
+                .into_iter()
+                .map(|capture| capture.session_id)
+                .collect()
+        } else {
+            tracing::warn!("stopped capture registry is unavailable for recovery");
+            Vec::new()
+        };
+    let marker_session_ids = match crate::capture_markers::list_markers(&app).await {
+        Ok(markers) => markers
+            .into_iter()
+            .map(|marker| marker.session_id)
+            .collect(),
+        Err(error) => {
+            tracing::warn!(?error, "failed to list capture markers for recovery");
+            Vec::new()
+        }
+    };
+
+    Ok(crate::stopped_captures::merge_capture_recoveries(
+        stopped_session_ids,
+        active_session_id,
+        finalizing_session_ids,
+        marker_session_ids,
+    ))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn mark_capture_audio_saved<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,

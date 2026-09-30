@@ -118,6 +118,14 @@ async listCaptureLifecycleMarkers() : Promise<Result<CaptureLifecycleMarker[], s
     else return { status: "error", error: e  as any };
 }
 },
+async listCaptureRecoveries() : Promise<Result<CaptureRecovery[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|list_capture_recoveries") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async markCaptureAudioSaved(sessionId: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|mark_capture_audio_saved", { sessionId }) };
@@ -398,6 +406,7 @@ export type CaptureLifecycleEvent = { type: "started"; session_id: string; reque
 export type CaptureLifecycleMarker = { version: number; chunkedAudio?: boolean | null; retainAudio?: boolean | null; phase?: CapturePhase | null; sessionId: string; transcriptId: string; startedAt: number; createdAt: string; audioOffsetMs: number; preserveExistingTranscript: boolean; automatic?: boolean | null; preserveExistingAudio?: boolean | null; initialTitle?: string | null; ownerUserId: string; memo: string; provider?: string | null; model?: string | null; summaryMode?: SummaryMode | null; refreshSummaryAfterRepair?: boolean | null; inheritedCaptures?: InheritedCapture[] | null; inheritedOnly?: boolean | null }
 export type CaptureParams = { session_id: string; live_transcript?: LiveTranscriptTarget | null; retain_audio?: boolean | null; languages: string[]; onboarding: boolean; model: string; base_url: string; api_key: string; keywords: string[]; mic_device?: string | null; transcription_mode?: TranscriptionMode | null; participant_human_ids?: string[]; self_human_id?: string | null }
 export type CapturePhase = "capturing" | "finalizing"
+export type CaptureRecovery = { session_id: string; process_stopped: boolean }
 export type CaptureSnapshot = { state: CaptureState; activeSessionId: string | null; finalizingSessionIds: string[]; requestedLiveTranscription: boolean | null; liveTranscriptionActive: boolean | null; liveSegmentsSessionId?: string | null; liveSegments?: LiveTranscriptSegment[] | null; startedAtMs?: number | null; micMuted?: boolean | null; degraded?: DegradedError | null }
 export type CaptureState = "active" | "finalizing" | "inactive"
 export type CaptureStatusEvent = { type: "audio_initializing"; session_id: string } | { type: "audio_ready"; session_id: string; device: string | null } | { type: "connecting"; session_id: string } | { type: "connected"; session_id: string; adapter: string } | { type: "audio_error"; session_id: string; error: string; device: string | null; is_fatal: boolean } | { type: "connection_error"; session_id: string; error: string }

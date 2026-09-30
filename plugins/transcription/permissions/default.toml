@@ -13,6 +13,7 @@ permissions = [
     "allow-clear-capture-lifecycle-marker",
     "allow-get-capture-lifecycle-marker",
     "allow-list-capture-lifecycle-markers",
+    "allow-list-capture-recoveries",
     "allow-mark-capture-audio-saved",
     "allow-clear-capture-audio-saved",
     "allow-stop-capture",

@@ -13,6 +13,7 @@ const COMMANDS: &[&str] = &[
     "clear_capture_lifecycle_marker",
     "get_capture_lifecycle_marker",
     "list_capture_lifecycle_markers",
+    "list_capture_recoveries",
     "mark_capture_audio_saved",
     "clear_capture_audio_saved",
     "stop_capture",
