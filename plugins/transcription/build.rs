@@ -31,6 +31,7 @@ const COMMANDS: &[&str] = &[
     "suggest_providers_for_languages_live",
     "list_documented_language_codes_live",
     "render_transcript_segments",
+    "render_session_transcript",
     "start_transcription",
     "stop_transcription",
     "list_transcription_sessions",

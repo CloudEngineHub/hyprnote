@@ -87,7 +87,7 @@ pub async fn load_session_batch_transcripts(
     Ok(transcripts)
 }
 
-async fn load_pending_delta_jsons(
+pub(crate) async fn load_pending_delta_jsons(
     conn: &mut SqliteConnection,
     transcript_id: &str,
 ) -> Result<Vec<String>, sqlx::Error> {

@@ -33,6 +33,7 @@ permissions = [
     "allow-suggest-providers-for-languages-live",
     "allow-list-documented-language-codes-live",
     "allow-render-transcript-segments",
+    "allow-render-session-transcript",
     "allow-start-transcription",
     "allow-stop-transcription",
     "allow-list-transcription-sessions",

@@ -8,10 +8,7 @@ const mocks = vi.hoisted(() => ({
   formatMeetingChatContext: vi.fn(),
   loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
-  loadHumansByIds: vi.fn(),
-  buildRenderTranscriptRequestFromRows: vi.fn(),
-  collectAssignedHumanIdsFromTranscriptRows: vi.fn(),
-  renderTranscriptSegments: vi.fn(),
+  renderSessionTranscript: vi.fn(),
 }));
 
 vi.mock("./enhance-images", () => ({
@@ -26,21 +23,13 @@ vi.mock("~/session/content-queries", () => ({
   loadSessionContentSnapshot: mocks.loadSessionContentSnapshot,
 }));
 
+vi.mock("@anlg/plugin-transcription", () => ({
+  commands: { renderSessionTranscript: mocks.renderSessionTranscript },
+}));
+
 vi.mock("~/stt/meeting-chat-records", () => ({
   formatMeetingChatContext: mocks.formatMeetingChatContext,
   loadMeetingChatRecords: mocks.loadMeetingChatRecords,
-}));
-
-vi.mock("~/contacts/queries", () => ({
-  loadHumansByIds: mocks.loadHumansByIds,
-}));
-
-vi.mock("~/stt/render-transcript", () => ({
-  buildRenderTranscriptRequestFromRows:
-    mocks.buildRenderTranscriptRequestFromRows,
-  collectAssignedHumanIdsFromTranscriptRows:
-    mocks.collectAssignedHumanIdsFromTranscriptRows,
-  renderTranscriptSegments: mocks.renderTranscriptSegments,
 }));
 
 function createSnapshot() {
@@ -85,10 +74,10 @@ describe("enhanceTransform.transformArgs", () => {
     mocks.formatMeetingChatContext.mockReturnValue("");
     mocks.loadMeetingChatRecords.mockResolvedValue([]);
     mocks.loadSessionContentSnapshot.mockResolvedValue(createSnapshot());
-    mocks.loadHumansByIds.mockResolvedValue([{ id: "human-1", name: "Alice" }]);
-    mocks.collectAssignedHumanIdsFromTranscriptRows.mockReturnValue([]);
-    mocks.buildRenderTranscriptRequestFromRows.mockReturnValue(null);
-    mocks.renderTranscriptSegments.mockResolvedValue([]);
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
     consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -143,6 +132,18 @@ describe("enhanceTransform.transformArgs", () => {
     );
 
     expect(result.postMeetingMemo).toContain("Meeting platform: Google Meet");
+  });
+
+  it("keeps the pre-meeting memo when transcript words are omitted", async () => {
+    const result = await enhanceTransform.transformArgs(
+      {
+        sessionId: "session-1",
+        enhancedNoteId: "note-1",
+      },
+      settingsValues,
+    );
+
+    expect(result.preMeetingMemo).toBe("![pre](asset://localhost/pre.png)");
   });
 
   it("uses the edited memo headings for its applied template", async () => {
@@ -334,29 +335,75 @@ describe("enhanceTransform.transformArgs", () => {
     ]);
   });
 
-  it("builds speaker identity context from SQLite humans", async () => {
-    mocks.collectAssignedHumanIdsFromTranscriptRows.mockReturnValue([
-      "human-2",
-    ]);
+  it("uses Rust-rendered transcript segments in summary context", async () => {
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: {
+        segments: [
+          {
+            id: "later",
+            key: { channel: "DirectMic" },
+            speaker_label: "Later speaker",
+            start_ms: 200,
+            end_ms: 300,
+            text: "later words",
+            words: [
+              {
+                text: "later words",
+                start_ms: 200,
+                end_ms: 300,
+                channel: "DirectMic",
+                is_final: true,
+              },
+            ],
+          },
+          {
+            id: "empty",
+            key: { channel: "DirectMic" },
+            speaker_label: "Empty speaker",
+            start_ms: 0,
+            end_ms: 100,
+            text: "",
+            words: [],
+          },
+          {
+            id: "earlier",
+            key: { channel: "DirectMic" },
+            speaker_label: "Earlier speaker",
+            start_ms: 100,
+            end_ms: 150,
+            text: "earlier words",
+            words: [
+              {
+                text: "earlier words",
+                start_ms: 100,
+                end_ms: 150,
+                channel: "DirectMic",
+                is_final: true,
+              },
+            ],
+          },
+        ],
+        started_at: 100,
+        ended_at: 200,
+      },
+    });
 
-    await enhanceTransform.transformArgs(
+    const result = await enhanceTransform.transformArgs(
       { sessionId: "session-1", enhancedNoteId: "note-1" },
       settingsValues,
     );
 
-    expect(mocks.loadHumansByIds).toHaveBeenCalledWith([
-      "user-1",
-      "human-1",
-      "human-2",
-    ]);
-    expect(mocks.buildRenderTranscriptRequestFromRows).toHaveBeenCalledWith(
-      expect.any(Array),
+    expect(result.transcripts).toEqual([
       {
-        selfHumanId: "user-1",
-        humans: [{ human_id: "human-1", name: "Alice" }],
+        segments: [
+          { speaker: "Earlier speaker", text: "earlier words" },
+          { speaker: "Later speaker", text: "later words" },
+        ],
+        startedAt: 100,
+        endedAt: 200,
       },
-      ["human-1"],
-    );
+    ]);
   });
 
   it("includes captured meeting chat in the post-meeting memo", async () => {

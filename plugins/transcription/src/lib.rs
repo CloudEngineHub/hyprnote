@@ -16,6 +16,7 @@ mod error;
 mod listener;
 mod listener2;
 mod live_journal;
+mod session_transcript;
 mod stopped_captures;
 mod voiceprint;
 
@@ -172,6 +173,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::suggest_providers_for_languages_live::<tauri::Wry>,
             listener::commands::list_documented_language_codes_live::<tauri::Wry>,
             listener::commands::render_transcript_segments,
+            listener2::commands::render_session_transcript::<tauri::Wry>,
             listener2::commands::refine_batch_transcript,
             listener2::commands::save_batch_transcript::<tauri::Wry>,
             listener2::commands::reconcile_refined_speaker_clusters,

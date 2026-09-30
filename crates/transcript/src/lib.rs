@@ -18,7 +18,7 @@ pub use batch_refine::{
     BatchRefinementOutcome, BatchRefinementRequest, BatchRefinementSource,
     BatchTranscriptPromotion, SpeakerClusterReconciliationRequest, StoredSpeakerHint,
     StoredTranscriptWord, parse_stored_speaker_hints, parse_stored_transcript_words,
-    reconcile_refined_speaker_clusters, refine_batch_transcript,
+    reconcile_refined_speaker_clusters, refine_batch_transcript, render_input_from_stored,
 };
 pub use label::{SpeakerLabelContext, SpeakerLabeler, render_speaker_label};
 pub use live_materialize::{

@@ -270,6 +270,14 @@ async renderTranscriptSegments(params: RenderTranscriptRequest) : Promise<Result
     else return { status: "error", error: e  as any };
 }
 },
+async renderSessionTranscript(request: RenderSessionTranscriptRequest) : Promise<Result<RenderedSessionTranscript | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|render_session_transcript", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async refineBatchTranscript(request: BatchRefinementRequest) : Promise<Result<BatchRefinementOutcome, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|refine_batch_transcript", { request }) };
@@ -470,10 +478,12 @@ export type LiveTranscriptTarget = { transcript_id: string; owner_user_id: strin
 export type PartialWord = { text: string; start_ms: number; end_ms: number; channel: number; speaker_index?: number | null }
 export type ProvisionalSpeakerLabel = { name: string; human_id: string | null; reason: SpeakerResolutionReason }
 export type RecoveryAudioChunk = { id: string; path: string; capture_started_at: number; start_ms: number; audio_start_ms: number; end_ms: number }
+export type RenderSessionTranscriptRequest = { session_id: string; self_human_id: string | null }
 export type RenderTranscriptHuman = { human_id: string; name: string }
 export type RenderTranscriptInput = { started_at: number | null; words: RenderTranscriptWordInput[]; assignments: IdentityAssignment[] }
 export type RenderTranscriptRequest = { speaker_context?: SpeakerContext | null; preview?: RenderedTranscriptSegment[] | null; transcripts: RenderTranscriptInput[]; participant_human_ids: string[]; self_human_id: string | null; humans: RenderTranscriptHuman[] }
 export type RenderTranscriptWordInput = { id: string; text: string; start_ms: number; end_ms: number; channel: number; speaker_index?: number | null }
+export type RenderedSessionTranscript = { segments: RenderedTranscriptSegment[]; started_at: number | null; ended_at: number | null }
 export type RenderedTranscriptSegment = { provisional_speaker?: ProvisionalSpeakerLabel | null; id: string; key: SegmentKey; speaker_label: string; start_ms: number; end_ms: number; text: string; words: SegmentWord[] }
 export type SaveBatchTranscriptOutcome = { status: "saved"; transcript_id: string | null } | { status: "empty_current_capture" } | { status: "truncated" }
 export type SaveBatchTranscriptRequest = { session_id: string; transcript_id: string | null; owner_user_id: string; created_at: string; started_at: number; memo: string; provider: string; model: string; words: StoredTranscriptWord[]; hints: StoredSpeakerHint[]; promotion: BatchTranscriptPromotion; mark_audio_complete: boolean }

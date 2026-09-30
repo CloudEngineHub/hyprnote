@@ -148,6 +148,19 @@ pub async fn save_batch_transcript<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn render_session_transcript<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    request: crate::session_transcript::RenderSessionTranscriptRequest,
+) -> Result<Option<crate::session_transcript::RenderedSessionTranscript>, String> {
+    let runtime = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+    crate::session_transcript::render_session_transcript(runtime.pool(), request).await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn reconcile_refined_speaker_clusters(
     request: anlg_transcript::SpeakerClusterReconciliationRequest,
 ) -> Result<Vec<anlg_transcript::StoredSpeakerHint>, String> {

@@ -36,6 +36,7 @@ Default permissions for the plugin
 - `allow-suggest-providers-for-languages-live`
 - `allow-list-documented-language-codes-live`
 - `allow-render-transcript-segments`
+- `allow-render-session-transcript`
 - `allow-start-transcription`
 - `allow-stop-transcription`
 - `allow-list-transcription-sessions`
@@ -996,6 +997,32 @@ Enables the release_live_transcript command without any pre-configured scope.
 <td>
 
 Denies the release_live_transcript command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-render-session-transcript`
+
+</td>
+<td>
+
+Enables the render_session_transcript command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-render-session-transcript`
+
+</td>
+<td>
+
+Denies the render_session_transcript command without any pre-configured scope.
 
 </td>
 </tr>
