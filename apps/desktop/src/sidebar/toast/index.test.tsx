@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   openNew: vi.fn(),
   updateSettingsTabState: vi.fn(),
   clearDevtoolsPreview: vi.fn(),
-  setToastActionTarget: vi.fn(),
   message: vi.fn(),
   error: vi.fn(),
   warning: vi.fn(),
@@ -113,12 +112,6 @@ vi.mock("~/store/zustand/tabs", () => ({
       openNew: mocks.openNew,
       updateSettingsTabState: mocks.updateSettingsTabState,
     }),
-}));
-
-vi.mock("~/store/zustand/toast-action", () => ({
-  useToastAction: (
-    selector: (state: { setTarget: (target: "stt" | null) => void }) => unknown,
-  ) => selector({ setTarget: mocks.setToastActionTarget }),
 }));
 
 vi.mock("~/stt/capabilities", () => ({

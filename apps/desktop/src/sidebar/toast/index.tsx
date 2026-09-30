@@ -21,7 +21,6 @@ import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useDevtoolsToastPreview } from "~/store/zustand/devtools-toast-preview";
 import { useTabs } from "~/store/zustand/tabs";
-import { useToastAction } from "~/store/zustand/toast-action";
 import {
   isConfiguredSttModel,
   isAnarlogCloudSttModel,
@@ -128,7 +127,6 @@ export function ToastNotifications() {
   const updateSettingsTabState = useTabs(
     (state) => state.updateSettingsTabState,
   );
-  const setToastActionTarget = useToastAction((state) => state.setTarget);
 
   const handleSignIn = useCallback(async () => {
     await auth?.signIn();
@@ -150,9 +148,8 @@ export function ToastNotifications() {
   }, [openAiTab]);
 
   const handleOpenSTTSettings = useCallback(() => {
-    setToastActionTarget("stt");
     openAiTab("transcription");
-  }, [openAiTab, setToastActionTarget]);
+  }, [openAiTab]);
 
   const registry = useMemo(
     () =>
