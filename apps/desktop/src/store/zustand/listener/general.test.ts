@@ -2302,6 +2302,42 @@ describe("General Listener Slice", () => {
       expect(stopCaptureMock).not.toHaveBeenCalled();
     });
 
+    test("keeps storage warnings out of shared live errors", async () => {
+      await store.getState().start({
+        session_id: "session-a",
+        languages: [],
+        onboarding: false,
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      });
+      const handler =
+        listenCaptureStatusMock.mock.calls[
+          listenCaptureStatusMock.mock.calls.length - 1
+        ]?.[0];
+      handler?.({
+        payload: {
+          type: "audio_error",
+          session_id: "session-a",
+          error: "audio_saving_delayed: low disk",
+          is_fatal: false,
+          device: null,
+        },
+      });
+      handler?.({
+        payload: {
+          type: "audio_error",
+          session_id: "session-a",
+          error: "audio_disk_low",
+          is_fatal: false,
+          device: null,
+        },
+      });
+      expect(store.getState().live.lastError).toBeNull();
+      expect(stopCaptureMock).not.toHaveBeenCalled();
+    });
+
     test("preserves explicit audio errors when capture startup fails", async () => {
       const consoleError = vi
         .spyOn(console, "error")
