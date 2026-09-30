@@ -45,7 +45,7 @@ async getTemplateSource(template: EditableTemplate) : Promise<Result<string, str
 export type ActivityCaptureSystem = { language: string | null }
 export type ActivityCaptureUser = { appName: string; windowTitle: string | null; reason: string; fingerprint: string }
 export type ChatSystem = { language: string | null }
-export type ContextBlock = { contexts: SessionContext[] }
+export type ContextBlock = { contexts: SessionContext[]; currentSessionId: string | null }
 export type DailySummaryAnalysis = { time: string; appName: string; windowTitle: string | null; reason: string; summary: string }
 export type DailySummaryAppStat = { appName: string; count: number }
 export type DailySummaryStats = { signalCount: number; screenshotCount: number; analysisCount: number; uniqueAppCount: number; firstSignal: string | null; lastSignal: string | null }
@@ -64,7 +64,7 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | Partial
 export type Participant = { name: string; jobTitle: string | null }
 export type Segment = { text: string; speaker: string }
 export type Session = { title: string | null; startedAt: string | null; endedAt: string | null; event: Event | null }
-export type SessionContext = { title: string | null; date: string | null; rawContent: string | null; enhancedContent: string | null; meetingChat: string | null; transcript: Transcript | null; participants: Participant[]; event: Event | null }
+export type SessionContext = { sessionId: string | null; title: string | null; date: string | null; rawContent: string | null; enhancedContent: string | null; meetingChat: string | null; transcript: Transcript | null; participants: Participant[]; event: Event | null }
 export type Template = { activityCaptureSystem: ActivityCaptureSystem } | { activityCaptureUser: ActivityCaptureUser } | { dailySummarySystem: DailySummarySystem } | { dailySummaryUser: DailySummaryUser } | { enhanceSystem: EnhanceSystem } | { enhanceUser: EnhanceUser } | { eventContactSystem: EventContactSystem } | { eventContactUser: EventContactUser } | { titleSystem: TitleSystem } | { titleUser: TitleUser } | { chatSystem: ChatSystem } | { contextBlock: ContextBlock } | { toolSearchSessions: ToolSearchSessions } | { transcriptPatchSystem: TranscriptPatchSystem } | { transcriptPatchUser: TranscriptPatchUser }
 export type TemplateSection = { title: string; description: string | null }
 export type TitleSystem = { language: string | null }

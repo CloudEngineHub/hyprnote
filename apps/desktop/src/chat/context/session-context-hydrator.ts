@@ -118,6 +118,7 @@ export async function hydrateSessionContext(
   );
 
   return {
+    sessionId,
     title: snapshot.title || null,
     date: snapshot.createdAt || null,
     rawContent: snapshot.rawMarkdown || null,

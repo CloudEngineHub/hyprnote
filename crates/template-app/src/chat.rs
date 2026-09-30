@@ -4,6 +4,7 @@ use anlg_askama_utils::filters;
 
 common_derives! {
     pub struct SessionContext {
+        pub session_id: Option<String>,
         pub title: Option<String>,
         pub date: Option<String>,
         pub raw_content: Option<String>,
@@ -28,6 +29,13 @@ common_derives! {
     #[template(path = "context.block.md.jinja")]
     pub struct ContextBlock {
         pub contexts: Vec<SessionContext>,
+        pub current_session_id: Option<String>,
+    }
+}
+
+impl ContextBlock {
+    fn is_current(&self, ctx: &SessionContext) -> bool {
+        ctx.session_id.is_some() && ctx.session_id == self.current_session_id
     }
 }
 
@@ -40,6 +48,7 @@ mod tests {
         test_context_block_wrapped,
         ContextBlock {
             contexts: vec![SessionContext {
+                session_id: None,
                 title: Some("Q1 Planning".to_string()),
                 date: Some("2025-03-01".to_string()),
                 raw_content: None,
@@ -52,6 +61,7 @@ mod tests {
                 participants: vec![],
                 event: None,
             }],
+            current_session_id: None,
         },
         |v| v.starts_with("<context>") && v.trim_end().ends_with("</context>"),
         @r#"
@@ -67,6 +77,58 @@ mod tests {
     Meeting Chat:
     - Slack · 10:42 AM · Ada · received
       Review the rollout plan.
+    </context>
+    "#);
+
+    tpl_snapshot_with_assert!(
+        test_context_block_marks_current_session,
+        ContextBlock {
+            contexts: vec![
+                SessionContext {
+                    session_id: Some("session-old".to_string()),
+                    title: Some("Old Meeting".to_string()),
+                    date: None,
+                    raw_content: Some("Old notes".to_string()),
+                    enhanced_content: None,
+                    meeting_chat: None,
+                    transcript: None,
+                    participants: vec![],
+                    event: None,
+                },
+                SessionContext {
+                    session_id: Some("session-new".to_string()),
+                    title: Some("New Meeting".to_string()),
+                    date: None,
+                    raw_content: Some("New notes".to_string()),
+                    enhanced_content: None,
+                    meeting_chat: None,
+                    transcript: None,
+                    participants: vec![],
+                    event: None,
+                },
+            ],
+            current_session_id: Some("session-new".to_string()),
+        },
+        |v| v.contains("Session ID: session-new\nCurrent note:") && !v.contains("Session ID: session-old\nCurrent note:"),
+        @r#"
+    <context>
+
+    Session ID: session-old
+
+    Title: Old Meeting
+
+    User written note:
+    Old notes
+
+    ---
+
+    Session ID: session-new
+    Current note: the user is viewing this note right now.
+
+    Title: New Meeting
+
+    User written note:
+    New notes
     </context>
     "#);
 }

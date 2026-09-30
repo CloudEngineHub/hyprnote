@@ -110,6 +110,7 @@ describe("session chat context hydration", () => {
   it("hydrates note and speaker context from the canonical snapshot", async () => {
     await expect(hydrateSessionContext("session-1", "user-1")).resolves.toEqual(
       {
+        sessionId: "session-1",
         title: "Planning",
         date: "2026-07-10T09:00:00.000Z",
         rawContent: "Raw note",
