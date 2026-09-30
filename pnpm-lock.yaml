@@ -186,6 +186,9 @@ importers:
       '@anlg/plugin-relay':
         specifier: workspace:*
         version: link:../../plugins/relay
+      '@anlg/plugin-session':
+        specifier: workspace:*
+        version: link:../../plugins/session
       '@anlg/plugin-settings':
         specifier: workspace:*
         version: link:../../plugins/settings
@@ -1532,6 +1535,12 @@ importers:
   plugins/relay: {}
 
   plugins/screen:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.10.1
+        version: 2.10.1
+
+  plugins/session:
     dependencies:
       '@tauri-apps/api':
         specifier: ^2.10.1

@@ -4755,6 +4755,7 @@ dependencies = [
  "tauri-plugin-relay",
  "tauri-plugin-screen",
  "tauri-plugin-sentry",
+ "tauri-plugin-session",
  "tauri-plugin-settings",
  "tauri-plugin-sfx",
  "tauri-plugin-shell",
@@ -17516,6 +17517,26 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "tauri-plugin-session"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db-app",
+ "db-core",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "sqlx",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-db",
+ "tauri-specta",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

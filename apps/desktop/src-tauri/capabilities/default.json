@@ -61,6 +61,7 @@
     "importer:default",
     "transcription:default",
     "template:default",
+    "session:default",
     "todo:default",
     "notification:default",
     "overlay:default",

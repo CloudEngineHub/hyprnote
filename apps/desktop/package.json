@@ -60,6 +60,7 @@
     "@anlg/plugin-shortcut": "workspace:*",
     "@anlg/plugin-store2": "workspace:*",
     "@anlg/plugin-tantivy": "workspace:*",
+    "@anlg/plugin-session": "workspace:*",
     "@anlg/plugin-template": "workspace:*",
     "@anlg/plugin-todo": "workspace:*",
     "@anlg/plugin-transcription": "workspace:*",

@@ -9,10 +9,48 @@ const mocks = vi.hoisted(() => ({
     (_statements: Array<{ sql: string; params: unknown[] }>) =>
       Promise.resolve([1]),
   ),
+  createSession: vi.fn(() =>
+    Promise.resolve({ status: "ok", data: "session-1" }),
+  ),
+  createSessionForEvent: vi.fn(() =>
+    Promise.resolve({
+      status: "ok",
+      data: { session_id: "session-created", created: true },
+    }),
+  ),
+  softDeleteSession: vi.fn(() =>
+    Promise.resolve({
+      status: "ok" as const,
+      data: { id: "session-1", title: "Planning" } as {
+        id: string;
+        title: string;
+      } | null,
+    }),
+  ),
+  restoreDeletedSession: vi.fn(() =>
+    Promise.resolve({ status: "ok", data: "restored" }),
+  ),
+  addSessionParticipant: vi.fn(() =>
+    Promise.resolve({ status: "ok", data: null }),
+  ),
+  removeSessionParticipant: vi.fn(() =>
+    Promise.resolve({ status: "ok", data: null }),
+  ),
 }));
 
 vi.mock("@anlg/plugin-analytics", () => ({
   commands: { eventFireAndForget: mocks.analyticsEventFireAndForget },
+}));
+
+vi.mock("@anlg/plugin-session", () => ({
+  commands: {
+    createSession: mocks.createSession,
+    createSessionForEvent: mocks.createSessionForEvent,
+    softDeleteSession: mocks.softDeleteSession,
+    restoreDeletedSession: mocks.restoreDeletedSession,
+    addSessionParticipant: mocks.addSessionParticipant,
+    removeSessionParticipant: mocks.removeSessionParticipant,
+  },
 }));
 
 vi.mock("@anlg/plugin-fs-sync", () => ({
@@ -29,18 +67,14 @@ vi.mock("~/db", () => ({
 }));
 
 import {
-  addSessionParticipant,
   applySessionProposal,
-  buildSessionTombstoneStatements,
-  createSession,
   declineSessionProposal,
+  persistChatSessionProposal,
   deleteEnhancedNote,
   getOrCreateSessionForEventId,
   isSessionDeleted,
   isSessionEmpty,
   loadSessionEvent,
-  persistChatSessionProposal,
-  removeSessionParticipant,
   restoreDeletedSession,
   softDeleteSession,
   updateEnhancedNoteContent,
@@ -49,18 +83,6 @@ import {
 
 const event = {
   id: "event-1",
-  tracking_id_event: "external-event-1",
-  calendar_id: "calendar-1",
-  title: "Planning",
-  started_at: "2026-07-10T09:00:00.000Z",
-  ended_at: "2026-07-10T10:00:00.000Z",
-  location: "Room 1",
-  meeting_link: "https://meet.example/1",
-  description: "Plan",
-  recurrence_series_id: "series-1",
-  has_recurrence_rules: 1,
-  is_all_day: 0,
-  provider: "google",
   participants_json: JSON.stringify([
     { name: "Alice", email: "alice@example.com" },
   ]),
@@ -70,6 +92,18 @@ describe("session SQLite operations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+    mocks.createSessionForEvent.mockResolvedValue({
+      status: "ok",
+      data: { session_id: "session-created", created: true },
+    });
+    mocks.softDeleteSession.mockResolvedValue({
+      status: "ok",
+      data: { id: "session-1", title: "Planning" },
+    });
+    mocks.restoreDeletedSession.mockResolvedValue({
+      status: "ok",
+      data: "restored",
+    });
   });
 
   it("loads embedded event metadata from the canonical session", async () => {
@@ -90,102 +124,53 @@ describe("session SQLite operations", () => {
     });
   });
 
-  it("attaches missing calendar participants to an existing event note", async () => {
-    mocks.execute
-      .mockResolvedValueOnce([event])
-      .mockResolvedValueOnce([{ id: "session-existing" }])
-      .mockResolvedValueOnce([]);
+  it("attaches parsed calendar participants to an existing event note", async () => {
+    mocks.execute.mockResolvedValueOnce([event]);
+    mocks.createSessionForEvent.mockResolvedValueOnce({
+      status: "ok",
+      data: { session_id: "session-existing", created: false },
+    });
 
     await expect(getOrCreateSessionForEventId("event-1")).resolves.toBe(
       "session-existing",
     );
 
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(
-      statements.some((statement) => statement.sql.includes("humans")),
-    ).toBe(true);
-    expect(
-      statements.some((statement) =>
-        statement.sql.includes("session_participants"),
-      ),
-    ).toBe(true);
-    expect(
-      statements.find((statement) =>
-        statement.sql.includes("INSERT INTO humans"),
-      )?.params,
-    ).toContain("alice@example.com");
+    expect(mocks.createSessionForEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_id: "event-1",
+        participants: [expect.objectContaining({ email: "alice@example.com" })],
+      }),
+    );
+    expect(mocks.analyticsEventFireAndForget).not.toHaveBeenCalled();
   });
 
-  it("enriches an existing placeholder human when attaching to an event note", async () => {
-    mocks.execute
-      .mockResolvedValueOnce([event])
-      .mockResolvedValueOnce([{ id: "session-existing" }])
-      .mockResolvedValueOnce([
-        { id: "human-alice", email: "alice@example.com" },
-      ]);
-
-    await getOrCreateSessionForEventId("event-1");
-
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(
-      statements.some((statement) =>
-        statement.sql.includes("INSERT INTO humans"),
-      ),
-    ).toBe(false);
-    const update = statements.find((statement) =>
-      statement.sql.includes("UPDATE humans"),
-    );
-    expect(update?.sql).toContain("ELSE name");
-    expect(update?.params).toEqual(
-      expect.arrayContaining(["Alice", "Example", "human-alice"]),
-    );
-    expect(
-      statements.find((statement) =>
-        statement.sql.includes("INSERT INTO organizations"),
-      )?.sql,
-    ).toContain("organization_id = ''");
-  });
-
-  it("does not attach the calendar self copy to an existing event note", async () => {
-    mocks.execute
-      .mockResolvedValueOnce([
-        {
-          ...event,
-          participants_json: JSON.stringify([
-            {
-              name: "John",
-              email: "john@example.com",
-              is_current_user: true,
-            },
-            { name: "Artem", email: "artem@example.com" },
-          ]),
-        },
-      ])
-      .mockResolvedValueOnce([{ id: "session-existing" }])
-      .mockResolvedValueOnce([]);
+  it("does not attach malformed or self calendar participants", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        ...event,
+        participants_json: JSON.stringify([
+          null,
+          { name: 42, email: "invalid@example.com" },
+          {
+            name: "John",
+            email: "john@example.com",
+            is_current_user: true,
+          },
+          { name: "Artem", email: "artem@example.com" },
+          { name: "Artem Dupe", email: "ARTEM@example.com" },
+        ]),
+      },
+    ]);
 
     await expect(getOrCreateSessionForEventId("event-1")).resolves.toBe(
-      "session-existing",
+      "session-created",
     );
 
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    const params = statements.flatMap((statement) => statement.params);
-    expect(params).toContain("artem@example.com");
-    expect(params).not.toContain("john@example.com");
-    expect(
-      statements.every((statement) =>
-        statement.sql.includes("? <> session.owner_user_id"),
-      ),
-    ).toBe(true);
+    expect(mocks.createSessionForEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        participants: [expect.objectContaining({ email: "artem@example.com" })],
+      }),
+    );
   });
 
   it("commits title and raw note changes in one ordered transaction", async () => {
@@ -238,116 +223,6 @@ describe("session SQLite operations", () => {
     expect(editStatement.sql).not.toContain(
       "template_id = excluded.template_id",
     );
-  });
-
-  it("creates a session with its initial event and note content atomically", async () => {
-    await createSession("Welcome", "user-1", {
-      event_json: '{"tracking_id":"welcome"}',
-      folder_id: "CS 101",
-      raw_md: '{"type":"doc"}',
-    });
-
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements[0].sql).toContain("event_json");
-    expect(statements[0].sql).toContain("folder_path");
-    expect(statements[0].sql).toContain("cloudsync_workspace_binding");
-    expect(statements[0].sql).toContain("folder.workspace_id");
-    expect(statements[0].sql).toContain("folder.path = ?");
-    expect(statements[0].sql).not.toContain("LIKE folder.path || '/%'");
-    expect(statements[0].sql).not.toContain("ORDER BY length(folder.path)");
-    expect(statements[0].params).toContain('{"tracking_id":"welcome"}');
-    expect(statements[0].params).toContain("CS 101");
-    expect(statements[1].sql).toContain("session_documents");
-    expect(statements[1].sql).toContain("workspace_id");
-    expect(statements[1].sql).toContain("FROM sessions");
-    expect(statements[1].params).toContain('{"type":"doc"}');
-    expect(mocks.executeTransaction.mock.calls[1][0][1].sql).toContain(
-      "INSERT INTO folders",
-    );
-  });
-
-  it("matches the exact team-folder workspace for new sessions", async () => {
-    await createSession("Team note", "user-1", { folder_id: "defcons" });
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0] as {
-      sql: string;
-      params: unknown[];
-    };
-    expect(statement.sql).toContain("folder.path = ?");
-    expect(statement.sql).not.toContain("LIKE folder.path || '/%'");
-    expect(statement.params.slice(0, 2)).toEqual([
-      expect.any(String),
-      "defcons",
-    ]);
-    expect(mocks.executeTransaction.mock.calls[0][0][1].sql).toContain(
-      "SELECT ?, workspace_id, id",
-    );
-    expect(mocks.executeTransaction.mock.calls[0][0][2].sql).toContain(
-      "session.workspace_id",
-    );
-    expect(mocks.executeTransaction.mock.calls[0][0][3].sql).toContain(
-      "session.workspace_id",
-    );
-
-    mocks.executeTransaction.mockClear();
-    await createSession("Personal note", "user-1", { folder_id: "personal" });
-    const personalStatement = mocks.executeTransaction.mock.calls[0][0][0] as {
-      sql: string;
-      params: unknown[];
-    };
-    expect(personalStatement.sql).toContain(
-      "NULLIF((\n              SELECT json_extract",
-    );
-    expect(personalStatement.params.slice(0, 2)).toEqual([
-      expect.any(String),
-      "personal",
-    ]);
-  });
-
-  it("derives the default self identity from the bound workspace", async () => {
-    await createSession("Local note");
-
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements[0].sql).toContain("NULLIF(NULLIF(?, '')");
-    expect(statements[0].sql).toContain("00000000-0000-0000-0000-000000000000");
-    expect(statements[2].sql).toContain("SELECT session.owner_user_id");
-    expect(statements[2].params).not.toContain(
-      "00000000-0000-0000-0000-000000000000",
-    );
-    expect(statements[3].sql).toContain("session.owner_user_id");
-    expect(statements[3].params).not.toContain(
-      "00000000-0000-0000-0000-000000000000",
-    );
-  });
-
-  it("links a human to a session without creating duplicate active mappings", async () => {
-    await addSessionParticipant("session-1", "human-1");
-
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements[0].sql).toContain("source = 'excluded'");
-    expect(statements[0].sql).toContain("? <> 'auto'");
-    expect(statements[1].sql).toContain("INSERT INTO session_participants");
-    expect(statements[1].sql).toContain("session.workspace_id");
-    expect(statements[1].sql).toContain("NOT EXISTS");
-    expect(statements[1].params).toContain("session-1");
-    expect(statements[1].params).toContain("human-1");
-    expect(statements[1].params).toContain("manual");
-  });
-
-  it("excludes auto participants and tombstones manual participants", async () => {
-    await removeSessionParticipant("mapping-1");
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("source = 'auto'");
-    expect(statement.sql).toContain("THEN 'excluded'");
-    expect(statement.sql).toContain("deleted_at = CASE");
-    expect(statement.params).toContain("mapping-1");
   });
 
   it("commits enhanced note content and the derived session title together", async () => {
@@ -403,76 +278,11 @@ describe("session SQLite operations", () => {
     ]);
   });
 
-  it("creates an event note with an in-transaction deduplication predicate", async () => {
-    mocks.execute
-      .mockResolvedValueOnce([event])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: "session-created" }]);
-    mocks.executeTransaction.mockResolvedValueOnce([1]);
-
-    await expect(getOrCreateSessionForEventId("event-1")).resolves.toBe(
-      "session-created",
-    );
-
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements[0].sql).toContain("WHERE NOT EXISTS");
-    expect(statements[0].params).toContain("external-event-1");
-    expect(
-      statements.some((statement) => statement.sql.includes("humans")),
-    ).toBe(true);
-    expect(
-      statements.some((statement) =>
-        statement.sql.includes("session_participants"),
-      ),
-    ).toBe(true);
-  });
-
-  it("ignores malformed calendar participants when creating an event note", async () => {
-    mocks.execute
-      .mockResolvedValueOnce([
-        {
-          ...event,
-          participants_json: JSON.stringify([
-            null,
-            { name: 42, email: "invalid@example.com" },
-          ]),
-        },
-      ])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: "session-created" }]);
-    mocks.executeTransaction.mockResolvedValueOnce([1]);
-
-    await expect(getOrCreateSessionForEventId("event-1")).resolves.toBe(
-      "session-created",
-    );
-
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-    }>;
-    expect(
-      statements.some((statement) => statement.sql.includes("humans")),
-    ).toBe(false);
-    expect(
-      statements.some((statement) =>
-        statement.sql.includes("session_participants"),
-      ),
-    ).toBe(false);
-  });
-
   it("does not wait for analytics before returning a newly created event note", async () => {
     mocks.analyticsEventFireAndForget.mockImplementationOnce(
       () => new Promise<never>(() => {}),
     );
-    mocks.execute
-      .mockResolvedValueOnce([event])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: "session-created" }]);
-    mocks.executeTransaction.mockResolvedValueOnce([1]);
+    mocks.execute.mockResolvedValueOnce([event]);
 
     await expect(getOrCreateSessionForEventId("event-1")).resolves.toBe(
       "session-created",
@@ -483,13 +293,9 @@ describe("session SQLite operations", () => {
     });
   }, 1_000);
 
-  it("tombstones the session and every owned child with one timestamp", async () => {
+  it("tombstones the session and returns its identity", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-10T12:00:00.000Z"));
-    mocks.execute.mockResolvedValueOnce([
-      { id: "session-1", title: "Planning" },
-    ]);
-    mocks.executeTransaction.mockResolvedValueOnce([1, 1, 1, 1, 1, 1, 1, 1]);
 
     const deleted = await softDeleteSession("session-1");
 
@@ -498,28 +304,10 @@ describe("session SQLite operations", () => {
       tombstone: "2026-07-10T12:00:00.000Z",
       deletedAt: Date.parse("2026-07-10T12:00:00.000Z"),
     });
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements).toHaveLength(8);
-    expect(
-      statements.every((statement) =>
-        statement.sql.includes("deleted_at IS NULL"),
-      ),
-    ).toBe(true);
-    expect(
-      statements.every((statement) =>
-        statement.params.includes("2026-07-10T12:00:00.000Z"),
-      ),
-    ).toBe(true);
   });
 
   it("does not register a deletion when another window won the tombstone", async () => {
-    mocks.execute.mockResolvedValueOnce([
-      { id: "session-1", title: "Planning" },
-    ]);
-    mocks.executeTransaction.mockResolvedValueOnce([0, 0, 0, 0, 0, 0, 0, 0]);
+    mocks.softDeleteSession.mockResolvedValueOnce({ status: "ok", data: null });
 
     await expect(softDeleteSession("session-1")).resolves.toBeNull();
   });
@@ -597,47 +385,32 @@ describe("session SQLite operations", () => {
     await expect(isSessionEmpty("session-1")).resolves.toBe(false);
   });
 
-  it("restores only rows carrying the deletion's exact tombstone", async () => {
-    mocks.executeTransaction.mockResolvedValueOnce([1, 1, 1, 1, 1, 1, 1, 1]);
-    await restoreDeletedSession({
+  it("retries a restore until the session is deleted and throws if it never is", async () => {
+    vi.useFakeTimers();
+    const deleted = {
       session: { id: "session-1", title: "Planning" },
       tombstone: "2026-07-10T12:00:00.000Z",
       deletedAt: 1,
+    };
+
+    mocks.restoreDeletedSession
+      .mockResolvedValueOnce({ status: "ok", data: "not_deleted" })
+      .mockResolvedValueOnce({ status: "ok", data: "restored" });
+
+    const restored = restoreDeletedSession(deleted);
+    await vi.advanceTimersByTimeAsync(100);
+    await expect(restored).resolves.toBeUndefined();
+
+    mocks.restoreDeletedSession.mockResolvedValue({
+      status: "ok",
+      data: "not_deleted",
     });
-
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements).toHaveLength(8);
-    expect(
-      statements.every((statement) => statement.sql.includes("deleted_at = ?")),
-    ).toBe(true);
-    expect(statements.every((statement) => statement.params[0] === null)).toBe(
-      true,
+    const stuck = restoreDeletedSession(deleted);
+    const stuckExpectation = expect(stuck).rejects.toThrow(
+      "Session session-1 was never soft-deleted",
     );
-  });
-
-  it("covers all session-owned tables in the tombstone transaction", () => {
-    const sql = buildSessionTombstoneStatements(
-      "session-1",
-      "2026-07-10T12:00:00.000Z",
-    )
-      .map((statement) => statement.sql)
-      .join("\n");
-
-    for (const table of [
-      "sessions",
-      "session_documents",
-      "transcripts",
-      "session_participants",
-      "session_tags",
-      "action_items",
-      "session_attachments",
-      "entity_mentions",
-    ]) {
-      expect(sql).toContain(table);
-    }
+    await vi.advanceTimersByTimeAsync(1_000);
+    await stuckExpectation;
   });
 
   it("persists a chat proposal against the current document timestamp", async () => {

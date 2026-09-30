@@ -1,0 +1,10 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+  "allow-create-session",
+  "allow-create-session-for-event",
+  "allow-soft-delete-session",
+  "allow-restore-deleted-session",
+  "allow-add-session-participant",
+  "allow-remove-session-participant",
+]

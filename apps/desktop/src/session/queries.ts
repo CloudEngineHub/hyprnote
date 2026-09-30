@@ -11,7 +11,6 @@ export type {
   SessionDocumentVersionRecord,
 } from "./queries/conflicts";
 export {
-  buildSessionTombstoneStatements,
   finalizeSessionDeletion,
   isSessionDeleted,
   isSessionEmpty,
