@@ -9,6 +9,9 @@ Default permissions for the plugin
 - `allow-start-capture`
 - `allow-flush-live-transcript`
 - `allow-release-live-transcript`
+- `allow-list-stopped-captures`
+- `allow-get-stopped-capture`
+- `allow-acknowledge-stopped-capture`
 - `allow-stop-capture`
 - `allow-stop-capture-for-session`
 - `allow-get-mic-muted`
@@ -125,6 +128,32 @@ Enables the acknowledge_completed_transcription command without any pre-configur
 <td>
 
 Denies the acknowledge_completed_transcription command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-acknowledge-stopped-capture`
+
+</td>
+<td>
+
+Enables the acknowledge_stopped_capture command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-acknowledge-stopped-capture`
+
+</td>
+<td>
+
+Denies the acknowledge_stopped_capture command without any pre-configured scope.
 
 </td>
 </tr>
@@ -418,6 +447,32 @@ Denies the get_mic_muted command without any pre-configured scope.
 <tr>
 <td>
 
+`transcription:allow-get-stopped-capture`
+
+</td>
+<td>
+
+Enables the get_stopped_capture command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-stopped-capture`
+
+</td>
+<td>
+
+Denies the get_stopped_capture command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `transcription:allow-is-supported-languages-batch`
 
 </td>
@@ -567,6 +622,32 @@ Enables the list_microphone_devices command without any pre-configured scope.
 <td>
 
 Denies the list_microphone_devices command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-list-stopped-captures`
+
+</td>
+<td>
+
+Enables the list_stopped_captures command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-list-stopped-captures`
+
+</td>
+<td>
+
+Denies the list_stopped_captures command without any pre-configured scope.
 
 </td>
 </tr>

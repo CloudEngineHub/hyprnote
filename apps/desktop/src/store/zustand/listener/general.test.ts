@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { toast } from "@anlg/ui/components/ui/toast";
 
 const {
+  acknowledgeStoppedCaptureMock,
   dispatchEventMock,
   getIdentifierMock,
   getCaptureSnapshotMock,
@@ -19,6 +20,7 @@ const {
   stopTranscriptionMock,
   vaultBaseMock,
 } = vi.hoisted(() => ({
+  acknowledgeStoppedCaptureMock: vi.fn(),
   dispatchEventMock: vi.fn(),
   getIdentifierMock: vi.fn(),
   getCaptureSnapshotMock: vi.fn(),
@@ -81,6 +83,7 @@ vi.mock("@anlg/plugin-settings", () => ({
 
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
+    acknowledgeStoppedCapture: acknowledgeStoppedCaptureMock,
     getCaptureSnapshot: getCaptureSnapshotMock,
     setMicMuted: vi.fn(),
     startCapture: startCaptureMock,
@@ -133,6 +136,10 @@ describe("General Listener Slice", () => {
         requestedLiveTranscription: null,
         state: "inactive",
       },
+    });
+    acknowledgeStoppedCaptureMock.mockResolvedValue({
+      status: "ok",
+      data: null,
     });
     listenCaptureDataMock.mockResolvedValue(() => {});
     listenCaptureLifecycleMock.mockResolvedValue(() => {});
@@ -211,6 +218,7 @@ describe("General Listener Slice", () => {
         payload: {
           type: "stopped",
           session_id: "previous",
+          stopped_at_ms: 1000,
           audio_path: "/tmp/previous.wav",
           requested_live_transcription: true,
           live_transcription_active: true,
@@ -983,6 +991,7 @@ describe("General Listener Slice", () => {
         payload: {
           type: "stopped",
           session_id: "session-a",
+          stopped_at_ms: 1234,
           audio_path: "/tmp/session.wav",
           requested_live_transcription: true,
           live_transcription_active: true,
@@ -990,8 +999,15 @@ describe("General Listener Slice", () => {
         },
       });
       expect(dispatchEventMock).not.toHaveBeenCalled();
+      expect(acknowledgeStoppedCaptureMock).not.toHaveBeenCalled();
 
       finishPostStopProcessing?.();
+      await vi.waitFor(() =>
+        expect(acknowledgeStoppedCaptureMock).toHaveBeenCalledWith(
+          "session-a",
+          1234,
+        ),
+      );
       await vi.waitFor(() =>
         expect(dispatchEventMock).toHaveBeenCalledWith(
           "meeting.completed",
@@ -1099,6 +1115,7 @@ describe("General Listener Slice", () => {
       const stopped = {
         type: "stopped",
         session_id: "session-a",
+        stopped_at_ms: 1000,
         audio_path: "/tmp/session.wav",
         requested_live_transcription: true,
         live_transcription_active: true,
@@ -1187,6 +1204,7 @@ describe("General Listener Slice", () => {
         payload: {
           type: "stopped",
           session_id: "session-a",
+          stopped_at_ms: 1000,
           audio_path: "/tmp/session.wav",
           requested_live_transcription: true,
           live_transcription_active: true,
@@ -1350,6 +1368,7 @@ describe("General Listener Slice", () => {
               | {
                   type: "stopped";
                   session_id: string;
+                  stopped_at_ms: number;
                   audio_path: string;
                   requested_live_transcription: boolean;
                   live_transcription_active: boolean;
@@ -1414,6 +1433,7 @@ describe("General Listener Slice", () => {
         payload: {
           type: "stopped",
           session_id: "session-a",
+          stopped_at_ms: 1000,
           audio_path: "/tmp/session.wav",
           requested_live_transcription: true,
           live_transcription_active: true,
@@ -1472,6 +1492,7 @@ describe("General Listener Slice", () => {
         payload: {
           type: "stopped",
           session_id: "session-a",
+          stopped_at_ms: 1000,
           audio_path: "/tmp/session.wav",
           requested_live_transcription: true,
           live_transcription_active: true,
@@ -1516,6 +1537,7 @@ describe("General Listener Slice", () => {
         payload: {
           type: "stopped",
           session_id: "session-a",
+          stopped_at_ms: 1000,
           audio_path: "/tmp/session.wav",
           requested_live_transcription: true,
           live_transcription_active: true,
@@ -1527,6 +1549,13 @@ describe("General Listener Slice", () => {
       expect(consoleError).toHaveBeenCalledWith(
         "[listener] post-stop processing failed",
         error,
+      );
+      expect(acknowledgeStoppedCaptureMock).not.toHaveBeenCalled();
+      await vi.waitFor(() =>
+        expect(dispatchEventMock).toHaveBeenCalledWith(
+          "meeting.completed",
+          "session-a",
+        ),
       );
       await vi.waitFor(() =>
         expect(store.getState().canStartLiveSession("session-a")).toBe(true),
@@ -1580,6 +1609,7 @@ describe("General Listener Slice", () => {
         payload: {
           type: "stopped",
           session_id: "session-a",
+          stopped_at_ms: 1000,
           audio_path: "/tmp/session.wav",
           requested_live_transcription: true,
           live_transcription_active: true,
@@ -2423,6 +2453,7 @@ describe("General Listener Slice", () => {
       const stopped = {
         type: "stopped",
         session_id: "session-a",
+        stopped_at_ms: 1000,
         audio_path: "/tmp/session.wav",
         requested_live_transcription: true,
         live_transcription_active: true,

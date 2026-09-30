@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCaptureSnapshot: vi.fn(),
+  listStoppedCaptures: vi.fn(),
   listenCaptureRecoveryRequests: vi.fn(),
   loadCaptureLifecycleMarkers: vi.fn(),
   recoveryRequestHandler: undefined as
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     getCaptureSnapshot: mocks.getCaptureSnapshot,
+    listStoppedCaptures: mocks.listStoppedCaptures,
   },
 }));
 
@@ -44,6 +46,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.resumeBySession.clear();
   mocks.recoveryRequestHandler = undefined;
+  mocks.listStoppedCaptures.mockResolvedValue({ status: "ok", data: [] });
   mocks.listenCaptureRecoveryRequests.mockImplementation(
     async (handler: (sessionId: string) => void) => {
       mocks.recoveryRequestHandler = handler;
@@ -109,13 +112,30 @@ test("finalizes a durable capture marker after a stop event was missed", async (
   mocks.loadCaptureLifecycleMarkers.mockResolvedValue([
     { sessionId: "session-missed-stop" },
   ]);
+  mocks.listStoppedCaptures.mockResolvedValue({
+    status: "ok",
+    data: [
+      {
+        session_id: "session-missed-stop",
+        stopped_at_ms: 1234,
+        duration_seconds: 10,
+        chunked_audio: true,
+        audio_path: "/tmp/session.wav",
+        requested_live_transcription: true,
+        live_transcription_active: true,
+        error: null,
+      },
+    ],
+  });
 
   render(<LiveCaptureRecovery />);
 
   await waitFor(() => {
-    expect(
-      mocks.resumeBySession.get("session-missed-stop"),
-    ).toHaveBeenCalledOnce();
+    const resume = mocks.resumeBySession.get("session-missed-stop");
+    expect(resume).toHaveBeenCalledOnce();
+    expect(resume).toHaveBeenCalledWith(
+      expect.objectContaining({ processStopped: true }),
+    );
   });
 });
 

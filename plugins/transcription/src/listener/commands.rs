@@ -3,6 +3,7 @@ use std::str::FromStr;
 use crate::listener::ListenerPluginExt;
 use crate::{
     CaptureConfigUpdate, CaptureParams, CaptureSnapshot, CaptureState, LiveTranscriptPersistence,
+    StoppedCapture,
 };
 use anlg_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
 use anlg_transcription_core::listener::actors::recorder::{self, RecoveryAudioChunk};
@@ -188,6 +189,40 @@ pub async fn release_live_transcript<R: tauri::Runtime>(
 
     app.state::<LiveJournalRegistry>()
         .release(&session_id, &transcript_id)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_stopped_captures<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<StoppedCapture>, String> {
+    use tauri::Manager;
+    Ok(app.state::<crate::StoppedCaptureRegistry>().list())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_stopped_capture<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<Option<StoppedCapture>, String> {
+    use tauri::Manager;
+    Ok(app
+        .state::<crate::StoppedCaptureRegistry>()
+        .get(&session_id))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn acknowledge_stopped_capture<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+    stopped_at_ms: i64,
+) -> Result<(), String> {
+    use tauri::Manager;
+    app.state::<crate::StoppedCaptureRegistry>()
+        .acknowledge(&session_id, stopped_at_ms);
+    Ok(())
 }
 
 #[tauri::command]

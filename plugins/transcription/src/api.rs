@@ -48,6 +48,18 @@ pub struct LiveTranscriptPersistence {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct StoppedCapture {
+    pub session_id: String,
+    pub stopped_at_ms: i64,
+    pub duration_seconds: f64,
+    pub chunked_audio: bool,
+    pub audio_path: Option<String>,
+    pub requested_live_transcription: bool,
+    pub live_transcription_active: bool,
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct CaptureParams {
     pub session_id: String,
@@ -98,6 +110,7 @@ pub enum CaptureLifecycleEvent {
     #[serde(rename = "stopped")]
     Stopped {
         session_id: String,
+        stopped_at_ms: i64,
         #[serde(default)]
         chunked_audio: bool,
         audio_path: Option<String>,

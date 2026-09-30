@@ -6,7 +6,7 @@ use tauri_specta::Event;
 
 use crate::{
     CaptureDataEvent, CaptureLifecycleEvent, CaptureStatusEvent, MicIsolationCache,
-    SessionStateCache, SessionStateSnapshot,
+    SessionStateCache, SessionStateSnapshot, StoppedCapture, StoppedCaptureRegistry,
 };
 use anlg_transcription_core::listener::State as RootState;
 use anlg_transcription_core::listener::actors::{RootActor, RootMsg};
@@ -18,6 +18,7 @@ pub struct TauriRuntime {
     pub app: tauri::AppHandle,
     pub session_state_cache: SessionStateCache,
     pub mic_isolation_cache: MicIsolationCache,
+    pub stopped_capture_registry: StoppedCaptureRegistry,
 }
 
 impl anlg_storage::StorageRuntime for TauriRuntime {
@@ -74,6 +75,7 @@ impl ListenerRuntime for TauriRuntime {
                 current_transcription_mode,
                 error,
             } => {
+                self.stopped_capture_registry.clear_session(&session_id);
                 let requested_live_transcription = requested_transcription_mode
                     == anlg_transcription_core::listener::TranscriptionMode::Live;
                 let live_transcription_active = current_transcription_mode
@@ -100,11 +102,21 @@ impl ListenerRuntime for TauriRuntime {
                 audio_path,
                 error,
             } => {
-                let snapshot = self
+                let (snapshot, started_at_ms) = self
                     .session_state_cache
                     .lock()
-                    .ok()
-                    .and_then(|mut cache| cache.remove(&session_id));
+                    .map(|mut cache| {
+                        let started_at_ms =
+                            cache.get(&session_id).and_then(|state| state.started_at_ms);
+                        (cache.remove(&session_id), started_at_ms)
+                    })
+                    .unwrap_or((None, None));
+                let stopped_at_ms = unix_now_ms();
+                let duration_seconds = started_at_ms
+                    .map(|started_at_ms| {
+                        stopped_at_ms.saturating_sub(started_at_ms).max(0) as f64 / 1_000.0
+                    })
+                    .unwrap_or_default();
                 let (requested_live_transcription, live_transcription_active) = snapshot
                     .as_ref()
                     .map(|state| {
@@ -126,9 +138,20 @@ impl ListenerRuntime for TauriRuntime {
                     }
                 }
                 crate::voiceprint::persist_mic_isolation(&self.app, &session_id, mic_isolated);
+                self.stopped_capture_registry.record(StoppedCapture {
+                    session_id: session_id.clone(),
+                    stopped_at_ms,
+                    duration_seconds,
+                    chunked_audio: true,
+                    audio_path: audio_path.clone(),
+                    requested_live_transcription,
+                    live_transcription_active,
+                    error: error.clone(),
+                });
 
                 CaptureLifecycleEvent::Stopped {
                     session_id,
+                    stopped_at_ms,
                     chunked_audio: true,
                     audio_path,
                     requested_live_transcription,

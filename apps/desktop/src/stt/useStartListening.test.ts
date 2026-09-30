@@ -50,6 +50,8 @@ const {
   markCaptureAudioSavedMock,
   clearCaptureAudioSavedMock,
   getCaptureSnapshotMock,
+  getStoppedCaptureMock,
+  acknowledgeStoppedCaptureMock,
   clearCaptureLifecycleMarkerMock,
   requestCaptureRecoveryMock,
   waitForSessionSearchIndexMock,
@@ -111,6 +113,8 @@ const {
   markCaptureAudioSavedMock: vi.fn(() => Promise.resolve()),
   clearCaptureAudioSavedMock: vi.fn(() => Promise.resolve()),
   getCaptureSnapshotMock: vi.fn(),
+  getStoppedCaptureMock: vi.fn(),
+  acknowledgeStoppedCaptureMock: vi.fn(),
   clearCaptureLifecycleMarkerMock: vi.fn(),
   requestCaptureRecoveryMock: vi.fn(),
   waitForSessionSearchIndexMock: vi.fn(),
@@ -155,6 +159,8 @@ vi.mock("~/auth", () => ({
 }));
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
+    acknowledgeStoppedCapture: acknowledgeStoppedCaptureMock,
+    getStoppedCapture: getStoppedCaptureMock,
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
     listCaptureAudioChunks: vi.fn(async () => ({ status: "ok", data: [] })),
     acknowledgeCaptureAudioChunk: vi.fn(async () => ({
@@ -164,6 +170,7 @@ vi.mock("@anlg/plugin-transcription", () => ({
     deleteTranscribedCaptureAudio: deleteTranscribedCaptureAudioMock,
     updateCaptureCredentials: vi.fn(async () => ({ status: "ok", data: null })),
     getCaptureSnapshot: getCaptureSnapshotMock,
+    listStoppedCaptures: vi.fn(async () => ({ status: "ok", data: [] })),
   },
   events: {
     captureLifecycleEvent: { listen: vi.fn(async () => () => {}) },
@@ -528,6 +535,11 @@ describe("useStartListening", () => {
     getCaptureSnapshotMock.mockResolvedValue({
       status: "ok",
       data: { activeSessionId: null, finalizingSessionIds: [] },
+    });
+    getStoppedCaptureMock.mockResolvedValue({ status: "ok", data: null });
+    acknowledgeStoppedCaptureMock.mockResolvedValue({
+      status: "ok",
+      data: null,
     });
     emptyCaptureMock.mockResolvedValue(false);
     idMock.mockReturnValue("generated-id");
@@ -2151,11 +2163,13 @@ describe("useStartListening", () => {
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
   });
 
-  test("finalizes a durable capture when stop happens before listeners reattach", async () => {
+  test("processes a native stopped outcome without an explicit request", async () => {
     attachLiveSessionMock.mockResolvedValue("inactive");
     loadCaptureLifecycleMarkerMock
       .mockResolvedValueOnce({
         version: 1,
+        chunkedAudio: true,
+        retainAudio: true,
         sessionId: "session-1",
         transcriptId: "transcript-before-reload",
         startedAt: 1_000,
@@ -2164,9 +2178,13 @@ describe("useStartListening", () => {
         preserveExistingTranscript: true,
         ownerUserId: "user-1",
         memo: "Existing memo",
+        provider: "elevenlabs",
+        model: "scribe_v2",
       })
       .mockResolvedValueOnce({
         version: 1,
+        chunkedAudio: true,
+        retainAudio: true,
         sessionId: "session-1",
         transcriptId: "transcript-before-reload",
         startedAt: 1_000,
@@ -2175,18 +2193,36 @@ describe("useStartListening", () => {
         preserveExistingTranscript: true,
         ownerUserId: "user-1",
         memo: "Existing memo",
+        provider: "elevenlabs",
+        model: "scribe_v2",
       })
       .mockResolvedValueOnce(null);
+    getStoppedCaptureMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        session_id: "session-1",
+        stopped_at_ms: 123456,
+        duration_seconds: 42,
+        chunked_audio: true,
+        audio_path: "/tmp/native-session.wav",
+        requested_live_transcription: true,
+        live_transcription_active: false,
+        error: null,
+      },
+    });
     const { result } = renderHook(() =>
       useResumeListeningLifecycle("session-1"),
     );
 
     await act(async () => {
-      await expect(result.current({ processStopped: true })).resolves.toBe(
-        "inactive",
-      );
+      await expect(result.current()).resolves.toBe("inactive");
     });
 
+    expect(getStoppedCaptureMock).toHaveBeenCalledWith("session-1");
+    expect(acknowledgeStoppedCaptureMock).toHaveBeenCalledWith(
+      "session-1",
+      123456,
+    );
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/existing-session.mp3", {
       deferAudioFinalization: true,
       notifyOnCompletion: true,
@@ -2210,6 +2246,57 @@ describe("useStartListening", () => {
     expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
       "capture",
       "session-1:transcript-before-reload",
+    );
+  });
+
+  test("rechecks for a native stopped outcome after attaching listeners", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    const marker = {
+      version: 1 as const,
+      chunkedAudio: true,
+      retainAudio: true,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 10_000,
+      preserveExistingTranscript: true,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+      provider: "elevenlabs",
+      model: "scribe_v2",
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    getStoppedCaptureMock
+      .mockResolvedValueOnce({ status: "ok", data: null })
+      .mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          session_id: "session-1",
+          stopped_at_ms: 123456,
+          duration_seconds: 42,
+          chunked_audio: true,
+          audio_path: "/tmp/native-session.wav",
+          requested_live_transcription: true,
+          live_transcription_active: false,
+          error: null,
+        },
+      });
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(getStoppedCaptureMock).toHaveBeenCalledTimes(2);
+    expect(acknowledgeStoppedCaptureMock).toHaveBeenCalledWith(
+      "session-1",
+      123456,
     );
   });
 

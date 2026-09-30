@@ -12,6 +12,7 @@ mod error;
 mod listener;
 mod listener2;
 mod live_journal;
+mod stopped_captures;
 mod voiceprint;
 
 pub use anlg_transcription_core::listener::{
@@ -27,6 +28,7 @@ pub use api::*;
 pub use error::{Error, Result};
 pub use listener::{Listener, ListenerPluginExt};
 pub use listener2::{Listener2, Listener2PluginExt};
+pub use stopped_captures::StoppedCaptureRegistry;
 
 use anlg_audio::AudioProvider;
 use anlg_transcription_core::listener::actors::{RootActor, RootArgs};
@@ -137,6 +139,9 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::start_capture::<tauri::Wry>,
             listener::commands::flush_live_transcript::<tauri::Wry>,
             listener::commands::release_live_transcript::<tauri::Wry>,
+            listener::commands::list_stopped_captures::<tauri::Wry>,
+            listener::commands::get_stopped_capture::<tauri::Wry>,
+            listener::commands::acknowledge_stopped_capture::<tauri::Wry>,
             listener::commands::stop_capture::<tauri::Wry>,
             listener::commands::stop_capture_for_session::<tauri::Wry>,
             listener::commands::update_capture_config::<tauri::Wry>,
@@ -190,6 +195,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             }));
             app.manage(state);
             app.manage(live_journal::LiveJournalRegistry::default());
+            let stopped_capture_registry = StoppedCaptureRegistry::default();
+            app.manage(stopped_capture_registry.clone());
             let batch_registry = Arc::new(BatchSessionRegistry {
                 completed_dir: app
                     .path()
@@ -213,6 +220,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 app: app_handle.clone(),
                 session_state_cache,
                 mic_isolation_cache,
+                stopped_capture_registry,
             });
 
             tauri::async_runtime::spawn(async move {

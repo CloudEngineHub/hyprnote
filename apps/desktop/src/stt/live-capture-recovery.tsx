@@ -61,8 +61,8 @@ export function LiveCaptureRecovery() {
     let active = true;
     let unlisten: (() => void) | undefined;
 
-    // Only explicit requests process stopped captures; ones found at launch
-    // or after a renderer reload wait for the user.
+    // Explicit requests and unacknowledged native stop outcomes are processed;
+    // marker-only captures found at launch wait for the user.
     const addSessionIds = (ids: Array<string | null>, requested = false) => {
       if (!active) {
         return;
@@ -118,6 +118,25 @@ export function LiveCaptureRecovery() {
       })
       .catch((error) => {
         console.error("[listener] failed to recover active capture:", error);
+      });
+
+    void listenerCommands
+      .listStoppedCaptures()
+      .then((result) => {
+        if (result.status === "error") {
+          console.error(
+            "[listener] failed to list stopped captures",
+            result.error,
+          );
+          return;
+        }
+        addSessionIds(
+          result.data.map((capture) => capture.session_id),
+          true,
+        );
+      })
+      .catch((error) => {
+        console.error("[listener] failed to list stopped captures", error);
       });
 
     void loadCaptureLifecycleMarkers()

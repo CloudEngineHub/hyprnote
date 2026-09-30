@@ -349,11 +349,33 @@ const createSessionEventHandlers = <T extends LiveStore>(
       void runMeetingCompletedAutomations(targetSessionId);
     };
 
+    const acknowledgeStoppedCapture = () => {
+      void listenerCommands
+        .acknowledgeStoppedCapture(targetSessionId, payload.stopped_at_ms)
+        .then((result) => {
+          if (result.status === "error") {
+            console.error(
+              "[listener] failed to acknowledge stopped capture",
+              result.error,
+            );
+          }
+        })
+        .catch((error) => {
+          console.error(
+            "[listener] failed to acknowledge stopped capture",
+            error,
+          );
+        });
+    };
+
     if (onStopped) {
-      const finishPostStopProcessing = () => {
+      const finishPostStopProcessing = (acknowledge: boolean) => {
         setLiveState(set, (live) => {
           delete live.postStopProcessingBySession[targetSessionId];
         });
+        if (acknowledge) {
+          acknowledgeStoppedCapture();
+        }
         dispatchMeetingCompleted();
       };
       try {
@@ -368,17 +390,18 @@ const createSessionEventHandlers = <T extends LiveStore>(
           needsBatchRepair,
         });
         void Promise.resolve(stopped).then(
-          finishPostStopProcessing,
+          () => finishPostStopProcessing(true),
           (error) => {
-            finishPostStopProcessing();
+            finishPostStopProcessing(false);
             console.error("[listener] post-stop processing failed", error);
           },
         );
       } catch (error) {
-        finishPostStopProcessing();
+        finishPostStopProcessing(false);
         console.error("[listener] post-stop processing failed", error);
       }
     } else {
+      acknowledgeStoppedCapture();
       dispatchMeetingCompleted();
     }
   },
