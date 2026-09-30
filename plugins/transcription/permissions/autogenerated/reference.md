@@ -17,6 +17,7 @@ Default permissions for the plugin
 - `allow-get-capture-lifecycle-marker`
 - `allow-list-capture-lifecycle-markers`
 - `allow-list-capture-recoveries`
+- `allow-get-capture-audio-gaps`
 - `allow-mark-capture-audio-saved`
 - `allow-clear-capture-audio-saved`
 - `allow-stop-capture`
@@ -369,6 +370,32 @@ Enables the get_capture_audio_cleanup_status command without any pre-configured 
 <td>
 
 Denies the get_capture_audio_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-get-capture-audio-gaps`
+
+</td>
+<td>
+
+Enables the get_capture_audio_gaps command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-capture-audio-gaps`
+
+</td>
+<td>
+
+Denies the get_capture_audio_gaps command without any pre-configured scope.
 
 </td>
 </tr>

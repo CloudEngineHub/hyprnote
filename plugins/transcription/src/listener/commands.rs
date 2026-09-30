@@ -327,6 +327,19 @@ pub async fn list_capture_recoveries<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn get_capture_audio_gaps<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<Option<crate::CaptureAudioGaps>, String> {
+    use tauri::Manager;
+
+    app.try_state::<crate::CaptureGapRegistry>()
+        .map(|registry| registry.get(&session_id))
+        .ok_or_else(|| "capture gap registry is not available".to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn mark_capture_audio_saved<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,

@@ -5,8 +5,9 @@ use tauri_plugin_settings::SettingsPluginExt;
 use tauri_specta::Event;
 
 use crate::{
-    CaptureDataEvent, CaptureLifecycleEvent, CaptureStatusEvent, MicIsolationCache,
-    SessionStateCache, SessionStateSnapshot, StoppedCapture, StoppedCaptureRegistry,
+    CaptureDataEvent, CaptureGapRegistry, CaptureLifecycleEvent, CaptureStatusEvent,
+    MicIsolationCache, SessionStateCache, SessionStateSnapshot, StoppedCapture,
+    StoppedCaptureRegistry,
 };
 use anlg_transcription_core::listener::State as RootState;
 use anlg_transcription_core::listener::actors::{RootActor, RootMsg};
@@ -19,6 +20,7 @@ pub struct TauriRuntime {
     pub session_state_cache: SessionStateCache,
     pub mic_isolation_cache: MicIsolationCache,
     pub stopped_capture_registry: StoppedCaptureRegistry,
+    pub capture_gap_registry: CaptureGapRegistry,
 }
 
 impl anlg_storage::StorageRuntime for TauriRuntime {
@@ -80,13 +82,25 @@ impl ListenerRuntime for TauriRuntime {
                     == anlg_transcription_core::listener::TranscriptionMode::Live;
                 let live_transcription_active = current_transcription_mode
                     == anlg_transcription_core::listener::TranscriptionMode::Live;
-                if let Ok(mut cache) = self.session_state_cache.lock() {
+                let now_ms = crate::capture_gaps::unix_now_ms();
+                let new_capture = if let Ok(mut cache) = self.session_state_cache.lock() {
                     let state = cache.entry(session_id.clone()).or_default();
+                    let new_capture = state.started_at_ms.is_none();
                     state.requested_live_transcription = requested_live_transcription;
                     state.live_transcription_active = live_transcription_active;
-                    state.started_at_ms.get_or_insert_with(unix_now_ms);
+                    state.started_at_ms.get_or_insert(now_ms);
                     state.degraded = error.clone();
-                }
+                    new_capture
+                } else {
+                    false
+                };
+                self.capture_gap_registry.start(
+                    &session_id,
+                    now_ms,
+                    requested_live_transcription,
+                    live_transcription_active,
+                    new_capture,
+                );
                 CaptureLifecycleEvent::Started {
                     session_id,
                     requested_live_transcription,
@@ -111,7 +125,9 @@ impl ListenerRuntime for TauriRuntime {
                         (cache.remove(&session_id), started_at_ms)
                     })
                     .unwrap_or((None, None));
-                let stopped_at_ms = unix_now_ms();
+                let stopped_at_ms = crate::capture_gaps::unix_now_ms();
+                self.capture_gap_registry
+                    .stopped(&session_id, stopped_at_ms);
                 let duration_seconds = started_at_ms
                     .map(|started_at_ms| {
                         stopped_at_ms.saturating_sub(started_at_ms).max(0) as f64 / 1_000.0
@@ -167,12 +183,36 @@ impl ListenerRuntime for TauriRuntime {
     }
 
     fn emit_progress(&self, event: anlg_transcription_core::listener::SessionProgressEvent) {
+        if let anlg_transcription_core::listener::SessionProgressEvent::Connected {
+            session_id,
+            ..
+        } = &event
+        {
+            self.capture_gap_registry
+                .connected(session_id, crate::capture_gaps::unix_now_ms());
+        }
         if let Err(error) = CaptureStatusEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_progress_event");
         }
     }
 
     fn emit_error(&self, event: anlg_transcription_core::listener::SessionErrorEvent) {
+        match &event {
+            anlg_transcription_core::listener::SessionErrorEvent::ConnectionError {
+                session_id,
+                ..
+            } => self
+                .capture_gap_registry
+                .interrupted(session_id, crate::capture_gaps::unix_now_ms()),
+            anlg_transcription_core::listener::SessionErrorEvent::AudioError {
+                session_id,
+                error,
+                ..
+            } if error.starts_with("audio_storage_") => self
+                .capture_gap_registry
+                .storage_failed(session_id, crate::capture_gaps::unix_now_ms()),
+            _ => {}
+        }
         update_audio_cleanup_status(&self.audio_cleanup_status, &event);
         if let Err(error) = CaptureStatusEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_error_event");
@@ -251,13 +291,6 @@ fn apply_segment_delta(
     if segments.len() > LIVE_SEGMENT_SNAPSHOT_LIMIT {
         segments.drain(0..segments.len() - LIVE_SEGMENT_SNAPSHOT_LIMIT);
     }
-}
-
-fn unix_now_ms() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_millis() as i64)
-        .unwrap_or_default()
 }
 
 async fn current_root_state() -> RootState {

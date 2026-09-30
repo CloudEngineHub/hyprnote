@@ -8,6 +8,7 @@ use tokio::task::AbortHandle;
 use tokio_util::sync::CancellationToken;
 
 mod api;
+mod capture_gaps;
 mod capture_markers;
 mod error;
 mod listener;
@@ -26,6 +27,7 @@ pub use anlg_transcription_core::listener2::{
     parse_subtitle_from_path, suggest_providers_for_languages_batch,
 };
 pub use api::*;
+pub use capture_gaps::CaptureGapRegistry;
 pub use capture_markers::{CaptureLifecycleMarker, CapturePhase, InheritedCapture, SummaryMode};
 pub use error::{Error, Result};
 pub use listener::{Listener, ListenerPluginExt};
@@ -149,6 +151,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_capture_lifecycle_marker::<tauri::Wry>,
             listener::commands::list_capture_lifecycle_markers::<tauri::Wry>,
             listener::commands::list_capture_recoveries::<tauri::Wry>,
+            listener::commands::get_capture_audio_gaps::<tauri::Wry>,
             listener::commands::mark_capture_audio_saved::<tauri::Wry>,
             listener::commands::clear_capture_audio_saved::<tauri::Wry>,
             listener::commands::stop_capture::<tauri::Wry>,
@@ -206,6 +209,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             app.manage(live_journal::LiveJournalRegistry::default());
             let stopped_capture_registry = StoppedCaptureRegistry::default();
             app.manage(stopped_capture_registry.clone());
+            let capture_gap_registry = CaptureGapRegistry::default();
+            app.manage(capture_gap_registry.clone());
             let batch_registry = Arc::new(BatchSessionRegistry {
                 completed_dir: app
                     .path()
@@ -230,6 +235,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 session_state_cache,
                 mic_isolation_cache,
                 stopped_capture_registry,
+                capture_gap_registry,
             });
 
             tauri::async_runtime::spawn(async move {

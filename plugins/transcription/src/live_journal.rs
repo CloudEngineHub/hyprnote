@@ -254,6 +254,13 @@ pub(crate) fn register_app_journal<R: tauri::Runtime>(
     let store: JournalStoreHandle = Arc::new(AppJournalStore(app.clone()));
     let event_app = app;
     let event_sink: EventSink = Arc::new(move |status| {
+        if let Some(registry) = event_app.try_state::<crate::CaptureGapRegistry>() {
+            if status.error.is_some() {
+                registry.persistence_failed(&status.session_id, crate::capture_gaps::unix_now_ms());
+            } else if let Some(persisted_through_ms) = status.persisted_through_ms {
+                registry.persisted_through(&status.session_id, persisted_through_ms);
+            }
+        }
         if let Err(error) = (LiveTranscriptPersistenceEvent { status }).emit(&event_app) {
             tracing::error!(?error, "failed_to_emit_live_transcript_persistence_event");
         }

@@ -589,6 +589,51 @@ export function useCaptureLifecycle(sessionId: string) {
           }
         },
       });
+      const restoreAudioRecovery = async () => {
+        const result = await transcriptionCommands
+          .getCaptureAudioGaps(sessionId)
+          .catch((error) => {
+            console.warn(
+              "[listener] failed to restore capture audio gaps",
+              error,
+            );
+            audioRecovery.recoverPending();
+            return undefined;
+          });
+        if (!result) return;
+        if (result.status === "error") {
+          console.warn(
+            "[listener] failed to restore capture audio gaps",
+            result.error,
+          );
+          audioRecovery.recoverPending();
+          return;
+        }
+        const ledger = result.data;
+        const maxNativeStartDelayMs = 60_000;
+        if (
+          !ledger ||
+          ledger.capture_started_at_ms < startedAt - 5_000 ||
+          ledger.capture_started_at_ms > startedAt + maxNativeStartDelayMs
+        ) {
+          audioRecovery.recoverPending();
+          return;
+        }
+        audioRecovery.restore({
+          gaps: ledger.gaps.map((gap) => ({
+            start: gap.start_ms - startedAt,
+            end: gap.end_ms - startedAt,
+          })),
+          ...(ledger.open_gap_started_at_ms == null
+            ? {}
+            : { openGapStart: ledger.open_gap_started_at_ms - startedAt }),
+          awaitingConnection: ledger.awaiting_connection,
+          storageFailed: ledger.storage_failed,
+          ...(ledger.confirmed_through_ms == null
+            ? {}
+            : { confirmedThrough: ledger.confirmed_through_ms }),
+        });
+      };
       let recoveryUnlisten: (() => void)[] = [];
       let recoveryListening: Promise<void> | undefined;
       let credentialTimer: ReturnType<typeof setTimeout> | undefined;
@@ -636,11 +681,11 @@ export function useCaptureLifecycle(sessionId: string) {
             )
               audioRecovery.storageFailed();
           }),
-        ]).then((unlisten) => {
+        ]).then(async (unlisten) => {
           recoveryUnlisten = unlisten;
           audioRecovery.start();
           if (recoveredMarker && !batchFromRetainedAudio && !inheritedOnly)
-            audioRecovery.recoverPending();
+            await restoreAudioRecovery();
           if (batchFromRetainedAudio || inheritedOnly)
             audioRecovery.batchOnly(true);
           if (provider === "anarlog" && model === "cloud") {
@@ -1278,7 +1323,7 @@ export function useCaptureLifecycle(sessionId: string) {
           return;
         }
         if (usesChunkedAudio) {
-          if (!batchFromRetainedAudio) audioRecovery.recoverPending();
+          if (!batchFromRetainedAudio) await restoreAudioRecovery();
           const recovery = await stopAudioRecovery();
           details = {
             ...details,

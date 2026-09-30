@@ -14,6 +14,7 @@ permissions = [
     "allow-get-capture-lifecycle-marker",
     "allow-list-capture-lifecycle-markers",
     "allow-list-capture-recoveries",
+    "allow-get-capture-audio-gaps",
     "allow-mark-capture-audio-saved",
     "allow-clear-capture-audio-saved",
     "allow-stop-capture",

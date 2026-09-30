@@ -66,6 +66,26 @@ pub struct CaptureRecovery {
     pub process_stopped: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub struct CaptureAudioGap {
+    pub start_ms: i64,
+    pub end_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub struct CaptureAudioGaps {
+    pub capture_started_at_ms: i64,
+    pub gaps: Vec<CaptureAudioGap>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_gap_started_at_ms: Option<i64>,
+    pub awaiting_connection: bool,
+    pub storage_failed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirmed_through_ms: Option<i64>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct CaptureParams {
     pub session_id: String,

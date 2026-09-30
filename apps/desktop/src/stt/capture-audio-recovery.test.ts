@@ -62,6 +62,38 @@ describe("capture audio recovery", () => {
     expect(acknowledge).toHaveBeenCalledOnce();
   });
 
+  it("restores and repairs only the persisted outage interval", async () => {
+    const { worker, repair, acknowledge } = setup();
+    worker.restore({
+      gaps: [{ start: 20_000, end: 50_000 }],
+      awaitingConnection: false,
+      storageFailed: false,
+      confirmedThrough: 70_000,
+    });
+
+    await worker.tick();
+
+    expect(repair.mock.calls[0]?.[1]).toEqual([{ start: 20_000, end: 50_000 }]);
+    expect(acknowledge).toHaveBeenCalledOnce();
+  });
+
+  it("restores an open gap after a newer connection event", async () => {
+    const { worker, repair, acknowledge } = setup();
+    worker.connected();
+    worker.restore({
+      gaps: [],
+      openGapStart: 30_000,
+      awaitingConnection: true,
+      storageFailed: false,
+      confirmedThrough: 70_000,
+    });
+
+    await worker.tick();
+
+    expect(repair.mock.calls[0]?.[1]).toEqual([{ start: 30_000, end: 60_000 }]);
+    expect(acknowledge).toHaveBeenCalledOnce();
+  });
+
   it("repairs a whole earlier capture chunk before acknowledging it", async () => {
     const earlier = {
       id: "-100000-0-60000-0.mp3",

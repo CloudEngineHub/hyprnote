@@ -41,6 +41,7 @@ const {
   useSessionParticipantHumanIdsMock,
   getSessionParticipantHumanIdsMock,
   createLiveTranscriptMock,
+  appendRecoveredTranscriptWordsMock,
   createNativeTranscriptPersistenceMock,
   flushLiveTranscriptDeltasToDatabaseMock,
   transcriptExistsMock,
@@ -104,6 +105,7 @@ const {
   useSessionParticipantHumanIdsMock: vi.fn(),
   getSessionParticipantHumanIdsMock: vi.fn(),
   createLiveTranscriptMock: vi.fn(),
+  appendRecoveredTranscriptWordsMock: vi.fn(),
   createNativeTranscriptPersistenceMock: vi.fn(),
   flushLiveTranscriptDeltasToDatabaseMock: vi.fn(),
   transcriptExistsMock: vi.fn(),
@@ -161,6 +163,7 @@ vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     acknowledgeStoppedCapture: acknowledgeStoppedCaptureMock,
     getStoppedCapture: getStoppedCaptureMock,
+    getCaptureAudioGaps: vi.fn(async () => ({ status: "ok", data: null })),
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
     listCaptureAudioChunks: vi.fn(async () => ({ status: "ok", data: [] })),
     acknowledgeCaptureAudioChunk: vi.fn(async () => ({
@@ -356,6 +359,7 @@ vi.mock("~/stt/search-index-consistency", () => ({
 }));
 
 vi.mock("~/stt/queries", () => ({
+  appendRecoveredTranscriptWords: appendRecoveredTranscriptWordsMock,
   createLiveTranscript: createLiveTranscriptMock,
   flushLiveTranscriptDeltasToDatabase: flushLiveTranscriptDeltasToDatabaseMock,
   getTranscriptRecord: vi.fn(async () => null),
@@ -2246,6 +2250,103 @@ describe("useStartListening", () => {
     expect(endCloudsyncActivityMock).toHaveBeenCalledWith(
       "capture",
       "session-1:transcript-before-reload",
+    );
+  });
+
+  test("falls back to whole-chunk recovery when the native ledger starts too late", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    const marker = {
+      version: 1 as const,
+      chunkedAudio: true,
+      retainAudio: true,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 0,
+      preserveExistingTranscript: false,
+      ownerUserId: "user-1",
+      memo: "",
+      provider: "anarlog",
+      model: "am-test",
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    getStoppedCaptureMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        session_id: "session-1",
+        stopped_at_ms: 123_456,
+        duration_seconds: 60,
+        chunked_audio: true,
+        audio_path: null,
+        requested_live_transcription: true,
+        live_transcription_active: false,
+        error: null,
+      },
+    });
+    vi.mocked(transcriptionCommands.getCaptureAudioGaps).mockResolvedValue({
+      status: "ok",
+      data: {
+        capture_started_at_ms: 61_001,
+        gaps: [{ start_ms: 21_000, end_ms: 31_000 }],
+        open_gap_started_at_ms: null,
+        awaiting_connection: false,
+        storage_failed: false,
+        confirmed_through_ms: null,
+      },
+    });
+    vi.mocked(transcriptionCommands.listCaptureAudioChunks).mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          id: "1000-0-60000-0.mp3",
+          path: "/tmp/recovery-chunk.mp3",
+          capture_started_at: 1_000,
+          start_ms: 0,
+          audio_start_ms: 0,
+          end_ms: 60_000,
+        },
+      ],
+    });
+    runBatchMock.mockImplementationOnce(async (_path, options) => {
+      await options.recovery.persist(
+        [
+          {
+            id: "recovered-word",
+            text: "recovered",
+            start_ms: 0,
+            end_ms: 1,
+            channel: 0,
+          },
+        ],
+        [],
+      );
+    });
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(appendRecoveredTranscriptWordsMock).toHaveBeenCalledWith(
+      "transcript-before-reload",
+      [
+        {
+          id: "recovered-word",
+          text: "recovered",
+          start_ms: 0,
+          end_ms: 1,
+          channel: 0,
+        },
+      ],
+      [],
+      [{ start: 0, end: 60_000 }],
+      [],
     );
   });
 

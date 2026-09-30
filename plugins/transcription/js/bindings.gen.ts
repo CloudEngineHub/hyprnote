@@ -126,6 +126,14 @@ async listCaptureRecoveries() : Promise<Result<CaptureRecovery[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getCaptureAudioGaps(sessionId: string) : Promise<Result<CaptureAudioGaps | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|get_capture_audio_gaps", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async markCaptureAudioSaved(sessionId: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|mark_capture_audio_saved", { sessionId }) };
@@ -400,6 +408,8 @@ export type BatchResults = { channels: BatchChannel[] }
 export type BatchRunMode = "direct" | "streamed"
 export type BatchStreamEvent = { type: "progress"; percentage: number; partial_text?: string | null } | { type: "segment"; response: StreamResponse; percentage: number } | { type: "terminal"; request_id: string; created: string; duration: number; channels: number } | { type: "result"; response: BatchResponse } | { type: "error"; error_code: number | null; error_message: string; provider: string }
 export type BatchWord = { word: string; start: number; end: number; confidence: number; channel?: number; speaker: number | null; punctuated_word: string | null }
+export type CaptureAudioGap = { start_ms: number; end_ms: number }
+export type CaptureAudioGaps = { capture_started_at_ms: number; gaps: CaptureAudioGap[]; open_gap_started_at_ms?: number | null; awaiting_connection: boolean; storage_failed: boolean; confirmed_through_ms?: number | null }
 export type CaptureConfigUpdate = { session_id: string; languages: string[]; participant_human_ids?: string[]; self_human_id?: string | null; speaker_assignments?: IdentityAssignment[] }
 export type CaptureDataEvent = { type: "audio_amplitude"; session_id: string; mic: number; speaker: number } | { type: "mic_muted"; session_id: string; value: boolean } | { type: "mic_isolated"; session_id: string; value: boolean } | { type: "mic_dropouts"; session_id: string; ratio: number } | { type: "transcript_delta"; session_id: string; delta: LiveTranscriptDelta } | { type: "transcript_segment_delta"; session_id: string; delta: LiveTranscriptSegmentDelta }
 export type CaptureLifecycleEvent = { type: "started"; session_id: string; requested_live_transcription: boolean; live_transcription_active: boolean; degraded: DegradedError | null } | { type: "finalizing"; session_id: string } | { type: "stopped"; session_id: string; stopped_at_ms: number; chunked_audio?: boolean; audio_path: string | null; requested_live_transcription: boolean; live_transcription_active: boolean; error: string | null }
