@@ -3,6 +3,8 @@ use tauri::Wry;
 mod commands;
 mod ext;
 mod generated_summary;
+mod session_content;
+mod transaction_utils;
 
 pub use anlg_template_app::Template;
 pub use ext::TemplatePluginExt;
@@ -17,6 +19,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::prepare_generated_summary,
             commands::compose_generated_summary,
             commands::save_generated_summary::<Wry>,
+            commands::save_generated_title::<Wry>,
+            commands::apply_session_content_corrections::<Wry>,
             commands::render::<Wry>,
             commands::render_custom::<Wry>,
             commands::get_template_source::<Wry>,

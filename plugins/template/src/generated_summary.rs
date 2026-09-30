@@ -1,13 +1,13 @@
 use std::collections::HashSet;
 
+use crate::transaction_utils::{js_iso8601_timestamp, rollback_row_count_mismatch};
 use anlg_db_app::{
     GeneratedSummaryBodyUpdate, PendingAutoEnhanceMatch, delete_pending_auto_enhance,
     update_generated_summary_body, upsert_session_tag, upsert_tag,
 };
-use chrono::SecondsFormat;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use sqlx::{Sqlite, SqlitePool, Transaction};
+use sqlx::SqlitePool;
 
 const DEFAULT_USER_ID: &str = "00000000-0000-0000-0000-000000000000";
 const PENDING_AUTO_ENHANCE_SETTING_PREFIX: &str = "auto_enhance_pending:";
@@ -46,7 +46,7 @@ pub async fn save_generated_summary(
         pending_auto_enhance,
     } = request;
 
-    let timestamp = chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
+    let timestamp = js_iso8601_timestamp();
     let trimmed_user_id = owner_user_id.trim();
     let user_id = if trimmed_user_id.is_empty() {
         DEFAULT_USER_ID
@@ -141,16 +141,6 @@ pub async fn save_generated_summary(
         .commit()
         .await
         .map_err(|error| error.to_string())
-}
-
-async fn rollback_row_count_mismatch(
-    transaction: Transaction<'_, Sqlite>,
-    statement_index: usize,
-    actual: u64,
-    expected: u64,
-) -> String {
-    let _ = transaction.rollback().await;
-    format!("transaction statement {statement_index} affected {actual} rows; expected {expected}")
 }
 
 #[cfg(test)]

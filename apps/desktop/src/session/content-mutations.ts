@@ -1,6 +1,5 @@
 import { commands as templateCommands } from "@anlg/plugin-template";
 
-import { executeTransaction } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 
 export type SummaryContentCorrection = {
@@ -42,77 +41,29 @@ export function applySessionContentCorrections({
   title?: SessionTitleCorrection;
 }): Promise<void> {
   return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
-    const now = new Date().toISOString();
-    const statements: Array<{
-      sql: string;
-      params: unknown[];
-      expectedRowsAffected: number;
-    }> = [];
-
-    if (title && title.currentTitle !== title.nextTitle) {
-      statements.push({
-        sql: `
-          UPDATE sessions
-          SET title = ?, updated_at = ?
-          WHERE id = ? AND title = ? AND deleted_at IS NULL
-        `,
-        params: [title.nextTitle, now, sessionId, title.currentTitle],
-        expectedRowsAffected: 1,
-      });
-    }
-
-    for (const summary of summaries) {
-      statements.push({
-        sql: `
-          UPDATE session_documents
-          SET
-            body = ?,
-            body_format = 'prosemirror_json',
-            updated_at = ?
-          WHERE id = ?
-            AND session_id = ?
-            AND kind IN ('summary', 'template_output')
-            AND body = ?
-            AND body_format = ?
-            AND deleted_at IS NULL
-        `,
-        params: [
-          summary.nextContent,
-          now,
-          summary.id,
-          sessionId,
-          summary.currentContent,
-          summary.currentContentFormat,
-        ],
-        expectedRowsAffected: 1,
-      });
-    }
-
-    for (const transcript of transcripts) {
-      statements.push({
-        sql: `
-          UPDATE transcripts
-          SET words_json = ?, memo = ?, updated_at = ?
-          WHERE id = ?
-            AND session_id = ?
-            AND words_json = ?
-            AND memo = ?
-            AND deleted_at IS NULL
-        `,
-        params: [
-          transcript.nextWordsJson,
-          transcript.nextMemo,
-          now,
-          transcript.id,
-          sessionId,
-          transcript.currentWordsJson,
-          transcript.currentMemo,
-        ],
-        expectedRowsAffected: 1,
-      });
-    }
-
-    if (statements.length > 0) await executeTransaction(statements);
+    const result = await templateCommands.applySessionContentCorrections({
+      session_id: sessionId,
+      summaries: summaries.map((summary) => ({
+        id: summary.id,
+        current_body: summary.currentContent,
+        current_body_format: summary.currentContentFormat,
+        next_body: summary.nextContent,
+      })),
+      transcripts: transcripts.map((transcript) => ({
+        id: transcript.id,
+        current_words_json: transcript.currentWordsJson,
+        current_memo: transcript.currentMemo,
+        next_words_json: transcript.nextWordsJson,
+        next_memo: transcript.nextMemo,
+      })),
+      title: title
+        ? {
+            current_title: title.currentTitle,
+            next_title: title.nextTitle,
+          }
+        : null,
+    });
+    if (result.status === "error") throw new Error(result.error);
   });
 }
 
@@ -166,47 +117,17 @@ export function applyGeneratedSessionTitle({
   documents: SessionDocumentContentUpdate[];
 }): Promise<void> {
   return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
-    const now = new Date().toISOString();
-    const statements: Array<{
-      sql: string;
-      params: unknown[];
-      expectedRowsAffected: number;
-    }> = [
-      {
-        sql: `
-          UPDATE sessions
-          SET title = ?, updated_at = ?
-          WHERE id = ? AND title = ? AND deleted_at IS NULL
-        `,
-        params: [nextTitle, now, sessionId, currentTitle],
-        expectedRowsAffected: 1,
-      },
-    ];
-
-    for (const document of documents) {
-      statements.push({
-        sql: `
-          UPDATE session_documents
-          SET body = ?, body_format = 'prosemirror_json', updated_at = ?
-          WHERE id = ?
-            AND session_id = ?
-            AND kind IN ('note', 'summary', 'template_output')
-            AND body = ?
-            AND body_format = ?
-            AND deleted_at IS NULL
-        `,
-        params: [
-          document.nextContent,
-          now,
-          document.id,
-          sessionId,
-          document.currentContent,
-          document.currentContentFormat,
-        ],
-        expectedRowsAffected: 1,
-      });
-    }
-
-    await executeTransaction(statements);
+    const result = await templateCommands.saveGeneratedTitle({
+      session_id: sessionId,
+      current_title: currentTitle,
+      next_title: nextTitle,
+      documents: documents.map((document) => ({
+        id: document.id,
+        current_body: document.currentContent,
+        current_body_format: document.currentContentFormat,
+        next_body: document.nextContent,
+      })),
+    });
+    if (result.status === "error") throw new Error(result.error);
   });
 }

@@ -38,6 +38,22 @@ async saveGeneratedSummary(request: SaveGeneratedSummaryRequest) : Promise<Resul
     else return { status: "error", error: e  as any };
 }
 },
+async saveGeneratedTitle(request: SaveGeneratedTitleRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:template|save_generated_title", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async applySessionContentCorrections(request: SessionContentCorrectionsRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:template|apply_session_content_corrections", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async render(tpl: Template) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:template|render", { tpl }) };
@@ -99,20 +115,25 @@ export type PendingAutoEnhanceGuard = { generation: string; expected_body: strin
 export type PrepareGeneratedSummaryRequest = { text: string; length_policy: SummaryLengthPolicy | null; tag_sources: string[] }
 export type PreparedGeneratedSummary = { constrained_text: string; tag_names: string[]; text_with_tags: string }
 export type SaveGeneratedSummaryRequest = { session_id: string; owner_user_id: string; note_id: string; current_body: string; current_body_format: string; next_body: string; tag_names: string[]; pending_auto_enhance: PendingAutoEnhanceGuard | null }
+export type SaveGeneratedTitleRequest = { session_id: string; current_title: string; next_title: string; documents: SessionDocumentUpdate[] }
 export type Segment = { text: string; speaker: string }
 export type Session = { title: string | null; startedAt: string | null; endedAt: string | null; event: Event | null }
+export type SessionContentCorrectionsRequest = { session_id: string; summaries: SessionDocumentUpdate[]; transcripts: TranscriptCorrection[]; title: TitleCorrection | null }
 export type SessionContext = { sessionId: string | null; title: string | null; date: string | null; rawContent: string | null; enhancedContent: string | null; meetingChat: string | null; transcript: Transcript | null; participants: Participant[]; event: Event | null }
+export type SessionDocumentUpdate = { id: string; current_body: string; current_body_format: string; next_body: string }
 export type SummaryLengthGuidance = { max_characters: number; min_sections: number; max_sections: number }
 export type SummaryLengthMode = "crisp" | "balanced" | "detailed"
 export type SummaryLengthPolicy = { mode: SummaryLengthMode; max_characters: number; max_sections: number | null; transcript_characters: number; guidance: SummaryLengthGuidance | null }
 export type SummaryLengthPolicyRequest = { transcript_texts: string[]; mode: SummaryLengthMode; custom_format: boolean; template_section_count: number }
 export type Template = { activityCaptureSystem: ActivityCaptureSystem } | { activityCaptureUser: ActivityCaptureUser } | { dailySummarySystem: DailySummarySystem } | { dailySummaryUser: DailySummaryUser } | { enhanceSystem: EnhanceSystem } | { enhanceUser: EnhanceUser } | { eventContactSystem: EventContactSystem } | { eventContactUser: EventContactUser } | { titleSystem: TitleSystem } | { titleUser: TitleUser } | { chatSystem: ChatSystem } | { contextBlock: ContextBlock } | { toolSearchSessions: ToolSearchSessions } | { transcriptPatchSystem: TranscriptPatchSystem } | { transcriptPatchUser: TranscriptPatchUser }
 export type TemplateSection = { title: string; description: string | null }
+export type TitleCorrection = { current_title: string; next_title: string }
 export type TitleSystem = { language: string | null }
 export type TitleUser = { enhancedNote: string }
 export type ToolSearchSessionItem = { id: string; title: string | null; excerpt: string | null; score: number; createdAt: number | null; sessionContext: SessionContext | null }
 export type ToolSearchSessions = { query: string; results: ToolSearchSessionItem[] }
 export type Transcript = { segments: Segment[]; startedAt: number | null; endedAt: number | null }
+export type TranscriptCorrection = { id: string; current_words_json: string; current_memo: string; next_words_json: string; next_memo: string }
 export type TranscriptPatchSystem = { language: string | null }
 export type TranscriptPatchUser = { transcriptJson: string }
 

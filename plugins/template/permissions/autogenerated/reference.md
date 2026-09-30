@@ -8,6 +8,8 @@ Default permissions for the plugin
 - `allow-prepare-generated-summary`
 - `allow-compose-generated-summary`
 - `allow-save-generated-summary`
+- `allow-save-generated-title`
+- `allow-apply-session-content-corrections`
 - `allow-render`
 - `allow-render-custom`
 - `allow-render-support`
@@ -21,6 +23,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`template:allow-apply-session-content-corrections`
+
+</td>
+<td>
+
+Enables the apply_session_content_corrections command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`template:deny-apply-session-content-corrections`
+
+</td>
+<td>
+
+Denies the apply_session_content_corrections command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -200,6 +228,32 @@ Enables the save_generated_summary command without any pre-configured scope.
 <td>
 
 Denies the save_generated_summary command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`template:allow-save-generated-title`
+
+</td>
+<td>
+
+Enables the save_generated_title command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`template:deny-save-generated-title`
+
+</td>
+<td>
+
+Denies the save_generated_title command without any pre-configured scope.
 
 </td>
 </tr>
