@@ -14,6 +14,7 @@ Default permissions for the plugin
 - `allow-apply-calendar-inventory`
 - `allow-tombstone-calendar-connection`
 - `allow-set-calendar-enabled`
+- `allow-sync-calendar-connection-events`
 - `allow-update-ignored-calendar-item`
 
 ## Permission Table
@@ -255,6 +256,32 @@ Enables the set_calendar_enabled command without any pre-configured scope.
 <td>
 
 Denies the set_calendar_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-sync-calendar-connection-events`
+
+</td>
+<td>
+
+Enables the sync_calendar_connection_events command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-sync-calendar-connection-events`
+
+</td>
+<td>
+
+Denies the sync_calendar_connection_events command without any pre-configured scope.
 
 </td>
 </tr>

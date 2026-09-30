@@ -183,6 +183,20 @@ pub async fn set_calendar_enabled<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn sync_calendar_connection_events<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    request: crate::storage::SyncCalendarConnectionEventsRequest,
+) -> Result<(), String> {
+    let runtime = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+    let _guard = runtime.synced_write_guard().await;
+    crate::storage::sync_calendar_connection_events(runtime.pool(), request).await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn update_ignored_calendar_item<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     request: crate::storage::UpdateIgnoredCalendarItemRequest,

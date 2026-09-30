@@ -16763,6 +16763,7 @@ dependencies = [
  "db-app",
  "db-core",
  "indexmap 2.14.0",
+ "regex",
  "serde",
  "serde_json",
  "specta",
@@ -16776,6 +16777,7 @@ dependencies = [
  "tauri-specta",
  "thiserror 2.0.18",
  "tokio",
+ "unicode-normalization",
  "uuid",
 ]
 

@@ -81,6 +81,14 @@ async setCalendarEnabled(request: SetCalendarEnabledRequest) : Promise<Result<nu
     else return { status: "error", error: e  as any };
 }
 },
+async syncCalendarConnectionEvents(request: SyncCalendarConnectionEventsRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|sync_calendar_connection_events", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async updateIgnoredCalendarItem(request: UpdateIgnoredCalendarItemRequest) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|update_ignored_calendar_item", { request }) };
@@ -196,8 +204,13 @@ email: string | null;
 is_current_user: boolean }
 export type EventStatus = "confirmed" | "tentative" | "cancelled"
 export type IgnoredCalendarItemKind = "events" | "series"
+export type IncomingCalendarEvent = { tracking_id_event: string; tracking_id_calendar: string; legacy_tracking_ids?: string[]; is_cancelled?: boolean; title: string | null; started_at: string | null; ended_at: string | null; location: string | null; meeting_link: string | null; description: string | null; recurrence_series_id: string | null; has_recurrence_rules: boolean; is_all_day: boolean }
+export type IncomingEventParticipant = { name?: string | null; email?: string | null; is_organizer?: boolean; is_current_user?: boolean }
+export type IncomingEventParticipants = { tracking_id_event: string; participants: IncomingEventParticipant[] }
 export type ProviderConnectionIds = { provider: CalendarProviderType; connection_ids: string[] }
 export type SetCalendarEnabledRequest = { calendar_id: string; enabled: boolean }
+export type SyncCalendarConnectionEventsRequest = { provider: CalendarProviderType; connection_id: string; from: string; to: string; calendars: SyncCalendarRef[]; events: IncomingCalendarEvent[]; participants: IncomingEventParticipants[] }
+export type SyncCalendarRef = { id: string; tracking_id_calendar: string }
 export type TombstoneCalendarConnectionRequest = { provider: CalendarProviderType; connection_id: string }
 export type UpdateIgnoredCalendarItemRequest = { kind: IgnoredCalendarItemKind; item_id: string; ignored: boolean }
 

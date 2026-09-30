@@ -28,6 +28,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::apply_calendar_inventory::<tauri::Wry>,
             commands::tombstone_calendar_connection::<tauri::Wry>,
             commands::set_calendar_enabled::<tauri::Wry>,
+            commands::sync_calendar_connection_events::<tauri::Wry>,
             commands::update_ignored_calendar_item::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![CalendarChangedEvent])

@@ -9,6 +9,7 @@ const COMMANDS: &[&str] = &[
     "apply_calendar_inventory",
     "tombstone_calendar_connection",
     "set_calendar_enabled",
+    "sync_calendar_connection_events",
     "update_ignored_calendar_item",
 ];
 

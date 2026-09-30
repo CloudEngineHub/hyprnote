@@ -7,20 +7,11 @@ const ctxMocks = vi.hoisted(() => ({
 }));
 
 const fetchMocks = vi.hoisted(() => ({
-  fetchExistingEvents: vi.fn(),
   fetchIncomingEvents: vi.fn(),
 }));
 
-const processMocks = vi.hoisted(() => ({
-  syncEvents: vi.fn(),
-  syncSessionEmbeddedEvents: vi.fn(),
-  syncSessionParticipants: vi.fn(),
-}));
-
 const storageMocks = vi.hoisted(() => ({
-  applyConnectionSync: vi.fn(),
-  loadParticipantSyncSnapshot: vi.fn(),
-  loadSessionsForTrackingIds: vi.fn(),
+  syncConnectionEvents: vi.fn(),
   tombstoneCalendarConnection: vi.fn(),
 }));
 
@@ -32,11 +23,9 @@ vi.mock("./ctx", () => ctxMocks);
 
 vi.mock("./fetch", () => ({
   CalendarFetchError: class CalendarFetchError extends Error {},
-  fetchExistingEvents: fetchMocks.fetchExistingEvents,
   fetchIncomingEvents: fetchMocks.fetchIncomingEvents,
 }));
 
-vi.mock("./process", () => processMocks);
 vi.mock("./storage", () => storageMocks);
 vi.mock("~/db/write-queue", () => writeQueueMocks);
 
@@ -73,29 +62,11 @@ describe("syncCalendarEventsForRange", () => {
     ]);
     ctxMocks.syncCalendars.mockResolvedValue(undefined);
     ctxMocks.createCtx.mockResolvedValue(ctx);
-    fetchMocks.fetchExistingEvents.mockResolvedValue([]);
     fetchMocks.fetchIncomingEvents.mockResolvedValue({
       events: [],
       participants: new Map(),
     });
-    processMocks.syncEvents.mockReturnValue({
-      toAdd: [],
-      toDelete: [],
-      toUpdate: [],
-    });
-    processMocks.syncSessionEmbeddedEvents.mockReturnValue([]);
-    processMocks.syncSessionParticipants.mockReturnValue({
-      humansToCreate: [],
-      toAdd: [],
-      toDelete: [],
-    });
-    storageMocks.loadSessionsForTrackingIds.mockResolvedValue([]);
-    storageMocks.loadParticipantSyncSnapshot.mockResolvedValue({
-      sessions: [],
-      humans: [],
-      mappings: [],
-    });
-    storageMocks.applyConnectionSync.mockResolvedValue(undefined);
+    storageMocks.syncConnectionEvents.mockResolvedValue(undefined);
     storageMocks.tombstoneCalendarConnection.mockResolvedValue(undefined);
   });
 
@@ -381,46 +352,6 @@ describe("syncCalendarEventsForRange", () => {
     );
 
     expect(fetchMocks.fetchIncomingEvents).toHaveBeenCalledTimes(1);
-    expect(fetchMocks.fetchExistingEvents).not.toHaveBeenCalled();
-    expect(storageMocks.applyConnectionSync).not.toHaveBeenCalled();
-  });
-
-  test("commits one connection snapshot after all diffs are built", async () => {
-    const incoming = [
-      {
-        tracking_id_event: "event-1",
-        tracking_id_calendar: "primary",
-        has_recurrence_rules: false,
-        is_all_day: false,
-      },
-    ];
-    const incomingParticipants = new Map([["event-1", []]]);
-    const events = { toAdd: [], toDelete: [], toUpdate: [] };
-    const sessionUpdates = [{ sessionId: "session-1" }];
-    const participants = { humansToCreate: [], toAdd: [], toDelete: [] };
-    fetchMocks.fetchIncomingEvents.mockResolvedValue({
-      events: incoming,
-      participants: incomingParticipants,
-    });
-    processMocks.syncEvents.mockReturnValue(events);
-    processMocks.syncSessionEmbeddedEvents.mockReturnValue(sessionUpdates);
-    processMocks.syncSessionParticipants.mockReturnValue(participants);
-
-    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
-
-    expect(fetchMocks.fetchExistingEvents).toHaveBeenCalledWith(ctx, incoming);
-    expect(storageMocks.loadSessionsForTrackingIds).toHaveBeenCalledWith([
-      "event-1",
-    ]);
-    expect(storageMocks.applyConnectionSync).toHaveBeenCalledWith({
-      ctx,
-      events,
-      sessionUpdates,
-      participants,
-    });
-    expect(writeQueueMocks.enqueueDatabaseWrite).toHaveBeenCalledWith(
-      "calendar-sync",
-      expect.any(Function),
-    );
+    expect(storageMocks.syncConnectionEvents).not.toHaveBeenCalled();
   });
 });
