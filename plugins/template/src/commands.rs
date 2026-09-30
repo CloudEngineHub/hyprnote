@@ -1,4 +1,5 @@
 use crate::TemplatePluginExt;
+use tauri::Manager;
 
 #[tauri::command]
 #[specta::specta]
@@ -27,6 +28,20 @@ pub fn compose_generated_summary(
     request: anlg_summary::ComposeGeneratedSummaryRequest,
 ) -> Result<String, String> {
     Ok(anlg_summary::compose_generated_summary(request))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn save_generated_summary<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    request: crate::generated_summary::SaveGeneratedSummaryRequest,
+) -> Result<(), String> {
+    let runtime = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+    let _guard = runtime.synced_write_guard().await;
+    crate::generated_summary::save_generated_summary(runtime.pool(), request).await
 }
 
 #[tauri::command]

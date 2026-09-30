@@ -10,10 +10,23 @@ const mocks = vi.hoisted(() => ({
       }>,
     ) => Promise.resolve([1, 1]),
   ),
+  saveGeneratedSummary: vi.fn(
+    async (
+      _request: unknown,
+    ): Promise<
+      { status: "ok"; data: null } | { status: "error"; error: string }
+    > => ({ status: "ok", data: null }),
+  ),
 }));
 
 vi.mock("~/db", () => ({
   executeTransaction: mocks.executeTransaction,
+}));
+
+vi.mock("@anlg/plugin-template", () => ({
+  commands: {
+    saveGeneratedSummary: mocks.saveGeneratedSummary,
+  },
 }));
 
 import {
@@ -85,89 +98,24 @@ describe("session content SQLite corrections", () => {
     expect(statements[0].sql).toContain("AND title = ?");
   });
 
-  it("saves generated content and deterministic tag rows atomically", async () => {
-    await persistGeneratedEnhancedNote({
-      sessionId: "session-1",
-      ownerUserId: "user-1",
-      note: {
-        id: "summary-1",
-        currentContent: "old summary",
-        currentContentFormat: "markdown",
-        nextContent: '{"type":"doc"}',
-      },
-      tagNames: ["launch", "launch", "prep"],
+  it("rejects when the Rust save fails", async () => {
+    mocks.saveGeneratedSummary.mockResolvedValueOnce({
+      status: "error",
+      error: "database is locked",
     });
-
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements).toHaveLength(6);
-    expect(statements[0]).toMatchObject({ expectedRowsAffected: 1 });
-    expect(statements[0].sql).toContain("AND body = ?");
-    expect(statements[0].sql).toContain("EXISTS");
-    expect(statements[1].sql).toContain("DELETE FROM app_settings");
-    expect(statements[1].sql).toContain("$.noteId");
-    expect(statements[1].sql).toContain("$.body");
-    expect(statements[1].params).toEqual([
-      "auto_enhance_pending:session-1",
-      "summary-1",
-      "old summary",
-    ]);
-    expect(statements[2].sql).toContain("INSERT INTO tags");
-    expect(statements[2].params[0]).toBe("launch");
-    expect(statements[3].sql).toContain("INSERT INTO session_tags");
-    expect(statements[3].params[0]).toBe("session-1:launch");
-    expect(
-      statements
-        .filter((statement) => statement !== statements[1])
-        .every((statement) => statement.expectedRowsAffected === 1),
-    ).toBe(true);
-  });
-
-  it("requires the exact pending generation before saving auto-enhance output", async () => {
-    await persistGeneratedEnhancedNote({
-      sessionId: "session-1",
-      ownerUserId: "user-1",
-      note: {
-        id: "summary-1",
-        currentContent: "old summary",
-        currentContentFormat: "markdown",
-        nextContent: '{"type":"doc"}',
-      },
-      tagNames: [],
-      pendingAutoEnhance: {
-        generation: "generation-1",
-        expectedBody: "old summary",
-        expectedContentFormat: "markdown",
-      },
-    });
-
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements).toHaveLength(2);
-    expect(statements[0].sql).toContain("FROM app_settings AS pending");
-    expect(statements[0].sql).toContain("$.generation");
-    expect(statements[0].sql).toContain("$.bodyFormat");
-    expect(statements[0].sql).toContain("session_documents.body =");
-    expect(statements[0].params).toEqual([
-      '{"type":"doc"}',
-      expect.any(String),
-      "summary-1",
-      "session-1",
-      "old summary",
-      "markdown",
-      "session-1",
-      "auto_enhance_pending:session-1",
-      "summary-1",
-      "generation-1",
-      "old summary",
-      "markdown",
-    ]);
-    expect(statements[1]).toMatchObject({ expectedRowsAffected: 1 });
-    expect(statements[1].params).toEqual([
-      "auto_enhance_pending:session-1",
-      "summary-1",
-      "generation-1",
-      "old summary",
-      "markdown",
-    ]);
+    await expect(
+      persistGeneratedEnhancedNote({
+        sessionId: "session-1",
+        ownerUserId: "user-1",
+        note: {
+          id: "summary-1",
+          currentContent: "old summary",
+          currentContentFormat: "markdown",
+          nextContent: '{"type":"doc"}',
+        },
+        tagNames: [],
+      }),
+    ).rejects.toThrow("database is locked");
   });
 
   it("rolls back a generated title when any document guard is stale", async () => {

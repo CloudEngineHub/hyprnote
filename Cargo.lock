@@ -17685,16 +17685,23 @@ dependencies = [
 name = "tauri-plugin-template"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "db-app",
+ "db-core",
  "gbnf",
+ "serde",
  "serde_json",
  "specta",
  "specta-typescript",
+ "sqlx",
  "summary",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-db",
  "tauri-specta",
  "template-app",
  "template-app-legacy",
+ "tokio",
  "tracing",
 ]
 

@@ -30,6 +30,14 @@ async composeGeneratedSummary(request: ComposeGeneratedSummaryRequest) : Promise
     else return { status: "error", error: e  as any };
 }
 },
+async saveGeneratedSummary(request: SaveGeneratedSummaryRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:template|save_generated_summary", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async render(tpl: Template) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:template|render", { tpl }) };
@@ -87,8 +95,10 @@ export type EventContactUser = { title: string | null; description: string | nul
 export type Grammar = { task: "enhance"; sections: string[] | null } | { task: "title" } | { task: "tags" } | { task: "email-to-name" }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type Participant = { name: string; jobTitle: string | null }
+export type PendingAutoEnhanceGuard = { generation: string; expected_body: string; expected_body_format: string }
 export type PrepareGeneratedSummaryRequest = { text: string; length_policy: SummaryLengthPolicy | null; tag_sources: string[] }
 export type PreparedGeneratedSummary = { constrained_text: string; tag_names: string[]; text_with_tags: string }
+export type SaveGeneratedSummaryRequest = { session_id: string; owner_user_id: string; note_id: string; current_body: string; current_body_format: string; next_body: string; tag_names: string[]; pending_auto_enhance: PendingAutoEnhanceGuard | null }
 export type Segment = { text: string; speaker: string }
 export type Session = { title: string | null; startedAt: string | null; endedAt: string | null; event: Event | null }
 export type SessionContext = { sessionId: string | null; title: string | null; date: string | null; rawContent: string | null; enhancedContent: string | null; meetingChat: string | null; transcript: Transcript | null; participants: Participant[]; event: Event | null }

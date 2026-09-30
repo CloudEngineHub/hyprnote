@@ -4,6 +4,7 @@ permissions = [
   "allow-summary-length-policy",
   "allow-prepare-generated-summary",
   "allow-compose-generated-summary",
+  "allow-save-generated-summary",
   "allow-render",
   "allow-render-custom",
   "allow-render-support",

@@ -7,6 +7,7 @@ Default permissions for the plugin
 - `allow-summary-length-policy`
 - `allow-prepare-generated-summary`
 - `allow-compose-generated-summary`
+- `allow-save-generated-summary`
 - `allow-render`
 - `allow-render-custom`
 - `allow-render-support`
@@ -173,6 +174,32 @@ Enables the render_support command without any pre-configured scope.
 <td>
 
 Denies the render_support command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`template:allow-save-generated-summary`
+
+</td>
+<td>
+
+Enables the save_generated_summary command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`template:deny-save-generated-summary`
+
+</td>
+<td>
+
+Denies the save_generated_summary command without any pre-configured scope.
 
 </td>
 </tr>
