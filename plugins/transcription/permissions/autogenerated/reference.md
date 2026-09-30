@@ -49,6 +49,8 @@ Default permissions for the plugin
 - `allow-is-supported-languages-batch`
 - `allow-suggest-providers-for-languages-batch`
 - `allow-list-documented-language-codes-batch`
+- `allow-refine-batch-transcript`
+- `allow-reconcile-refined-speaker-clusters`
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
 - `allow-cleanup-expired-voiceprint-candidates`
@@ -916,6 +918,58 @@ Enables the promote_voiceprint_candidates command without any pre-configured sco
 <td>
 
 Denies the promote_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-reconcile-refined-speaker-clusters`
+
+</td>
+<td>
+
+Enables the reconcile_refined_speaker_clusters command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-reconcile-refined-speaker-clusters`
+
+</td>
+<td>
+
+Denies the reconcile_refined_speaker_clusters command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-refine-batch-transcript`
+
+</td>
+<td>
+
+Enables the refine_batch_transcript command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-refine-batch-transcript`
+
+</td>
+<td>
+
+Denies the refine_batch_transcript command without any pre-configured scope.
 
 </td>
 </tr>

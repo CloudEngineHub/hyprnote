@@ -169,6 +169,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::suggest_providers_for_languages_live::<tauri::Wry>,
             listener::commands::list_documented_language_codes_live::<tauri::Wry>,
             listener::commands::render_transcript_segments,
+            listener2::commands::refine_batch_transcript,
+            listener2::commands::reconcile_refined_speaker_clusters,
             listener2::commands::start_transcription::<tauri::Wry>,
             listener2::commands::stop_transcription::<tauri::Wry>,
             listener2::commands::list_transcription_sessions::<tauri::Wry>,

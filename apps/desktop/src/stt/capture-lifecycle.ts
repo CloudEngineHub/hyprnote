@@ -565,17 +565,18 @@ export function useCaptureLifecycle(sessionId: string) {
                     start_ms: Number(word.start_ms) + audioOffset,
                     end_ms: Number(word.end_ms) + audioOffset,
                   }));
+                  const reconciledHints = beforeRepair
+                    ? await reconcileRefinedSpeakerClusters(
+                        beforeRepair,
+                        shifted,
+                        hints,
+                      )
+                    : hints;
                   await persistTranscriptWrite(() =>
                     appendRecoveredTranscriptWords(
                       target.transcriptId,
                       shifted,
-                      beforeRepair
-                        ? reconcileRefinedSpeakerClusters(
-                            beforeRepair,
-                            shifted,
-                            hints,
-                          )
-                        : hints,
+                      reconciledHints,
                       intervals,
                       beforeRepair?.words ?? [],
                     ),

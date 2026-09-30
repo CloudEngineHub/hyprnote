@@ -267,6 +267,9 @@ vi.mock("./useRunBatch", () => ({
       error instanceof Error ? error.message : String(error),
     ),
   ),
+  reconcileRefinedSpeakerClusters: vi.fn(
+    async (_source: unknown, _words: unknown, hints: unknown) => hints,
+  ),
   useRunBatch: vi.fn(() => runBatchMock),
 }));
 

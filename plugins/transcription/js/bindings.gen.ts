@@ -270,6 +270,22 @@ async renderTranscriptSegments(params: RenderTranscriptRequest) : Promise<Result
     else return { status: "error", error: e  as any };
 }
 },
+async refineBatchTranscript(request: BatchRefinementRequest) : Promise<Result<BatchRefinementOutcome, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|refine_batch_transcript", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async reconcileRefinedSpeakerClusters(request: SpeakerClusterReconciliationRequest) : Promise<Result<StoredSpeakerHint[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|reconcile_refined_speaker_clusters", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async startTranscription(params: TranscriptionParams) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|start_transcription", { params }) };
@@ -403,10 +419,14 @@ export type BatchAlternatives = { transcript: string; confidence: number; words?
 export type BatchChannel = { alternatives: BatchAlternatives[] }
 export type BatchErrorCode = "unknown" | "timed_out" | "audio_metadata_join_failed" | "audio_metadata_read_failed" | "batch_capability_unsupported" | "direct_batch_unsupported" | "progressive_batch_unsupported" | "direct_request_failed" | "progressive_actor_spawn_failed" | "progressive_start_cancelled" | "progressive_stopped_without_completion_signal" | "progressive_finished_without_status" | "progressive_start_failed" | "progressive_stream_error" | "progressive_stream_timeout"
 export type BatchProvider = "argmax" | "whispercpp" | "deepgram" | "soniox" | "assemblyai" | "fireworks" | "openai" | "openrouter" | "siliconflow" | "zai" | "gladia" | "elevenlabs" | "pyannote" | "dashscope" | "mistral" | "meta" | "anarlog" | "am" | "soniqo" | "applespeech" | "aquavoice" | "cartesia" | "cohere" | "aws_transcribe" | "azure_speech" | "google_cloud" | "google_generative_ai" | "groq" | "revai" | "speechmatics" | "together" | "xai" | "smallestai" | "wisprflow"
+export type BatchRefinementOutcome = { status: "ready"; words: StoredTranscriptWord[]; speaker_hints: StoredSpeakerHint[]; replace_session: boolean; replace_transcript_id: string | null; started_at: number | null } | { status: "empty_current_capture" } | { status: "truncated" }
+export type BatchRefinementRequest = { words: StoredTranscriptWord[]; hints: StoredSpeakerHint[]; promotion: BatchTranscriptPromotion; previous_transcripts: BatchRefinementSource[] }
+export type BatchRefinementSource = { id: string; started_at: number; words: StoredTranscriptWord[]; speaker_hints: StoredSpeakerHint[] }
 export type BatchResponse = { metadata: JsonValue; results: BatchResults }
 export type BatchResults = { channels: BatchChannel[] }
 export type BatchRunMode = "direct" | "streamed"
 export type BatchStreamEvent = { type: "progress"; percentage: number; partial_text?: string | null } | { type: "segment"; response: StreamResponse; percentage: number } | { type: "terminal"; request_id: string; created: string; duration: number; channels: number } | { type: "result"; response: BatchResponse } | { type: "error"; error_code: number | null; error_message: string; provider: string }
+export type BatchTranscriptPromotion = { scope: "preserve_existing" } | { scope: "whole_session" } | { scope: "current_capture"; audio_offset_ms: number; replace_transcript_id?: string | null; started_at: number }
 export type BatchWord = { word: string; start: number; end: number; confidence: number; channel?: number; speaker: number | null; punctuated_word: string | null }
 export type CaptureAudioGap = { start_ms: number; end_ms: number }
 export type CaptureAudioGaps = { capture_started_at_ms: number; gaps: CaptureAudioGap[]; open_gap_started_at_ms?: number | null; awaiting_connection: boolean; storage_failed: boolean; confirmed_through_ms?: number | null }
@@ -444,10 +464,13 @@ export type RenderTranscriptWordInput = { id: string; text: string; start_ms: nu
 export type RenderedTranscriptSegment = { provisional_speaker?: ProvisionalSpeakerLabel | null; id: string; key: SegmentKey; speaker_label: string; start_ms: number; end_ms: number; text: string; words: SegmentWord[] }
 export type SegmentKey = { channel: ChannelProfile; speaker_index?: number | null; speaker_human_id?: string | null }
 export type SegmentWord = { text: string; start_ms: number; end_ms: number; channel: ChannelProfile; is_final: boolean; id?: string | null }
+export type SpeakerClusterReconciliationRequest = { source: BatchRefinementSource; words: StoredTranscriptWord[]; hints: StoredSpeakerHint[] }
 export type SpeakerContext = { intervals: SpeakerContextInterval[] }
 export type SpeakerContextInterval = { start_ms: number; end_ms: number; active_call: boolean; calendar_call: boolean; mic_isolated: boolean | null; shared_microphone: boolean; title: string; self_names: string[]; participants: RenderTranscriptHuman[] }
 export type SpeakerResolutionReason = "personal_microphone" | "virtual_meeting_microphone" | "sole_remote_participant" | "one_on_one_title"
 export type StoppedCapture = { session_id: string; stopped_at_ms: number; duration_seconds: number; chunked_audio: boolean; audio_path: string | null; requested_live_transcription: boolean; live_transcription_active: boolean; error: string | null }
+export type StoredSpeakerHint = { id: string; word_id?: string | null; type: string; value?: JsonValue }
+export type StoredTranscriptWord = { id: string; text?: string | null; start_ms?: number | null; end_ms?: number | null; channel?: number | null; speaker?: string | null; metadata?: JsonValue | null }
 export type StreamAlternatives = { transcript: string; words: StreamWord[]; confidence: number; languages?: string[] }
 export type StreamChannel = { alternatives: StreamAlternatives[] }
 export type StreamExtra = { started_unix_millis: number }

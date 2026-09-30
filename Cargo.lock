@@ -19182,6 +19182,7 @@ version = "0.1.0"
 dependencies = [
  "json-patch 4.1.0",
  "owhisper-interface",
+ "regex",
  "serde",
  "serde_json",
  "specta",

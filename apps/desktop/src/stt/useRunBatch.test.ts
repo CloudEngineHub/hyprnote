@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
-import type { SpeakerHintWithId, WordWithId } from "./types";
 import {
   canRunBatchTranscription,
   EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE,
@@ -12,7 +11,6 @@ import {
   getBatchProvider,
   getSessionSpeakerCount,
   isTerminalTranscriptionError,
-  reconcileRefinedSpeakerClusters,
 } from "./useRunBatch";
 import { useRunBatch } from "./useRunBatch";
 
@@ -35,6 +33,8 @@ const {
   createTranscriptMock,
   getTranscriptRecordMock,
   getSessionTranscriptRecordsMock,
+  refineBatchTranscriptMock,
+  reconcileRefinedSpeakerClustersMock,
   notifyBatchCompletedMock,
   idMock,
   archMock,
@@ -58,10 +58,19 @@ const {
   createTranscriptMock: vi.fn(),
   getTranscriptRecordMock: vi.fn(),
   getSessionTranscriptRecordsMock: vi.fn(),
+  refineBatchTranscriptMock: vi.fn(),
+  reconcileRefinedSpeakerClustersMock: vi.fn(),
   notifyBatchCompletedMock: vi.fn(),
   idMock: vi.fn(),
   archMock: vi.fn(),
   platformMock: vi.fn(),
+}));
+
+vi.mock("@anlg/plugin-transcription", () => ({
+  commands: {
+    refineBatchTranscript: refineBatchTranscriptMock,
+    reconcileRefinedSpeakerClusters: reconcileRefinedSpeakerClustersMock,
+  },
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -187,6 +196,27 @@ vi.mock("~/store/zustand/listener/general-batch", () => ({
   acknowledgeCompletedBatch: vi.fn(async () => {}),
   notifyBatchCompleted: notifyBatchCompletedMock,
 }));
+
+function readyRefinementOutcome(
+  request: import("@anlg/plugin-transcription").BatchRefinementRequest,
+): import("@anlg/plugin-transcription").BatchRefinementOutcome {
+  return {
+    status: "ready",
+    words: request.words,
+    speaker_hints: request.hints,
+    replace_session: request.promotion.scope === "whole_session",
+    replace_transcript_id:
+      request.promotion.scope === "current_capture"
+        ? (request.promotion.replace_transcript_id ?? null)
+        : null,
+    started_at:
+      request.promotion.scope === "current_capture"
+        ? request.promotion.started_at
+        : request.previous_transcripts.length === 1
+          ? (request.previous_transcripts[0]?.started_at ?? null)
+          : null,
+  };
+}
 
 describe("getBatchProvider", () => {
   test.each([
@@ -319,464 +349,17 @@ describe("getBatchFallbackTarget", () => {
   );
 });
 
-describe("reconcileRefinedSpeakerClusters", () => {
-  test("collapses split batch clusters onto dominant live clusters", () => {
-    const source = {
-      id: "live-transcript",
-      ownerUserId: "user-1",
-      sessionId: "session-1",
-      startedAt: 0,
-      words: [
-        {
-          id: "live-lex-1",
-          text: "question",
-          start_ms: 0,
-          end_ms: 100,
-          channel: 1,
-        },
-        {
-          id: "live-george-1",
-          text: "answer",
-          start_ms: 100,
-          end_ms: 200,
-          channel: 1,
-        },
-        {
-          id: "live-lex-2",
-          text: "follow up",
-          start_ms: 200,
-          end_ms: 300,
-          channel: 1,
-        },
-        {
-          id: "live-george-2",
-          text: "response",
-          start_ms: 300,
-          end_ms: 400,
-          channel: 1,
-        },
-      ],
-      speakerHints: [
-        {
-          id: "live-lex-1-provider",
-          word_id: "live-lex-1",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-        },
-        {
-          id: "live-george-1-provider",
-          word_id: "live-george-1",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
-        },
-        {
-          id: "live-lex-2-provider",
-          word_id: "live-lex-2",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-        },
-        {
-          id: "live-george-2-provider",
-          word_id: "live-george-2",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
-        },
-      ],
-    } satisfies Parameters<typeof reconcileRefinedSpeakerClusters>[0];
-    const words = [
-      {
-        id: "batch-lex-primary",
-        text: "question",
-        start_ms: 0,
-        end_ms: 100,
-        channel: 1,
-      },
-      {
-        id: "batch-george-primary",
-        text: "answer",
-        start_ms: 100,
-        end_ms: 200,
-        channel: 1,
-      },
-      {
-        id: "batch-lex-split",
-        text: "follow up",
-        start_ms: 200,
-        end_ms: 300,
-        channel: 1,
-      },
-      {
-        id: "batch-george-split",
-        text: "response",
-        start_ms: 300,
-        end_ms: 400,
-        channel: 1,
-      },
-    ];
-    const hints = words.map((word, index) => ({
-      id: `${word.id}-provider`,
-      word_id: word.id,
-      type: "provider_speaker_index" as const,
-      value: JSON.stringify({
-        provider: "anarlog",
-        channel: 1,
-        speaker_index: index,
-      }),
-    }));
-
-    const result = reconcileRefinedSpeakerClusters(source, words, hints);
-
-    expect(result.map((hint) => JSON.parse(hint.value).speaker_index)).toEqual([
-      0, 1, 0, 1,
-    ]);
-  });
-
-  function word(
-    id: string,
-    start: number,
-    end: number,
-    channel = 1,
-  ): WordWithId {
-    return { id, text: id, start_ms: start, end_ms: end, channel };
-  }
-
-  function provider(word: WordWithId, speakerIndex: number): SpeakerHintWithId {
-    return {
-      id: `${word.id}:provider_speaker_index`,
-      word_id: word.id,
-      type: "provider_speaker_index",
-      value: JSON.stringify({
-        channel: word.channel,
-        speaker_index: speakerIndex,
-      }),
-    };
-  }
-
-  function assignment(value: Record<string, unknown>): SpeakerHintWithId {
-    return {
-      id: "old-a:user_speaker_assignment",
-      word_id: "old-a",
-      type: "user_speaker_assignment",
-      value: JSON.stringify({ human_id: "alice", ...value }),
-    };
-  }
-
-  function refineAssignments(
-    sourceWords: WordWithId[],
-    sourceHints: SpeakerHintWithId[],
-    words: WordWithId[],
-    hints: SpeakerHintWithId[],
-  ) {
-    const result = reconcileRefinedSpeakerClusters(
-      {
-        id: "live-transcript",
-        ownerUserId: "self",
-        sessionId: "session-1",
-        startedAt: 0,
-        words: sourceWords,
-        speakerHints: sourceHints,
-      },
-      words,
-      hints,
-    );
-    return result
-      .filter((hint) => hint.type === "user_speaker_assignment")
-      .map((hint) => {
-        const { extend_to_adjacent, ...value } = JSON.parse(hint.value);
-        expect(extend_to_adjacent).toBe(false);
-        return { word_id: hint.word_id, ...value };
-      });
-  }
-
-  const fullSpeaker = () =>
-    assignment({ scope: "speaker", channel: 1, speaker_index: 0 });
-
-  test.each([1, 2])(
-    "reanchors manual names to validated replacement words on channel %s",
-    (channel) => {
-      const source = word("old-a", 0, 100);
-      const next = word("new-a", 0, 100, channel);
-      expect(
-        refineAssignments(
-          [source],
-          [provider(source, 0), fullSpeaker()],
-          [next],
-          [provider(next, 7)],
-        ),
-      ).toEqual([
-        {
-          word_id: "new-a",
-          human_id: "alice",
-          scope: "segment",
-          word_ids: ["new-a"],
-        },
-      ]);
-    },
-  );
-
-  test.each([
-    {
-      name: "a reused index without overlapping evidence",
-      run: () => {
-        const source = word("old-a", 0, 100);
-        const next = word("new-a", 200, 300);
-        return refineAssignments(
-          [source],
-          [provider(source, 0), fullSpeaker()],
-          [next],
-          [provider(next, 0)],
-        );
-      },
-    },
-    {
-      name: "an ambiguous cluster that reused an assigned index",
-      run: () => {
-        const sources = [word("old-a", 0, 100), word("old-b", 100, 200)];
-        const next = word("new-ab", 0, 200);
-        return refineAssignments(
-          sources,
-          [provider(sources[0], 0), provider(sources[1], 1), fullSpeaker()],
-          [next],
-          [provider(next, 0)],
-        );
-      },
-    },
-    {
-      name: "a manual name without substantial timing coverage",
-      run: () => {
-        const source = word("old-a", 0, 100);
-        const next = word("new-a", 0, 1_000);
-        return refineAssignments(
-          [source],
-          [provider(source, 0), fullSpeaker()],
-          [next],
-          [provider(next, 0)],
-        );
-      },
-    },
-  ])("does not carry a name to $name", ({ run }) => {
-    expect(run()).toEqual([]);
-  });
-
-  test.each([
-    {
-      name: "does not infer names from simultaneous mic and remote speech after downmixing",
-      next: word("mixed", 0, 100, 2),
-      expected: [],
-    },
-    {
-      name: "keeps stereo channels separate when simultaneous words remain separate",
-      next: word("remote", 0, 100),
-      expected: [
-        {
-          word_id: "remote",
-          human_id: "alice",
-          scope: "segment",
-          word_ids: ["remote"],
-        },
-      ],
-    },
-  ])("$name", ({ next, expected }) => {
-    const sources = [word("old-a", 0, 100), word("mic", 0, 100, 0)];
-    expect(
-      refineAssignments(
-        sources,
-        [provider(sources[0], 0), provider(sources[1], 0), fullSpeaker()],
-        [next],
-        [provider(next, 0)],
-      ),
-    ).toEqual(expected);
-  });
-
-  test("remaps a segment override to replacement word IDs without extending it", () => {
-    const sources = [word("old-a", 0, 100), word("old-b", 100, 200)];
-    const next = [
-      word("new-a", 0, 50),
-      word("new-b", 50, 100),
-      word("new-c", 100, 200),
-    ];
-    expect(
-      refineAssignments(
-        sources,
-        [assignment({ scope: "segment", word_ids: ["old-a"] })],
-        next,
-        [],
-      ),
-    ).toEqual([
-      {
-        word_id: "new-a",
-        human_id: "alice",
-        scope: "segment",
-        word_ids: ["new-a", "new-b"],
-      },
-    ]);
-  });
-
-  test("keeps segment overrides ahead of full-speaker names during refinement", () => {
-    const sources = [word("old-a", 0, 100), word("old-b", 100, 200)];
-    const next = [word("new-a", 0, 100), word("new-b", 100, 200)];
-    const hints = [
-      ...sources.map((word) => provider(word, 0)),
-      assignment({ human_id: "bob", scope: "segment", word_ids: ["old-b"] }),
-      fullSpeaker(),
-    ];
-    expect(
-      refineAssignments(
-        sources,
-        hints,
-        next,
-        next.map((word) => provider(word, 0)),
-      ),
-    ).toEqual([
-      {
-        word_id: "new-a",
-        human_id: "alice",
-        scope: "segment",
-        word_ids: ["new-a"],
-      },
-      {
-        word_id: "new-b",
-        human_id: "bob",
-        scope: "segment",
-        word_ids: ["new-b"],
-      },
-    ]);
-  });
-
-  test("does not treat a legacy mixed-channel hint as one identified person", () => {
-    const source = word("old-a", 0, 100, 2);
-    const next = word("new-a", 0, 100, 2);
-    expect(refineAssignments([source], [assignment({})], [next], [])).toEqual(
-      [],
-    );
-  });
-
-  test("keeps an ambiguous batch cluster unchanged", () => {
-    const source = {
-      id: "live-transcript",
-      ownerUserId: "user-1",
-      sessionId: "session-1",
-      startedAt: 0,
-      words: [
-        {
-          id: "live-a",
-          text: "one",
-          start_ms: 0,
-          end_ms: 100,
-          channel: 1,
-        },
-        {
-          id: "live-b",
-          text: "two",
-          start_ms: 100,
-          end_ms: 200,
-          channel: 1,
-        },
-      ],
-      speakerHints: [
-        {
-          id: "live-a-provider",
-          word_id: "live-a",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-        },
-        {
-          id: "live-b-provider",
-          word_id: "live-b",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
-        },
-      ],
-    } satisfies Parameters<typeof reconcileRefinedSpeakerClusters>[0];
-    const words = [
-      {
-        id: "batch-ambiguous",
-        text: "one two",
-        start_ms: 0,
-        end_ms: 200,
-        channel: 1,
-      },
-    ];
-    const hints = [
-      {
-        id: "batch-ambiguous-provider",
-        word_id: "batch-ambiguous",
-        type: "provider_speaker_index" as const,
-        value: JSON.stringify({ channel: 1, speaker_index: 4 }),
-      },
-    ];
-
-    const result = reconcileRefinedSpeakerClusters(source, words, hints);
-
-    expect(JSON.parse(result[0].value).speaker_index).toBe(4);
-  });
-
-  test("moves an unmapped batch cluster that collides with a live cluster", () => {
-    const source = {
-      id: "live-transcript",
-      ownerUserId: "user-1",
-      sessionId: "session-1",
-      startedAt: 0,
-      words: [
-        {
-          id: "live-speaker",
-          text: "mapped",
-          start_ms: 0,
-          end_ms: 100,
-          channel: 1,
-        },
-      ],
-      speakerHints: [
-        {
-          id: "live-speaker-provider",
-          word_id: "live-speaker",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
-        },
-      ],
-    } satisfies Parameters<typeof reconcileRefinedSpeakerClusters>[0];
-    const words = [
-      {
-        id: "batch-mapped",
-        text: "mapped",
-        start_ms: 0,
-        end_ms: 100,
-        channel: 1,
-      },
-      {
-        id: "batch-unmapped",
-        text: "unmapped",
-        start_ms: 200,
-        end_ms: 300,
-        channel: 1,
-      },
-    ];
-    const hints = [
-      {
-        id: "batch-mapped-provider",
-        word_id: "batch-mapped",
-        type: "provider_speaker_index" as const,
-        value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-      },
-      {
-        id: "batch-unmapped-provider",
-        word_id: "batch-unmapped",
-        type: "provider_speaker_index" as const,
-        value: JSON.stringify({ channel: 1, speaker_index: 1 }),
-      },
-    ];
-
-    const result = reconcileRefinedSpeakerClusters(source, words, hints);
-
-    expect(result.map((hint) => JSON.parse(hint.value).speaker_index)).toEqual([
-      1, 2,
-    ]);
-  });
-});
-
 describe("useRunBatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    refineBatchTranscriptMock.mockImplementation(
+      async (
+        request: import("@anlg/plugin-transcription").BatchRefinementRequest,
+      ) => ({
+        status: "ok",
+        data: readyRefinementOutcome(request),
+      }),
+    );
     stopTranscriptionMock.mockResolvedValue(undefined);
     archMock.mockReturnValue("aarch64");
     platformMock.mockReturnValue("macos");
@@ -1124,6 +707,32 @@ describe("useRunBatch", () => {
   });
 
   test("promotes post-stop batch by replacing the live current capture", async () => {
+    refineBatchTranscriptMock.mockResolvedValueOnce({
+      status: "ok",
+      data: {
+        status: "ready",
+        words: [
+          {
+            id: "refined-word",
+            text: "refined",
+            start_ms: 100,
+            end_ms: 500,
+            channel: 0,
+          },
+        ],
+        speaker_hints: [
+          {
+            id: "refined-hint",
+            word_id: "refined-word",
+            type: "provider_speaker_index",
+            value: JSON.stringify({ speaker_index: 1 }),
+          },
+        ],
+        replace_session: false,
+        replace_transcript_id: "transcript-current-live",
+        started_at: 123_000,
+      },
+    });
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(
         [
@@ -1163,6 +772,22 @@ describe("useRunBatch", () => {
       });
     });
 
+    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
+      promotion: {
+        scope: "current_capture",
+        audio_offset_ms: 60_000,
+        replace_transcript_id: "transcript-current-live",
+        started_at: 123_000,
+      },
+      previous_transcripts: [],
+      words: expect.arrayContaining([
+        expect.objectContaining({ text: "old", start_ms: 10_000 }),
+        expect.objectContaining({ text: "new", start_ms: 60_100 }),
+      ]),
+      hints: expect.arrayContaining([
+        expect.objectContaining({ type: "provider_speaker_index" }),
+      ]),
+    });
     expect(createTranscriptMock).toHaveBeenCalledOnce();
     expect(createTranscriptMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1171,13 +796,15 @@ describe("useRunBatch", () => {
         startedAt: 123_000,
         words: [
           expect.objectContaining({
-            text: "new",
+            id: "refined-word",
+            text: "refined",
             start_ms: 100,
             end_ms: 500,
           }),
         ],
         speakerHints: [
           expect.objectContaining({
+            id: "refined-hint",
             value: expect.stringContaining('"speaker_index":1'),
           }),
         ],
@@ -1185,7 +812,7 @@ describe("useRunBatch", () => {
     );
   });
 
-  test("does not carry legacy inferred identities into a refined capture", async () => {
+  test("passes prior inferred identity hints to Rust refinement", async () => {
     getTranscriptRecordMock.mockResolvedValue({
       id: "transcript-current-live",
       ownerUserId: "user-1",
@@ -1255,47 +882,67 @@ describe("useRunBatch", () => {
       });
     });
 
-    const speakerHints = createTranscriptMock.mock.calls[0]?.[0].speakerHints;
-    expect(speakerHints).toHaveLength(1);
-    expect(speakerHints[0]).toMatchObject({
-      type: "provider_speaker_index",
+    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
+      promotion: {
+        scope: "current_capture",
+        audio_offset_ms: 60_000,
+        replace_transcript_id: "transcript-current-live",
+        started_at: 123_000,
+      },
+      previous_transcripts: [
+        expect.objectContaining({
+          id: "transcript-current-live",
+          started_at: 123_000,
+          words: [
+            expect.objectContaining({
+              id: "live-word",
+              text: "answer",
+              start_ms: 100,
+              end_ms: 500,
+              channel: 1,
+            }),
+          ],
+          speaker_hints: expect.arrayContaining([
+            expect.objectContaining({
+              id: "live-inferred-identity",
+              type: "automatic_speaker_assignment",
+            }),
+          ]),
+        }),
+      ],
     });
   });
 
   test.each(["current_capture", "whole_session"] as const)(
-    "keeps the saved transcript and audio when %s processing returns only a few lines",
+    "keeps saved data when Rust reports truncation for %s refinement",
     async (scope) => {
       const saved = {
         id: "transcript-current-live",
         sessionId: "session-1",
         ownerUserId: "user-1",
         startedAt: 123_000,
-        words: Array.from({ length: 300 }, (_, index) => ({
-          id: `live-${index}`,
-          text: index % 2 ? "megbeszélés" : "meeting",
-          start_ms: index * 6_000,
-          end_ms: index * 6_000 + 500,
-          channel: 0,
-        })),
+        words: [
+          {
+            id: "live-word",
+            text: "saved transcript",
+            start_ms: 0,
+            end_ms: 500,
+            channel: 0,
+          },
+        ],
         speakerHints: [],
       };
       getTranscriptRecordMock.mockResolvedValue(saved);
       getSessionTranscriptRecordsMock.mockResolvedValue([saved]);
+      refineBatchTranscriptMock.mockResolvedValueOnce({
+        status: "ok",
+        data: { status: "truncated" },
+      });
       startTranscriptionMock.mockImplementation(async (_params, options) => {
         options.handlePersist(
           [
-            ...(scope === "current_capture"
-              ? [
-                  {
-                    text: "earlier capture ".repeat(1_000),
-                    start_ms: 0,
-                    end_ms: 59_000,
-                    channel: 0,
-                  },
-                ]
-              : []),
             {
-              text: "Thank you for the meeting.",
+              text: "replacement",
               start_ms: 60_100,
               end_ms: 61_000,
               channel: 0,
@@ -1331,102 +978,28 @@ describe("useRunBatch", () => {
           "The new transcription returned much less text. Your saved transcript and recording were kept. Try transcribing again.",
       });
       expect(isTerminalTranscriptionError(error)).toBe(true);
+      expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
+        promotion:
+          scope === "current_capture"
+            ? {
+                scope,
+                audio_offset_ms: 60_000,
+                replace_transcript_id: saved.id,
+                started_at: saved.startedAt,
+              }
+            : { scope },
+        previous_transcripts: [
+          expect.objectContaining({
+            id: saved.id,
+            started_at: saved.startedAt,
+            words: [expect.objectContaining({ id: "live-word" })],
+          }),
+        ],
+      });
       expect(createTranscriptMock).not.toHaveBeenCalled();
       expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
       expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
       expect(notifyBatchCompletedMock).not.toHaveBeenCalled();
-      expect(startTranscriptionMock).toHaveBeenCalledOnce();
-    },
-  );
-
-  test.each([
-    {
-      name: "provider tokenization changes",
-      previousText: "meeting ".repeat(100),
-      replacementText: "meeting ".repeat(100),
-    },
-    {
-      name: "languages without spaces",
-      previousText: "会议记录".repeat(100),
-      replacementText: "会议记录".repeat(100),
-    },
-    {
-      name: "ordinary corrections",
-      previousText: "meeting ".repeat(100),
-      replacementText: "meeting ".repeat(70),
-    },
-    {
-      name: "small captures",
-      previousText: "meeting ".repeat(10),
-      replacementText: "hello",
-    },
-  ])(
-    "accepts $name without comparing earlier captures",
-    async ({ previousText, replacementText }) => {
-      getTranscriptRecordMock.mockResolvedValue({
-        id: "live-current",
-        sessionId: "session-1",
-        ownerUserId: "user-1",
-        startedAt: 123_000,
-        words: [
-          { id: "empty", channel: 0, start_ms: 0, end_ms: 0 },
-          ...previousText.split("").map((text, index) => ({
-            id: `live-${index}`,
-            text,
-            channel: 0,
-            start_ms: 0,
-            end_ms: 100,
-          })),
-        ],
-        speakerHints: [],
-      });
-      startTranscriptionMock.mockImplementation(async (_params, options) => {
-        options.handlePersist(
-          [
-            {
-              text: "An earlier capture ".repeat(1_000),
-              start_ms: 0,
-              end_ms: 59_000,
-              channel: 0,
-            },
-            {
-              text: replacementText,
-              start_ms: 60_000,
-              end_ms: 61_000,
-              channel: 0,
-            },
-          ],
-          [],
-          { mode: "replace" },
-        );
-      });
-
-      const { result } = renderHook(() => useRunBatch("session-1"));
-      await act(async () => {
-        await result.current("/tmp/session.wav", {
-          promotion: {
-            scope: "current_capture",
-            audioOffsetMs: 60_000,
-            replaceTranscriptId: "live-current",
-            startedAt: 123_000,
-          },
-        });
-      });
-
-      expect(getSessionTranscriptRecordsMock).not.toHaveBeenCalled();
-      expect(createTranscriptMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          replaceTranscriptId: "live-current",
-          words: [
-            expect.objectContaining({
-              text: replacementText,
-              start_ms: 0,
-              end_ms: 1_000,
-            }),
-          ],
-        }),
-      );
-      expect(markSessionAudioTranscriptionCompleteMock).toHaveBeenCalledOnce();
     },
   );
 
@@ -1469,6 +1042,10 @@ describe("useRunBatch", () => {
   );
 
   test("retains recovery audio when the batch has no current-capture words", async () => {
+    refineBatchTranscriptMock.mockResolvedValueOnce({
+      status: "ok",
+      data: { status: "empty_current_capture" },
+    });
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(
         [{ text: "old", start_ms: 10_000, end_ms: 10_500, channel: 0 }],
@@ -1492,12 +1069,26 @@ describe("useRunBatch", () => {
       }),
     ).rejects.toThrow(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
 
+    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
+      promotion: {
+        scope: "current_capture",
+        audio_offset_ms: 60_000,
+        replace_transcript_id: "transcript-current-live",
+        started_at: 123_000,
+      },
+      words: [expect.objectContaining({ text: "old", start_ms: 10_000 })],
+      previous_transcripts: [],
+    });
     expect(createTranscriptMock).not.toHaveBeenCalled();
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
   test("retains recovery audio when the batch emits no words", async () => {
+    refineBatchTranscriptMock.mockResolvedValueOnce({
+      status: "ok",
+      data: { status: "empty_current_capture" },
+    });
     startTranscriptionMock.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useRunBatch("session-1"));
@@ -1515,6 +1106,37 @@ describe("useRunBatch", () => {
       }),
     ).rejects.toThrow(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
 
+    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
+      promotion: { scope: "current_capture", audio_offset_ms: 60_000 },
+      words: [],
+      previous_transcripts: [],
+    });
+    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+  });
+
+  test("does not finalize a batch when Rust refinement returns an error result", async () => {
+    refineBatchTranscriptMock.mockResolvedValueOnce({
+      status: "error",
+      error: "refinement IPC failed",
+    });
+    startTranscriptionMock.mockImplementation(async (_params, options) => {
+      options.handlePersist(
+        [{ text: "replacement", start_ms: 0, end_ms: 100, channel: 0 }],
+        [],
+      );
+    });
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await expect(
+      act(async () => await result.current("/tmp/session.wav")),
+    ).rejects.toBeInstanceOf(BatchResponseProcessingError);
+
+    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
+      promotion: { scope: "preserve_existing" },
+      previous_transcripts: [],
+    });
     expect(createTranscriptMock).not.toHaveBeenCalled();
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();

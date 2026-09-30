@@ -1,3 +1,4 @@
+mod batch_refine;
 mod channel_state;
 mod label;
 mod postprocessor;
@@ -12,6 +13,11 @@ pub use speaker_context::{
 mod types;
 mod words;
 
+pub use batch_refine::{
+    BatchRefinementOutcome, BatchRefinementRequest, BatchRefinementSource,
+    BatchTranscriptPromotion, SpeakerClusterReconciliationRequest, StoredSpeakerHint,
+    StoredTranscriptWord, reconcile_refined_speaker_clusters, refine_batch_transcript,
+};
 pub use label::{SpeakerLabelContext, SpeakerLabeler, render_speaker_label};
 pub use postprocessor::{
     TranscriptPostprocessor, TranscriptPostprocessorError, TranscriptPostprocessorRequest,

@@ -119,3 +119,23 @@ pub async fn list_documented_language_codes_batch<R: tauri::Runtime>(
 ) -> Result<Vec<String>, String> {
     Ok(core::list_documented_language_codes_batch())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn refine_batch_transcript(
+    request: anlg_transcript::BatchRefinementRequest,
+) -> Result<anlg_transcript::BatchRefinementOutcome, String> {
+    Ok(anlg_transcript::refine_batch_transcript(request))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reconcile_refined_speaker_clusters(
+    request: anlg_transcript::SpeakerClusterReconciliationRequest,
+) -> Result<Vec<anlg_transcript::StoredSpeakerHint>, String> {
+    Ok(anlg_transcript::reconcile_refined_speaker_clusters(
+        &request.source,
+        &request.words,
+        request.hints,
+    ))
+}

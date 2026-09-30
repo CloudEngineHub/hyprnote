@@ -46,6 +46,8 @@ permissions = [
     "allow-is-supported-languages-batch",
     "allow-suggest-providers-for-languages-batch",
     "allow-list-documented-language-codes-batch",
+    "allow-refine-batch-transcript",
+    "allow-reconcile-refined-speaker-clusters",
     "allow-extract-voiceprint-candidates",
     "allow-promote-voiceprint-candidates",
     "allow-cleanup-expired-voiceprint-candidates",
