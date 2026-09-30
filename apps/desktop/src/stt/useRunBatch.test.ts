@@ -29,12 +29,9 @@ const {
   isSupportedLanguagesBatchMock,
   toastWarningMock,
   deleteProcessedAudioForRetentionMock,
-  markSessionAudioTranscriptionCompleteMock,
-  createTranscriptMock,
-  getTranscriptRecordMock,
-  getSessionTranscriptRecordsMock,
-  refineBatchTranscriptMock,
+  saveBatchTranscriptMock,
   reconcileRefinedSpeakerClustersMock,
+  maybeExtractVoiceprintCandidatesMock,
   notifyBatchCompletedMock,
   idMock,
   archMock,
@@ -54,12 +51,9 @@ const {
   isSupportedLanguagesBatchMock: vi.fn(),
   toastWarningMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
-  markSessionAudioTranscriptionCompleteMock: vi.fn(),
-  createTranscriptMock: vi.fn(),
-  getTranscriptRecordMock: vi.fn(),
-  getSessionTranscriptRecordsMock: vi.fn(),
-  refineBatchTranscriptMock: vi.fn(),
+  saveBatchTranscriptMock: vi.fn(),
   reconcileRefinedSpeakerClustersMock: vi.fn(),
+  maybeExtractVoiceprintCandidatesMock: vi.fn(),
   notifyBatchCompletedMock: vi.fn(),
   idMock: vi.fn(),
   archMock: vi.fn(),
@@ -68,7 +62,7 @@ const {
 
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
-    refineBatchTranscript: refineBatchTranscriptMock,
+    saveBatchTranscript: saveBatchTranscriptMock,
     reconcileRefinedSpeakerClusters: reconcileRefinedSpeakerClustersMock,
   },
 }));
@@ -117,9 +111,8 @@ vi.mock("~/services/audio-retention", () => ({
     typeof value === "string" ? value : "forever",
 }));
 
-vi.mock("~/session/attachments", () => ({
-  markSessionAudioTranscriptionComplete:
-    markSessionAudioTranscriptionCompleteMock,
+vi.mock("~/services/voiceprint", () => ({
+  maybeExtractVoiceprintCandidates: maybeExtractVoiceprintCandidatesMock,
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -186,37 +179,10 @@ vi.mock("~/stt/capabilities", () => {
   };
 });
 
-vi.mock("~/stt/queries", () => ({
-  createTranscript: createTranscriptMock,
-  getTranscriptRecord: getTranscriptRecordMock,
-  getSessionTranscriptRecords: getSessionTranscriptRecordsMock,
-}));
-
 vi.mock("~/store/zustand/listener/general-batch", () => ({
   acknowledgeCompletedBatch: vi.fn(async () => {}),
   notifyBatchCompleted: notifyBatchCompletedMock,
 }));
-
-function readyRefinementOutcome(
-  request: import("@anlg/plugin-transcription").BatchRefinementRequest,
-): import("@anlg/plugin-transcription").BatchRefinementOutcome {
-  return {
-    status: "ready",
-    words: request.words,
-    speaker_hints: request.hints,
-    replace_session: request.promotion.scope === "whole_session",
-    replace_transcript_id:
-      request.promotion.scope === "current_capture"
-        ? (request.promotion.replace_transcript_id ?? null)
-        : null,
-    started_at:
-      request.promotion.scope === "current_capture"
-        ? request.promotion.started_at
-        : request.previous_transcripts.length === 1
-          ? (request.previous_transcripts[0]?.started_at ?? null)
-          : null,
-  };
-}
 
 describe("getBatchProvider", () => {
   test.each([
@@ -352,26 +318,21 @@ describe("getBatchFallbackTarget", () => {
 describe("useRunBatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    refineBatchTranscriptMock.mockImplementation(
-      async (
-        request: import("@anlg/plugin-transcription").BatchRefinementRequest,
-      ) => ({
-        status: "ok",
-        data: readyRefinementOutcome(request),
-      }),
-    );
+    saveBatchTranscriptMock.mockImplementation(async (request) => ({
+      status: "ok",
+      data: {
+        status: "saved",
+        transcript_id: request.transcript_id,
+      },
+    }));
     stopTranscriptionMock.mockResolvedValue(undefined);
     archMock.mockReturnValue("aarch64");
     platformMock.mockReturnValue("macos");
 
     let nextId = 0;
     idMock.mockImplementation(() => `generated-${++nextId}`);
-    createTranscriptMock.mockResolvedValue(undefined);
-    getTranscriptRecordMock.mockResolvedValue(null);
-    getSessionTranscriptRecordsMock.mockResolvedValue([]);
     notifyBatchCompletedMock.mockResolvedValue(undefined);
     deleteProcessedAudioForRetentionMock.mockResolvedValue(undefined);
-    markSessionAudioTranscriptionCompleteMock.mockResolvedValue(undefined);
     isSupportedLanguagesBatchMock.mockResolvedValue(true);
     useListenerMock.mockImplementation((selector) =>
       selector({
@@ -486,7 +447,7 @@ describe("useRunBatch", () => {
     expect(stopTranscriptionMock).toHaveBeenCalledWith("dictation");
     expect(refreshSessionMock).not.toHaveBeenCalled();
     expect(startTranscriptionMock).toHaveBeenCalledOnce();
-    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(saveBatchTranscriptMock).not.toHaveBeenCalled();
   });
 
   test("retries cancellation after native startup finishes", async () => {
@@ -530,9 +491,8 @@ describe("useRunBatch", () => {
     persist?.([{ text: "hello", start_ms: 0, end_ms: 100, channel: 0 }], []);
     persist?.([{ text: "world", start_ms: 100, end_ms: 200, channel: 0 }], []);
 
-    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(saveBatchTranscriptMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
-    expect(getSessionTranscriptRecordsMock).not.toHaveBeenCalled();
     expect(notifyBatchCompletedMock).not.toHaveBeenCalled();
 
     finishTranscription?.();
@@ -542,30 +502,34 @@ describe("useRunBatch", () => {
       "transcription",
       "session-1:generated-1",
     );
-    expect(createTranscriptMock).toHaveBeenCalledTimes(1);
-    expect(createTranscriptMock).toHaveBeenCalledWith(
+    expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        replaceSession: true,
+        session_id: "session-1",
+        transcript_id: expect.any(String),
+        owner_user_id: "user-1",
+        created_at: expect.any(String),
+        started_at: expect.any(Number),
+        memo: "Existing memo",
+        provider: "deepgram",
+        model: "nova-3",
+        promotion: { scope: "whole_session" },
+        mark_audio_complete: true,
         words: [
           expect.objectContaining({ text: "hello" }),
           expect.objectContaining({ text: "world" }),
         ],
+        hints: [],
       }),
-    );
-    expect(markSessionAudioTranscriptionCompleteMock).toHaveBeenCalledWith(
-      "session-1",
     );
     expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledTimes(1);
     expect(startTranscriptionMock.mock.calls[0]?.[1]?.notifyOnCompletion).toBe(
       false,
     );
     expect(notifyBatchCompletedMock).toHaveBeenCalledWith("session-1");
-    expect(createTranscriptMock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(saveBatchTranscriptMock.mock.invocationCallOrder[0]).toBeLessThan(
       notifyBatchCompletedMock.mock.invocationCallOrder[0],
     );
-    expect(
-      markSessionAudioTranscriptionCompleteMock.mock.invocationCallOrder[0],
-    ).toBeLessThan(
+    expect(saveBatchTranscriptMock.mock.invocationCallOrder[0]).toBeLessThan(
       deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0],
     );
     expect(
@@ -592,8 +556,9 @@ describe("useRunBatch", () => {
       });
     });
 
-    expect(createTranscriptMock).toHaveBeenCalledOnce();
-    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({ mark_audio_complete: false }),
+    );
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
@@ -626,7 +591,7 @@ describe("useRunBatch", () => {
       recovery: true,
     });
     expect(completed).toBe(false);
-    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(saveBatchTranscriptMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
     commit();
     await act(async () => await run);
@@ -665,7 +630,9 @@ describe("useRunBatch", () => {
         [],
       );
     });
-    createTranscriptMock.mockRejectedValueOnce(new Error("disk write failed"));
+    saveBatchTranscriptMock.mockRejectedValueOnce(
+      new Error("disk write failed"),
+    );
 
     const { result } = renderHook(() => useRunBatch("session-1"));
     let processingError: unknown;
@@ -703,34 +670,18 @@ describe("useRunBatch", () => {
     });
 
     expect(handlePersist).toHaveBeenCalledTimes(1);
-    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(saveBatchTranscriptMock).not.toHaveBeenCalled();
   });
 
   test("promotes post-stop batch by replacing the live current capture", async () => {
-    refineBatchTranscriptMock.mockResolvedValueOnce({
+    useConfigValueMock.mockImplementation((key) =>
+      key === "remember_speakers" ? true : key === "ai_language" ? "en" : [],
+    );
+    saveBatchTranscriptMock.mockResolvedValueOnce({
       status: "ok",
       data: {
-        status: "ready",
-        words: [
-          {
-            id: "refined-word",
-            text: "refined",
-            start_ms: 100,
-            end_ms: 500,
-            channel: 0,
-          },
-        ],
-        speaker_hints: [
-          {
-            id: "refined-hint",
-            word_id: "refined-word",
-            type: "provider_speaker_index",
-            value: JSON.stringify({ speaker_index: 1 }),
-          },
-        ],
-        replace_session: false,
-        replace_transcript_id: "transcript-current-live",
-        started_at: 123_000,
+        status: "saved",
+        transcript_id: "saved-transcript-id",
       },
     });
     startTranscriptionMock.mockImplementation(async (_params, options) => {
@@ -772,80 +723,37 @@ describe("useRunBatch", () => {
       });
     });
 
-    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
-      promotion: {
-        scope: "current_capture",
-        audio_offset_ms: 60_000,
-        replace_transcript_id: "transcript-current-live",
-        started_at: 123_000,
-      },
-      previous_transcripts: [],
-      words: expect.arrayContaining([
-        expect.objectContaining({ text: "old", start_ms: 10_000 }),
-        expect.objectContaining({ text: "new", start_ms: 60_100 }),
-      ]),
-      hints: expect.arrayContaining([
-        expect.objectContaining({ type: "provider_speaker_index" }),
-      ]),
-    });
-    expect(createTranscriptMock).toHaveBeenCalledOnce();
-    expect(createTranscriptMock).toHaveBeenCalledWith(
+    expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        replaceSession: false,
-        replaceTranscriptId: "transcript-current-live",
-        startedAt: 123_000,
-        words: [
-          expect.objectContaining({
-            id: "refined-word",
-            text: "refined",
-            start_ms: 100,
-            end_ms: 500,
-          }),
-        ],
-        speakerHints: [
-          expect.objectContaining({
-            id: "refined-hint",
-            value: expect.stringContaining('"speaker_index":1'),
-          }),
-        ],
+        session_id: "session-1",
+        transcript_id: expect.any(String),
+        promotion: {
+          scope: "current_capture",
+          audio_offset_ms: 60_000,
+          replace_transcript_id: "transcript-current-live",
+          started_at: 123_000,
+        },
+        mark_audio_complete: true,
+        words: expect.arrayContaining([
+          expect.objectContaining({ text: "old", start_ms: 10_000 }),
+          expect.objectContaining({ text: "new", start_ms: 60_100 }),
+        ]),
+        hints: expect.arrayContaining([
+          expect.objectContaining({ type: "provider_speaker_index" }),
+        ]),
+      }),
+    );
+    expect(maybeExtractVoiceprintCandidatesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabled: true,
+        sessionId: "session-1",
+        transcriptId: "saved-transcript-id",
+        audioPath: "/tmp/session.wav",
       }),
     );
   });
 
-  test("passes prior inferred identity hints to Rust refinement", async () => {
-    getTranscriptRecordMock.mockResolvedValue({
-      id: "transcript-current-live",
-      ownerUserId: "user-1",
-      sessionId: "session-1",
-      startedAt: 123_000,
-      words: [
-        {
-          id: "live-word",
-          text: "answer",
-          start_ms: 100,
-          end_ms: 500,
-          channel: 1,
-        },
-      ],
-      speakerHints: [
-        {
-          id: "live-provider",
-          word_id: "live-word",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-        },
-        {
-          id: "live-inferred-identity",
-          word_id: "live-word",
-          type: "automatic_speaker_assignment",
-          value: JSON.stringify({
-            human_id: "human-1",
-            confidence: 0.93,
-            source: "enhance",
-          }),
-        },
-      ],
-    });
+  test("passes staged speaker hints to the atomic save command", async () => {
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(
         [
@@ -882,59 +790,29 @@ describe("useRunBatch", () => {
       });
     });
 
-    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
-      promotion: {
-        scope: "current_capture",
-        audio_offset_ms: 60_000,
-        replace_transcript_id: "transcript-current-live",
-        started_at: 123_000,
-      },
-      previous_transcripts: [
-        expect.objectContaining({
-          id: "transcript-current-live",
+    expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promotion: {
+          scope: "current_capture",
+          audio_offset_ms: 60_000,
+          replace_transcript_id: "transcript-current-live",
           started_at: 123_000,
-          words: [
-            expect.objectContaining({
-              id: "live-word",
-              text: "answer",
-              start_ms: 100,
-              end_ms: 500,
-              channel: 1,
-            }),
-          ],
-          speaker_hints: expect.arrayContaining([
-            expect.objectContaining({
-              id: "live-inferred-identity",
-              type: "automatic_speaker_assignment",
-            }),
-          ]),
-        }),
-      ],
-    });
+        },
+        words: [expect.objectContaining({ text: "answer", channel: 1 })],
+        hints: [
+          expect.objectContaining({
+            type: "provider_speaker_index",
+            value: '{"provider":"deepgram","channel":1,"speaker_index":3}',
+          }),
+        ],
+      }),
+    );
   });
 
   test.each(["current_capture", "whole_session"] as const)(
     "keeps saved data when Rust reports truncation for %s refinement",
     async (scope) => {
-      const saved = {
-        id: "transcript-current-live",
-        sessionId: "session-1",
-        ownerUserId: "user-1",
-        startedAt: 123_000,
-        words: [
-          {
-            id: "live-word",
-            text: "saved transcript",
-            start_ms: 0,
-            end_ms: 500,
-            channel: 0,
-          },
-        ],
-        speakerHints: [],
-      };
-      getTranscriptRecordMock.mockResolvedValue(saved);
-      getSessionTranscriptRecordsMock.mockResolvedValue([saved]);
-      refineBatchTranscriptMock.mockResolvedValueOnce({
+      saveBatchTranscriptMock.mockResolvedValueOnce({
         status: "ok",
         data: { status: "truncated" },
       });
@@ -963,8 +841,8 @@ describe("useRunBatch", () => {
                 ? {
                     scope,
                     audioOffsetMs: 60_000,
-                    replaceTranscriptId: saved.id,
-                    startedAt: saved.startedAt,
+                    replaceTranscriptId: "transcript-current-live",
+                    startedAt: 123_000,
                   }
                 : { scope },
           });
@@ -978,38 +856,31 @@ describe("useRunBatch", () => {
           "The new transcription returned much less text. Your saved transcript and recording were kept. Try transcribing again.",
       });
       expect(isTerminalTranscriptionError(error)).toBe(true);
-      expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
-        promotion:
-          scope === "current_capture"
-            ? {
-                scope,
-                audio_offset_ms: 60_000,
-                replace_transcript_id: saved.id,
-                started_at: saved.startedAt,
-              }
-            : { scope },
-        previous_transcripts: [
-          expect.objectContaining({
-            id: saved.id,
-            started_at: saved.startedAt,
-            words: [expect.objectContaining({ id: "live-word" })],
-          }),
-        ],
-      });
-      expect(createTranscriptMock).not.toHaveBeenCalled();
-      expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+      expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          promotion:
+            scope === "current_capture"
+              ? {
+                  scope,
+                  audio_offset_ms: 60_000,
+                  replace_transcript_id: "transcript-current-live",
+                  started_at: 123_000,
+                }
+              : { scope },
+        }),
+      );
       expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
       expect(notifyBatchCompletedMock).not.toHaveBeenCalled();
     },
   );
 
   test.each(["current_capture", "whole_session"] as const)(
-    "keeps existing data when the %s transcript cannot be checked",
+    "keeps existing data when Rust cannot save the %s transcript",
     async (scope) => {
-      getTranscriptRecordMock.mockRejectedValue(new Error("read failed"));
-      getSessionTranscriptRecordsMock.mockRejectedValue(
-        new Error("read failed"),
-      );
+      saveBatchTranscriptMock.mockResolvedValueOnce({
+        status: "error",
+        error: "database is unavailable",
+      });
       startTranscriptionMock.mockImplementation(async (_params, options) => {
         options.handlePersist(
           [{ text: "replacement", start_ms: 0, end_ms: 100, channel: 0 }],
@@ -1034,15 +905,14 @@ describe("useRunBatch", () => {
         }),
       ).rejects.toBeInstanceOf(BatchResponseProcessingError);
 
-      expect(createTranscriptMock).not.toHaveBeenCalled();
-      expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+      expect(saveBatchTranscriptMock).toHaveBeenCalledOnce();
       expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
       expect(notifyBatchCompletedMock).not.toHaveBeenCalled();
     },
   );
 
   test("retains recovery audio when the batch has no current-capture words", async () => {
-    refineBatchTranscriptMock.mockResolvedValueOnce({
+    saveBatchTranscriptMock.mockResolvedValueOnce({
       status: "ok",
       data: { status: "empty_current_capture" },
     });
@@ -1069,23 +939,22 @@ describe("useRunBatch", () => {
       }),
     ).rejects.toThrow(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
 
-    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
-      promotion: {
-        scope: "current_capture",
-        audio_offset_ms: 60_000,
-        replace_transcript_id: "transcript-current-live",
-        started_at: 123_000,
-      },
-      words: [expect.objectContaining({ text: "old", start_ms: 10_000 })],
-      previous_transcripts: [],
-    });
-    expect(createTranscriptMock).not.toHaveBeenCalled();
-    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promotion: {
+          scope: "current_capture",
+          audio_offset_ms: 60_000,
+          replace_transcript_id: "transcript-current-live",
+          started_at: 123_000,
+        },
+        words: [expect.objectContaining({ text: "old", start_ms: 10_000 })],
+      }),
+    );
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
   test("retains recovery audio when the batch emits no words", async () => {
-    refineBatchTranscriptMock.mockResolvedValueOnce({
+    saveBatchTranscriptMock.mockResolvedValueOnce({
       status: "ok",
       data: { status: "empty_current_capture" },
     });
@@ -1106,20 +975,24 @@ describe("useRunBatch", () => {
       }),
     ).rejects.toThrow(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
 
-    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
-      promotion: { scope: "current_capture", audio_offset_ms: 60_000 },
-      words: [],
-      previous_transcripts: [],
-    });
-    expect(createTranscriptMock).not.toHaveBeenCalled();
-    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promotion: {
+          scope: "current_capture",
+          audio_offset_ms: 60_000,
+          replace_transcript_id: "transcript-current-live",
+          started_at: 123_000,
+        },
+        words: [],
+      }),
+    );
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
-  test("does not finalize a batch when Rust refinement returns an error result", async () => {
-    refineBatchTranscriptMock.mockResolvedValueOnce({
+  test("does not finalize a batch when Rust saving returns an error result", async () => {
+    saveBatchTranscriptMock.mockResolvedValueOnce({
       status: "error",
-      error: "refinement IPC failed",
+      error: "save IPC failed",
     });
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(
@@ -1133,12 +1006,12 @@ describe("useRunBatch", () => {
       act(async () => await result.current("/tmp/session.wav")),
     ).rejects.toBeInstanceOf(BatchResponseProcessingError);
 
-    expect(refineBatchTranscriptMock.mock.calls[0]?.[0]).toMatchObject({
-      promotion: { scope: "preserve_existing" },
-      previous_transcripts: [],
-    });
-    expect(createTranscriptMock).not.toHaveBeenCalled();
-    expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
+    expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promotion: { scope: "preserve_existing" },
+        mark_audio_complete: true,
+      }),
+    );
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
@@ -1159,7 +1032,7 @@ describe("useRunBatch", () => {
       }),
     ).rejects.toThrow("provider failed");
 
-    expect(createTranscriptMock).not.toHaveBeenCalled();
+    expect(saveBatchTranscriptMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
@@ -1463,7 +1336,7 @@ describe("useRunBatch", () => {
       expect.objectContaining({ api_key: "fresh-token" }),
       expect.any(Object),
     );
-    expect(createTranscriptMock).toHaveBeenCalledWith(
+    expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
       expect.objectContaining({
         words: [expect.objectContaining({ text: "fresh" })],
       }),

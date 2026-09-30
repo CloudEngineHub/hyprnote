@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, collections::HashMap, hash::Hash, sync::LazyLock};
 
 use regex::Regex;
+use serde::de::DeserializeOwned;
 use serde_json::{Number, Value};
 
 use crate::ChannelProfile;
@@ -41,6 +42,40 @@ pub struct StoredSpeakerHint {
     pub hint_type: String,
     #[serde(default)]
     pub value: Value,
+}
+
+pub fn parse_stored_transcript_words(json: &str) -> Vec<StoredTranscriptWord> {
+    parse_stored_json_array(json)
+}
+
+pub fn parse_stored_speaker_hints(json: &str) -> Vec<StoredSpeakerHint> {
+    let Ok(values) = serde_json::from_str::<Vec<Value>>(json) else {
+        return Vec::new();
+    };
+    values
+        .into_iter()
+        .filter_map(|mut value| {
+            if let Value::Object(object) = &mut value
+                && !object.get("id").is_some_and(Value::is_string)
+                && let Some(id) = object
+                    .get("word_id")
+                    .and_then(Value::as_str)
+                    .zip(object.get("type").and_then(Value::as_str))
+                    .map(|(word_id, hint_type)| format!("{word_id}:{hint_type}"))
+            {
+                object.insert("id".to_string(), Value::String(id));
+            }
+            serde_json::from_value(value).ok()
+        })
+        .collect()
+}
+
+fn parse_stored_json_array<T: DeserializeOwned>(json: &str) -> Vec<T> {
+    serde_json::from_str::<Vec<Value>>(json)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|value| serde_json::from_value(value).ok())
+        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -1053,7 +1088,7 @@ fn javascript_number_string(number: f64) -> String {
     number
 }
 
-fn json_number(number: f64) -> Value {
+pub(crate) fn json_number(number: f64) -> Value {
     if number.fract() == 0.0 && number >= i64::MIN as f64 && number <= i64::MAX as f64 {
         return Value::Number(Number::from(number as i64));
     }
@@ -1797,7 +1832,7 @@ mod tests {
     }
 
     #[test]
-    fn serializes_generated_segment_assignment_fields_in_contract_order() {
+    fn preserves_generated_segment_assignment_fields() {
         let old_word = word("old", 0.0, 100.0, 1.0);
         let new_word = word("new", 0.0, 100.0, 1.0);
         let result = reconcile_refined_speaker_clusters(
@@ -1817,10 +1852,13 @@ mod tests {
             .expect("segment assignment was restored");
         assert_eq!(generated.id, "new:user_speaker_assignment:segment");
         assert_eq!(
-            generated.value.as_str(),
-            Some(
-                r#"{"human_id":"alice","scope":"segment","word_ids":["new"],"extend_to_adjacent":false}"#
-            )
+            serde_json::from_str::<serde_json::Value>(generated.value.as_str().unwrap()).unwrap(),
+            serde_json::json!({
+                "human_id": "alice",
+                "scope": "segment",
+                "word_ids": ["new"],
+                "extend_to_adjacent": false,
+            })
         );
     }
 

@@ -50,6 +50,7 @@ Default permissions for the plugin
 - `allow-suggest-providers-for-languages-batch`
 - `allow-list-documented-language-codes-batch`
 - `allow-refine-batch-transcript`
+- `allow-save-batch-transcript`
 - `allow-reconcile-refined-speaker-clusters`
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
@@ -1021,6 +1022,32 @@ Enables the render_transcript_segments command without any pre-configured scope.
 <td>
 
 Denies the render_transcript_segments command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-save-batch-transcript`
+
+</td>
+<td>
+
+Enables the save_batch_transcript command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-save-batch-transcript`
+
+</td>
+<td>
+
+Denies the save_batch_transcript command without any pre-configured scope.
 
 </td>
 </tr>

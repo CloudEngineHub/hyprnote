@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anlg_transcription_core::listener2 as core;
+use tauri::Manager;
 
 use crate::TranscriptionParams;
 use crate::listener2::Listener2PluginExt;
@@ -129,6 +130,20 @@ pub async fn refine_batch_transcript(
     request: anlg_transcript::BatchRefinementRequest,
 ) -> Result<anlg_transcript::BatchRefinementOutcome, String> {
     Ok(anlg_transcript::refine_batch_transcript(request))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn save_batch_transcript<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    request: crate::batch_transcript::SaveBatchTranscriptRequest,
+) -> Result<crate::batch_transcript::SaveBatchTranscriptOutcome, String> {
+    let runtime = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+    let _guard = runtime.synced_write_guard().await;
+    crate::batch_transcript::save_batch_transcript(runtime.pool(), request).await
 }
 
 #[tauri::command]

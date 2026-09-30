@@ -278,6 +278,14 @@ async refineBatchTranscript(request: BatchRefinementRequest) : Promise<Result<Ba
     else return { status: "error", error: e  as any };
 }
 },
+async saveBatchTranscript(request: SaveBatchTranscriptRequest) : Promise<Result<SaveBatchTranscriptOutcome, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|save_batch_transcript", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async reconcileRefinedSpeakerClusters(request: SpeakerClusterReconciliationRequest) : Promise<Result<StoredSpeakerHint[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|reconcile_refined_speaker_clusters", { request }) };
@@ -467,6 +475,8 @@ export type RenderTranscriptInput = { started_at: number | null; words: RenderTr
 export type RenderTranscriptRequest = { speaker_context?: SpeakerContext | null; preview?: RenderedTranscriptSegment[] | null; transcripts: RenderTranscriptInput[]; participant_human_ids: string[]; self_human_id: string | null; humans: RenderTranscriptHuman[] }
 export type RenderTranscriptWordInput = { id: string; text: string; start_ms: number; end_ms: number; channel: number; speaker_index?: number | null }
 export type RenderedTranscriptSegment = { provisional_speaker?: ProvisionalSpeakerLabel | null; id: string; key: SegmentKey; speaker_label: string; start_ms: number; end_ms: number; text: string; words: SegmentWord[] }
+export type SaveBatchTranscriptOutcome = { status: "saved"; transcript_id: string | null } | { status: "empty_current_capture" } | { status: "truncated" }
+export type SaveBatchTranscriptRequest = { session_id: string; transcript_id: string | null; owner_user_id: string; created_at: string; started_at: number; memo: string; provider: string; model: string; words: StoredTranscriptWord[]; hints: StoredSpeakerHint[]; promotion: BatchTranscriptPromotion; mark_audio_complete: boolean }
 export type SegmentKey = { channel: ChannelProfile; speaker_index?: number | null; speaker_human_id?: string | null }
 export type SegmentWord = { text: string; start_ms: number; end_ms: number; channel: ChannelProfile; is_final: boolean; id?: string | null }
 export type SessionAudioRetentionEvent = { session_id: string; phase: SessionAudioRetentionPhase }

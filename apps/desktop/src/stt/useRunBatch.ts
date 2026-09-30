@@ -14,7 +14,6 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
-import { clearIncompleteCapture } from "./capture-result";
 import { useListener } from "./contexts";
 import { persistTranscriptWrite } from "./persist-retry";
 import { useSTTConnection } from "./useSTTConnection";
@@ -28,7 +27,6 @@ import {
   normalizeAudioRetention,
 } from "~/services/audio-retention";
 import { maybeExtractVoiceprintCandidates } from "~/services/voiceprint";
-import { markSessionAudioTranscriptionComplete } from "~/session/attachments";
 import { useSession, useSessionParticipants } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
@@ -45,12 +43,7 @@ import {
   isOnDeviceSttModel,
   isSupportedLanguagesBatch,
 } from "~/stt/capabilities";
-import {
-  createTranscript,
-  getSessionTranscriptRecords,
-  getTranscriptRecord,
-  type TranscriptRecord,
-} from "~/stt/queries";
+import type { TranscriptRecord } from "~/stt/queries";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 
 type RunOptions = {
@@ -90,34 +83,10 @@ type BatchTarget = {
   label: string;
 };
 
-function toWordWithId(word: StoredTranscriptWord): WordWithId {
-  return {
-    id: word.id,
-    text: word.text ?? "",
-    start_ms: word.start_ms ?? 0,
-    end_ms: word.end_ms ?? word.start_ms ?? 0,
-    channel: word.channel ?? 0,
-    speaker: word.speaker ?? undefined,
-    metadata:
-      word.metadata == null
-        ? undefined
-        : (word.metadata as WordWithId["metadata"]),
-  };
-}
-
 function toStoredTranscriptWord(word: WordWithId): StoredTranscriptWord {
   return {
     ...word,
     metadata: word.metadata as StoredTranscriptWord["metadata"],
-  };
-}
-
-function toSpeakerHintWithId(hint: StoredSpeakerHint): SpeakerHintWithId {
-  return {
-    id: hint.id,
-    word_id: hint.word_id ?? "",
-    type: hint.type,
-    value: hint.value as SpeakerHintWithId["value"],
   };
 }
 
@@ -127,6 +96,15 @@ function toStoredSpeakerHint(hint: SpeakerHintWithId): StoredSpeakerHint {
     word_id: hint.word_id ?? undefined,
     type: hint.type ?? "",
     value: hint.value as StoredSpeakerHint["value"],
+  };
+}
+
+function toSpeakerHintWithId(hint: StoredSpeakerHint): SpeakerHintWithId {
+  return {
+    id: hint.id,
+    word_id: hint.word_id ?? "",
+    type: hint.type,
+    value: hint.value as SpeakerHintWithId["value"],
   };
 }
 
@@ -643,81 +621,39 @@ export const useRunBatch = (sessionId: string) => {
                       started_at: promotion.startedAt,
                     }
                   : { scope: promotion.scope };
-              let previousTranscriptRecords: TranscriptRecord[] = [];
-              if (promotion.scope === "whole_session") {
-                previousTranscriptRecords =
-                  await getSessionTranscriptRecords(sessionId);
-              } else if (
-                promotion.scope === "current_capture" &&
-                promotion.replaceTranscriptId
-              ) {
-                const transcript = await getTranscriptRecord(
-                  promotion.replaceTranscriptId,
-                );
-                if (transcript) previousTranscriptRecords = [transcript];
-              }
-              const refinementResult =
-                await transcriptionCommands.refineBatchTranscript({
+              const saved = await persistTranscriptWrite(async () => {
+                const result = await transcriptionCommands.saveBatchTranscript({
+                  session_id: sessionId,
+                  transcript_id: transcriptId,
+                  owner_user_id: session?.user_id ?? "",
+                  created_at: createdAt,
+                  started_at: startedAt,
+                  memo: memoMd,
+                  provider: target.provider,
+                  model: target.model,
                   words: stagedWords.map(toStoredTranscriptWord),
                   hints: stagedHints.map(toStoredSpeakerHint),
                   promotion: refinementPromotion,
-                  previous_transcripts: previousTranscriptRecords.map(
-                    toBatchRefinementSource,
-                  ),
+                  mark_audio_complete: !options?.deferAudioFinalization,
                 });
-              if (refinementResult.status === "error") {
-                throw new Error(refinementResult.error);
-              }
-              const refinement = refinementResult.data;
-              if (refinement.status === "empty_current_capture") {
+                if (result.status === "error") {
+                  throw new Error(result.error);
+                }
+                return result.data;
+              });
+              if (saved.status === "empty_current_capture") {
                 throw new Error(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
               }
-              if (refinement.status === "truncated") {
+              if (saved.status === "truncated") {
                 throw new Error(INCOMPLETE_BATCH_TRANSCRIPT_ERROR_MESSAGE);
               }
-              if (transcriptId) {
-                const completedTranscriptId = transcriptId;
-                if (refinement.words.length > 0) {
-                  await persistTranscriptWrite(() =>
-                    createTranscript({
-                      id: completedTranscriptId,
-                      sessionId,
-                      ownerUserId: session?.user_id ?? "",
-                      createdAt,
-                      startedAt: refinement.started_at ?? startedAt,
-                      memo: memoMd,
-                      source: "batch_transcription",
-                      provider: target.provider,
-                      model: target.model,
-                      words: refinement.words.map(toWordWithId),
-                      speakerHints:
-                        refinement.speaker_hints.map(toSpeakerHintWithId),
-                      replaceSession: refinement.replace_session,
-                      replaceTranscriptId:
-                        refinement.replace_transcript_id ?? undefined,
-                    }),
-                  );
-                  await maybeExtractVoiceprintCandidates({
-                    enabled: rememberSpeakers,
-                    sessionId,
-                    transcriptId: completedTranscriptId,
-                    audioPath: filePath,
-                  });
-                }
-              }
-              if (refinement.replace_session)
-                await clearIncompleteCapture(sessionId);
-              if (!options?.deferAudioFinalization) {
-                try {
-                  await persistTranscriptWrite(() =>
-                    markSessionAudioTranscriptionComplete(sessionId),
-                  );
-                } catch (error) {
-                  console.error(
-                    "[runBatch] failed to mark session audio as processed",
-                    error,
-                  );
-                }
+              if (saved.status === "saved" && saved.transcript_id) {
+                await maybeExtractVoiceprintCandidates({
+                  enabled: rememberSpeakers,
+                  sessionId,
+                  transcriptId: saved.transcript_id,
+                  audioPath: filePath,
+                });
               }
             }
             if (!options?.deferAudioFinalization) {

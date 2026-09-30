@@ -45,6 +45,7 @@ const COMMANDS: &[&str] = &[
     "suggest_providers_for_languages_batch",
     "list_documented_language_codes_batch",
     "refine_batch_transcript",
+    "save_batch_transcript",
     "reconcile_refined_speaker_clusters",
     "extract_voiceprint_candidates",
     "promote_voiceprint_candidates",
