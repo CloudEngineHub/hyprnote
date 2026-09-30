@@ -1,6 +1,9 @@
 use tauri::Manager;
 
-use crate::{conflicts, creation, deletion, move_contents, participants, proposals};
+use crate::{
+    attachments, conflicts, creation, deletion, folder_catalog, folder_materials, move_contents,
+    participants, proposals,
+};
 
 macro_rules! session_write_command {
     ($name:ident, $module:ident, $function:ident, $request:ty, $result:ty) => {
@@ -95,5 +98,104 @@ session_write_command!(
     move_contents,
     move_session_contents,
     move_contents::MoveSessionContentsRequest,
+    ()
+);
+
+session_write_command!(
+    catalog_note_attachment,
+    attachments,
+    catalog_note_attachment,
+    attachments::CatalogNoteAttachmentRequest,
+    ()
+);
+session_write_command!(
+    catalog_session_audio,
+    attachments,
+    catalog_session_audio,
+    attachments::CatalogSessionAudioRequest,
+    ()
+);
+session_write_command!(
+    mark_session_audio_transcription_complete,
+    attachments,
+    mark_session_audio_transcription_complete,
+    attachments::SessionAudioRequest,
+    ()
+);
+session_write_command!(
+    set_attachment_cloud_sync_enabled,
+    attachments,
+    set_attachment_cloud_sync_enabled,
+    attachments::SetAttachmentCloudSyncEnabledRequest,
+    ()
+);
+session_write_command!(
+    tombstone_session_audio,
+    attachments,
+    tombstone_session_audio,
+    attachments::SessionAudioRequest,
+    ()
+);
+session_write_command!(
+    mark_session_audio_absent,
+    attachments,
+    mark_session_audio_absent,
+    attachments::SessionAudioRequest,
+    ()
+);
+session_write_command!(
+    catalog_folder_material,
+    folder_materials,
+    catalog_folder_material,
+    folder_materials::CatalogFolderMaterialRequest,
+    ()
+);
+session_write_command!(
+    tombstone_folder_material,
+    folder_materials,
+    tombstone_folder_material,
+    folder_materials::TombstoneFolderMaterialRequest,
+    ()
+);
+session_write_command!(
+    ensure_folder_catalog,
+    folder_catalog,
+    ensure_folder_catalog,
+    folder_catalog::EnsureFolderCatalogRequest,
+    ()
+);
+session_write_command!(
+    rename_folder_catalog,
+    folder_catalog,
+    rename_folder_catalog,
+    folder_catalog::RenameFolderCatalogRequest,
+    ()
+);
+session_write_command!(
+    delete_folder_catalog,
+    folder_catalog,
+    delete_folder_catalog,
+    folder_catalog::DeleteFolderCatalogRequest,
+    ()
+);
+session_write_command!(
+    update_folder_instructions,
+    folder_catalog,
+    update_folder_instructions,
+    folder_catalog::UpdateFolderInstructionsRequest,
+    ()
+);
+session_write_command!(
+    update_folder_workspace,
+    folder_catalog,
+    update_folder_workspace,
+    folder_catalog::UpdateFolderWorkspaceRequest,
+    ()
+);
+session_write_command!(
+    update_folder_icon,
+    folder_catalog,
+    update_folder_icon,
+    folder_catalog::UpdateFolderIconRequest,
     ()
 );

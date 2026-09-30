@@ -1,14 +1,19 @@
 use tauri::Wry;
 
+mod attachments;
 mod commands;
 mod conflicts;
 mod creation;
 mod deletion;
+mod folder_catalog;
+mod folder_materials;
 mod move_contents;
 mod participants;
 mod proposals;
 mod transaction_utils;
 
+#[cfg(test)]
+mod attachment_folder_tests;
 #[cfg(test)]
 mod tests;
 
@@ -29,6 +34,20 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::resolve_session_conflicts::<Wry>,
             commands::resolve_session_conflict::<Wry>,
             commands::move_session_contents::<Wry>,
+            commands::catalog_note_attachment::<Wry>,
+            commands::catalog_session_audio::<Wry>,
+            commands::mark_session_audio_transcription_complete::<Wry>,
+            commands::set_attachment_cloud_sync_enabled::<Wry>,
+            commands::tombstone_session_audio::<Wry>,
+            commands::mark_session_audio_absent::<Wry>,
+            commands::catalog_folder_material::<Wry>,
+            commands::tombstone_folder_material::<Wry>,
+            commands::ensure_folder_catalog::<Wry>,
+            commands::rename_folder_catalog::<Wry>,
+            commands::delete_folder_catalog::<Wry>,
+            commands::update_folder_instructions::<Wry>,
+            commands::update_folder_workspace::<Wry>,
+            commands::update_folder_icon::<Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

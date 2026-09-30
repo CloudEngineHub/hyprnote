@@ -10,6 +10,20 @@ const COMMANDS: &[&str] = &[
     "resolve_session_conflicts",
     "resolve_session_conflict",
     "move_session_contents",
+    "catalog_note_attachment",
+    "catalog_session_audio",
+    "mark_session_audio_transcription_complete",
+    "set_attachment_cloud_sync_enabled",
+    "tombstone_session_audio",
+    "mark_session_audio_absent",
+    "catalog_folder_material",
+    "tombstone_folder_material",
+    "ensure_folder_catalog",
+    "rename_folder_catalog",
+    "delete_folder_catalog",
+    "update_folder_instructions",
+    "update_folder_workspace",
+    "update_folder_icon",
 ];
 
 fn main() {

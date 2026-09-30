@@ -93,6 +93,118 @@ async moveSessionContents(request: MoveSessionContentsRequest) : Promise<Result<
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async catalogNoteAttachment(request: CatalogNoteAttachmentRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|catalog_note_attachment", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async catalogSessionAudio(request: CatalogSessionAudioRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|catalog_session_audio", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async markSessionAudioTranscriptionComplete(request: SessionAudioRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|mark_session_audio_transcription_complete", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setAttachmentCloudSyncEnabled(request: SetAttachmentCloudSyncEnabledRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|set_attachment_cloud_sync_enabled", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async tombstoneSessionAudio(request: SessionAudioRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|tombstone_session_audio", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async markSessionAudioAbsent(request: SessionAudioRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|mark_session_audio_absent", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async catalogFolderMaterial(request: CatalogFolderMaterialRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|catalog_folder_material", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async tombstoneFolderMaterial(request: TombstoneFolderMaterialRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|tombstone_folder_material", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async ensureFolderCatalog(request: EnsureFolderCatalogRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|ensure_folder_catalog", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async renameFolderCatalog(request: RenameFolderCatalogRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|rename_folder_catalog", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteFolderCatalog(request: DeleteFolderCatalogRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|delete_folder_catalog", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateFolderInstructions(request: UpdateFolderInstructionsRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|update_folder_instructions", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateFolderWorkspace(request: UpdateFolderWorkspaceRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|update_folder_workspace", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateFolderIcon(request: UpdateFolderIconRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|update_folder_icon", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -107,19 +219,31 @@ async moveSessionContents(request: MoveSessionContentsRequest) : Promise<Result<
 /** user-defined types **/
 
 export type AddSessionParticipantRequest = { session_id: string; human_id: string; source: string }
+export type CatalogFolderMaterialRequest = { folder_path: string; attachment_id: string; filename: string; content_type: string; size_bytes: number; sha256: string }
+export type CatalogNoteAttachmentRequest = { session_id: string; attachment_id: string; filename: string; content_type: string; size_bytes: number; sha256: string }
+export type CatalogSessionAudioRequest = { session_id: string; filename: string; content_type: string; size_bytes: number; sha256: string }
 export type CreateEventSessionRequest = { event_id: string; user_id: string; title: string | null; participants: EventParticipantIdentity[] }
 export type CreateSessionRequest = { title: string; user_id: string; event_json: string; folder_path: string; raw_md: string }
+export type DeleteFolderCatalogRequest = { path: string }
 export type DeletedSessionRow = { id: string; title: string }
+export type EnsureFolderCatalogRequest = { paths: string[] }
 export type EventParticipantIdentity = { email: string; name: string; company_name: string | null }
 export type EventSessionResult = { session_id: string; created: boolean }
 export type MoveSessionContentsRequest = { source_session_id: string; target_session_id: string; rewrite_audio_ids: boolean; next_target_note: string | null; empty_source_note: string | null }
 export type PersistChatSessionProposalRequest = { id: string; session_id: string; kind: string; target_id: string; base_updated_at: string; current_markdown: string; proposed_markdown: string; source: string }
 export type RemoveSessionParticipantRequest = { mapping_id: string }
+export type RenameFolderCatalogRequest = { old_path: string; new_path: string }
 export type ResolveSessionConflictRequest = { conflict_id: string }
 export type ResolveSessionConflictsRequest = { session_id: string }
 export type RestoreDeletedSessionOutcome = "restored" | "alive" | "not_deleted"
+export type SessionAudioRequest = { session_id: string }
+export type SetAttachmentCloudSyncEnabledRequest = { session_id: string; attachment_id: string; enabled: boolean }
 export type SetSessionProposalStatusRequest = { proposal_id: string; status: string }
+export type TombstoneFolderMaterialRequest = { folder_path: string; attachment_id: string }
 export type TombstoneSessionRequest = { session_id: string; tombstone: string }
+export type UpdateFolderIconRequest = { path: string; icon_json: string }
+export type UpdateFolderInstructionsRequest = { path: string; instructions: string }
+export type UpdateFolderWorkspaceRequest = { path: string; workspace_id: string }
 
 /** tauri-specta globals **/
 

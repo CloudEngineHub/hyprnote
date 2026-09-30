@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod attachment_ops;
 mod calendar_ops;
 mod calendar_types;
 mod capture_lifecycle_ops;
@@ -7,6 +8,7 @@ mod cloudsync;
 mod e2ee;
 mod event_ops;
 mod event_types;
+mod folder_catalog_ops;
 mod legacy_import;
 mod session_audio_ops;
 mod session_content_ops;
@@ -28,6 +30,7 @@ mod voiceprint_types;
 mod webhook_ops;
 mod webhook_types;
 
+pub use attachment_ops::*;
 pub use calendar_ops::*;
 pub use calendar_types::*;
 pub use capture_lifecycle_ops::*;
@@ -35,6 +38,7 @@ pub use cloudsync::*;
 pub use e2ee::*;
 pub use event_ops::*;
 pub use event_types::*;
+pub use folder_catalog_ops::*;
 pub use legacy_import::*;
 pub use session_audio_ops::*;
 pub use session_content_ops::*;
