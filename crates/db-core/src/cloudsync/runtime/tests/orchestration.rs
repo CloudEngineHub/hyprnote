@@ -1,5 +1,6 @@
 use super::super::*;
 use super::{db_with_cloudsync_items_table, test_cloudsync_config};
+use anlg_cloudsync::ReservedConnection;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 #[test]
@@ -129,7 +130,7 @@ impl crate::CloudsyncSyncHook for RecordingSyncHook {
 async fn pending_payload_preflight_skips_clean_databases() {
     let db =
         db_with_cloudsync_items_table("CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL)").await;
-    let mut connection = db.pool().acquire().await.unwrap();
+    let mut connection = ReservedConnection::new(db.pool().acquire().await.unwrap());
 
     assert!(
         !pending_cloudsync_payload_exists(&mut connection, &db.cloudsync_interrupt)
@@ -138,7 +139,7 @@ async fn pending_payload_preflight_skips_clean_databases() {
     );
 
     sqlx::query("INSERT INTO items (id) VALUES ('pending')")
-        .execute(&mut *connection)
+        .execute(connection.connection().await.unwrap())
         .await
         .unwrap();
     assert!(
@@ -227,7 +228,7 @@ async fn activity_pause_precedes_an_existing_native_pending_batch() {
         .await
         .unwrap();
     let pending_before = {
-        let mut connection = db.pool().acquire().await.unwrap();
+        let mut connection = ReservedConnection::new(db.pool().acquire().await.unwrap());
         crate::cloudsync::ops::ensure_pending_payload_fits(&mut connection, &db.cloudsync_interrupt)
             .await
             .unwrap()
@@ -272,7 +273,7 @@ async fn activity_pause_precedes_an_existing_native_pending_batch() {
     assert_eq!(recording_hook.before_calls.load(Ordering::SeqCst), 0);
     assert!(recording_hook.after_result.lock().unwrap().is_none());
     let pending_after = {
-        let mut connection = db.pool().acquire().await.unwrap();
+        let mut connection = ReservedConnection::new(db.pool().acquire().await.unwrap());
         crate::cloudsync::ops::ensure_pending_payload_fits(&mut connection, &db.cloudsync_interrupt)
             .await
             .unwrap()

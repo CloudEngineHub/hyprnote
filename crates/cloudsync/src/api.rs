@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Sqlite, SqliteConnection};
 
 use crate::error::Error;
-use crate::locked::{RawArg, execute_on_locked_handle};
+use crate::locked::{OwnedSqliteConnection, RawArg, ReservedConnection, execute_on_locked_handle};
 
 // PRAGMA busy_timeout = 50 keeps SQLite's C busy-handler short so after_connect
 // does not park a Tokio worker. Retry SQLITE_BUSY asynchronously for the same
@@ -366,8 +366,8 @@ where
 
 /// Runs sqlite-sync on the locked handle because interrupted internal queries can report
 /// `SQLITE_MISUSE`, which sqlx-sqlite treats as a worker panic.
-pub async fn init_on_connection(
-    connection: &mut SqliteConnection,
+pub async fn init_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
     table_name: &str,
     crdt_algo: Option<&str>,
     init_flags: Option<i64>,
@@ -512,8 +512,8 @@ where
 
 /// Runs sqlite-sync on the locked handle because interrupted internal queries can report
 /// `SQLITE_MISUSE`, which sqlx-sqlite treats as a worker panic.
-pub async fn cleanup_on_connection(
-    connection: &mut SqliteConnection,
+pub async fn cleanup_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
     table_name: &str,
 ) -> Result<(), Error> {
     execute_on_locked_handle(

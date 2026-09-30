@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Connection, Executor, Sqlite, SqliteConnection};
 
 use crate::error::Error;
-use crate::locked::{RawArg, execute_on_locked_handle};
+use crate::locked::{OwnedSqliteConnection, RawArg, ReservedConnection, execute_on_locked_handle};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -439,8 +439,8 @@ where
     Ok(serde_json::from_str(&response)?)
 }
 
-pub async fn network_status_on_connection(
-    connection: &mut SqliteConnection,
+pub async fn network_status_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
 ) -> Result<NetworkStatus, Error> {
     let response =
         execute_on_locked_handle(connection, "SELECT cloudsync_network_status()", Vec::new())
@@ -538,8 +538,8 @@ where
     Ok(serde_json::from_str(&response)?)
 }
 
-pub async fn network_send_changes_bounded_on_connection(
-    connection: &mut SqliteConnection,
+pub async fn network_send_changes_bounded_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
     max_db_versions: i64,
 ) -> Result<NetworkResult, Error> {
     let response = execute_on_locked_handle(
@@ -592,8 +592,8 @@ where
     Ok(serde_json::from_str(&response)?)
 }
 
-pub async fn network_receive_changes_on_connection(
-    connection: &mut SqliteConnection,
+pub async fn network_receive_changes_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
     max_chunks: Option<i64>,
 ) -> Result<NetworkResult, Error> {
     let (sql, args) = match max_chunks {
@@ -703,7 +703,9 @@ where
     Ok(())
 }
 
-pub async fn network_logout_on_connection(connection: &mut SqliteConnection) -> Result<(), Error> {
+pub async fn network_logout_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
+) -> Result<(), Error> {
     execute_on_locked_handle(connection, "SELECT cloudsync_network_logout()", Vec::new()).await?;
 
     Ok(())

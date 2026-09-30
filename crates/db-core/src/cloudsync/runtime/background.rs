@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use backon::{BackoffBuilder, ExponentialBuilder};
 use sqlx::pool::PoolConnection;
-use sqlx::{Sqlite, SqliteConnection, SqlitePool};
+use sqlx::{Sqlite, SqlitePool};
 use tokio::sync::oneshot;
 
 use super::super::state::CloudsyncRuntimeState;
@@ -475,7 +475,7 @@ pub(super) async fn wait_for_retry_request_or_shutdown(
 
 pub(super) async fn sync_cloudsync_connection(
     pool: &SqlitePool,
-    connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
+    connection: &Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
     interrupt: &super::super::CloudsyncInterruptHandle,
     sync_operation: &tokio::sync::Mutex<()>,
     runtime_state: &Mutex<CloudsyncRuntimeState>,
@@ -487,15 +487,10 @@ pub(super) async fn sync_cloudsync_connection(
         return Ok(CloudsyncStepOutcome::Deferred);
     }
     let pending_batch_exists = {
-        let mut connection = connection.lock().await;
-        if connection.is_none() {
-            *connection = Some(pool.acquire().await?);
-        }
-        let result =
-            pending_cloudsync_payload_exists(connection.as_mut().unwrap(), interrupt).await;
-        if pool.options().get_max_connections() == 1 {
-            connection.take();
-        }
+        let mut reserved =
+            super::super::pinned::reserve_pinned_connection(pool, connection).await?;
+        let result = pending_cloudsync_payload_exists(&mut reserved, interrupt).await;
+        super::super::pinned::release_pinned_connection(reserved);
         result
     };
     let pending_batch_exists = match pending_batch_exists {
@@ -515,19 +510,13 @@ pub(super) async fn sync_cloudsync_connection(
     if cloudsync_activity_paused(sync_hook) {
         return Ok(CloudsyncStepOutcome::Deferred);
     }
-    let mut connection = connection.lock().await;
-    if connection.is_none() {
-        *connection = Some(pool.acquire().await?);
-    }
+    let mut connection = super::super::pinned::reserve_pinned_connection(pool, connection).await?;
     let has_outbound_work = match directive {
         super::super::CloudsyncSyncDirective::SendAndReceive if !pending_batch_exists => {
-            let result =
-                pending_cloudsync_payload_exists(connection.as_mut().unwrap(), interrupt).await;
+            let result = pending_cloudsync_payload_exists(&mut connection, interrupt).await;
             match result {
                 Err(_) if cloudsync_activity_paused(sync_hook) => {
-                    if pool.options().get_max_connections() == 1 {
-                        connection.take();
-                    }
+                    super::super::pinned::release_pinned_connection(connection);
                     return Ok(CloudsyncStepOutcome::Deferred);
                 }
                 result => result?,
@@ -541,15 +530,13 @@ pub(super) async fn sync_cloudsync_connection(
     };
     runtime_state.lock().unwrap().outbound_work_state = Some(has_outbound_work);
     if cloudsync_activity_paused(sync_hook) {
-        if pool.options().get_max_connections() == 1 {
-            connection.take();
-        }
+        super::super::pinned::release_pinned_connection(connection);
         return Ok(CloudsyncStepOutcome::Deferred);
     }
     let send = match (directive, has_outbound_work) {
         (super::super::CloudsyncSyncDirective::SendAndReceive, true) => {
             super::super::ops::guarded_interruptible_network_send_changes(
-                connection.as_mut().unwrap(),
+                &mut connection,
                 interrupt,
                 || cloudsync_activity_paused(sync_hook),
             )
@@ -569,9 +556,7 @@ pub(super) async fn sync_cloudsync_connection(
     };
     let send = match send {
         Err(_) if cloudsync_activity_paused(sync_hook) => {
-            if pool.options().get_max_connections() == 1 {
-                connection.take();
-            }
+            super::super::pinned::release_pinned_connection(connection);
             return Ok(CloudsyncStepOutcome::Deferred);
         }
         result => result?,
@@ -580,30 +565,20 @@ pub(super) async fn sync_cloudsync_connection(
         runtime_state.lock().unwrap().outbound_work_state = Some(false);
     }
     if cloudsync_activity_paused(sync_hook) {
-        if pool.options().get_max_connections() == 1 {
-            connection.take();
-        }
+        super::super::pinned::release_pinned_connection(connection);
         return Ok(CloudsyncStepOutcome::Deferred);
     }
-    let receive = super::super::ops::interruptible_network_receive_changes(
-        connection.as_mut().unwrap(),
-        interrupt,
-    )
-    .await;
+    let receive =
+        super::super::ops::interruptible_network_receive_changes(&mut connection, interrupt).await;
     let receive = match receive {
         Err(_) if cloudsync_activity_paused(sync_hook) => {
-            if pool.options().get_max_connections() == 1 {
-                connection.take();
-            }
+            super::super::pinned::release_pinned_connection(connection);
             return Ok(CloudsyncStepOutcome::Deferred);
         }
         result => result?,
     };
     let result = merge_bounded_sync_results(send, receive);
-    if pool.options().get_max_connections() == 1 {
-        connection.take();
-    }
-    drop(connection);
+    super::super::pinned::release_pinned_connection(connection);
     let outcome = run_after_sync_hook(sync_hook, pool, &result).await?;
     if outcome.deferred || cloudsync_activity_paused(sync_hook) {
         return Ok(CloudsyncStepOutcome::Deferred);
@@ -617,11 +592,13 @@ pub(super) async fn sync_cloudsync_connection(
     )))
 }
 
-pub(super) async fn pending_cloudsync_payload_exists(
-    connection: &mut SqliteConnection,
+pub(super) async fn pending_cloudsync_payload_exists<C: anlg_cloudsync::OwnedSqliteConnection>(
+    connection: &mut anlg_cloudsync::ReservedConnection<C>,
     interrupt: &super::super::CloudsyncInterruptHandle,
 ) -> Result<bool, anlg_cloudsync::Error> {
-    if !super::super::ops::cloudsync_has_local_unsent_changes_on(&mut *connection).await? {
+    if !super::super::ops::cloudsync_has_local_unsent_changes_on(connection.connection().await?)
+        .await?
+    {
         return Ok(false);
     }
     Ok(
