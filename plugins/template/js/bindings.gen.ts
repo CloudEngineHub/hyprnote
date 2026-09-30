@@ -6,6 +6,30 @@
 
 
 export const commands = {
+async summaryLengthPolicy(request: SummaryLengthPolicyRequest) : Promise<Result<SummaryLengthPolicy | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:template|summary_length_policy", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async prepareGeneratedSummary(request: PrepareGeneratedSummaryRequest) : Promise<Result<PreparedGeneratedSummary | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:template|prepare_generated_summary", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async composeGeneratedSummary(request: ComposeGeneratedSummaryRequest) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:template|compose_generated_summary", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async render(tpl: Template) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:template|render", { tpl }) };
@@ -45,6 +69,7 @@ async getTemplateSource(template: EditableTemplate) : Promise<Result<string, str
 export type ActivityCaptureSystem = { language: string | null }
 export type ActivityCaptureUser = { appName: string; windowTitle: string | null; reason: string; fingerprint: string }
 export type ChatSystem = { language: string | null }
+export type ComposeGeneratedSummaryRequest = { constrained_text: string; title: string | null; tag_names: string[]; length_policy: SummaryLengthPolicy | null }
 export type ContextBlock = { contexts: SessionContext[]; currentSessionId: string | null }
 export type DailySummaryAnalysis = { time: string; appName: string; windowTitle: string | null; reason: string; summary: string }
 export type DailySummaryAppStat = { appName: string; count: number }
@@ -62,9 +87,15 @@ export type EventContactUser = { title: string | null; description: string | nul
 export type Grammar = { task: "enhance"; sections: string[] | null } | { task: "title" } | { task: "tags" } | { task: "email-to-name" }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type Participant = { name: string; jobTitle: string | null }
+export type PrepareGeneratedSummaryRequest = { text: string; length_policy: SummaryLengthPolicy | null; tag_sources: string[] }
+export type PreparedGeneratedSummary = { constrained_text: string; tag_names: string[]; text_with_tags: string }
 export type Segment = { text: string; speaker: string }
 export type Session = { title: string | null; startedAt: string | null; endedAt: string | null; event: Event | null }
 export type SessionContext = { sessionId: string | null; title: string | null; date: string | null; rawContent: string | null; enhancedContent: string | null; meetingChat: string | null; transcript: Transcript | null; participants: Participant[]; event: Event | null }
+export type SummaryLengthGuidance = { max_characters: number; min_sections: number; max_sections: number }
+export type SummaryLengthMode = "crisp" | "balanced" | "detailed"
+export type SummaryLengthPolicy = { mode: SummaryLengthMode; max_characters: number; max_sections: number | null; transcript_characters: number; guidance: SummaryLengthGuidance | null }
+export type SummaryLengthPolicyRequest = { transcript_texts: string[]; mode: SummaryLengthMode; custom_format: boolean; template_section_count: number }
 export type Template = { activityCaptureSystem: ActivityCaptureSystem } | { activityCaptureUser: ActivityCaptureUser } | { dailySummarySystem: DailySummarySystem } | { dailySummaryUser: DailySummaryUser } | { enhanceSystem: EnhanceSystem } | { enhanceUser: EnhanceUser } | { eventContactSystem: EventContactSystem } | { eventContactUser: EventContactUser } | { titleSystem: TitleSystem } | { titleUser: TitleUser } | { chatSystem: ChatSystem } | { contextBlock: ContextBlock } | { toolSearchSessions: ToolSearchSessions } | { transcriptPatchSystem: TranscriptPatchSystem } | { transcriptPatchUser: TranscriptPatchUser }
 export type TemplateSection = { title: string; description: string | null }
 export type TitleSystem = { language: string | null }

@@ -1,6 +1,9 @@
 [default]
 description = "Default permissions for the plugin"
 permissions = [
+  "allow-summary-length-policy",
+  "allow-prepare-generated-summary",
+  "allow-compose-generated-summary",
   "allow-render",
   "allow-render-custom",
   "allow-render-support",

@@ -3,12 +3,13 @@ import {
   parseJsonContent,
   type JSONContent,
 } from "@anlg/editor/markdown";
-import type {
-  Participant,
-  Segment,
-  Session,
-  TemplateSection,
-  Transcript,
+import {
+  commands as templateCommands,
+  type Participant,
+  type Segment,
+  type Session,
+  type TemplateSection,
+  type Transcript,
 } from "@anlg/plugin-template";
 import {
   commands as transcriptionCommands,
@@ -91,6 +92,26 @@ async function transformArgs(
   const language = getLanguage(settingsValues);
   const formatOverride = getFormatOverride(settingsValues, templateId);
   const segments = await getTranscriptSegments(snapshot);
+  const transcripts = formatTranscripts(
+    segments,
+    sessionContext.transcriptsMeta,
+  );
+  const summaryLength = normalizeSummaryLengthMode(
+    settingsValues.summary_length,
+  );
+  const templateSectionCount = template?.sections.length ?? 0;
+  const policyResult = await templateCommands.summaryLengthPolicy({
+    transcript_texts: transcripts.flatMap((transcript) =>
+      transcript.segments.map((segment) => segment.text),
+    ),
+    mode: summaryLength,
+    custom_format: Boolean(formatOverride.trim()) || templateSectionCount > 0,
+    template_section_count: templateSectionCount,
+  });
+  if (policyResult.status === "error") {
+    throw new Error(policyResult.error);
+  }
+
   const imageContext = modelSupportsImageInput(
     getOptionalSettingsValue(settingsValues, "current_llm_provider"),
     getOptionalSettingsValue(settingsValues, "current_llm_model"),
@@ -109,9 +130,10 @@ async function transformArgs(
     template,
     preMeetingMemo: sessionContext.preMeetingMemo,
     postMeetingMemo: sessionContext.postMeetingMemo,
-    transcripts: formatTranscripts(segments, sessionContext.transcriptsMeta),
+    transcripts,
     imageContext,
-    summaryLength: normalizeSummaryLengthMode(settingsValues.summary_length),
+    summaryLength,
+    lengthPolicy: policyResult.data,
     dictionaryTerms: parseDictionaryTermsJson(
       settingsValues.personalization_dictionary_terms,
     ),

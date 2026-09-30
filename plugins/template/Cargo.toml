@@ -15,6 +15,7 @@ specta-typescript = { workspace = true }
 
 [dependencies]
 anlg-gbnf = { workspace = true }
+anlg-summary = { workspace = true }
 anlg-template-app = { workspace = true }
 anlg-template-app-legacy = { workspace = true }
 

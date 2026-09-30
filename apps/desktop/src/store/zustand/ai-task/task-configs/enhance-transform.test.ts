@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
   renderSessionTranscript: vi.fn(),
+  summaryLengthPolicy: vi.fn(),
 }));
 
 vi.mock("./enhance-images", () => ({
@@ -25,6 +26,10 @@ vi.mock("~/session/content-queries", () => ({
 
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: { renderSessionTranscript: mocks.renderSessionTranscript },
+}));
+
+vi.mock("@anlg/plugin-template", () => ({
+  commands: { summaryLengthPolicy: mocks.summaryLengthPolicy },
 }));
 
 vi.mock("~/stt/meeting-chat-records", () => ({
@@ -75,6 +80,10 @@ describe("enhanceTransform.transformArgs", () => {
     mocks.loadMeetingChatRecords.mockResolvedValue([]);
     mocks.loadSessionContentSnapshot.mockResolvedValue(createSnapshot());
     mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+    mocks.summaryLengthPolicy.mockResolvedValue({
       status: "ok",
       data: null,
     });
@@ -281,6 +290,62 @@ describe("enhanceTransform.transformArgs", () => {
     );
 
     expect(result.summaryLength).toBe("crisp");
+  });
+
+  it("builds the summary policy from the returned transcript segments", async () => {
+    const lengthPolicy = {
+      mode: "crisp",
+      max_characters: 320,
+      max_sections: 2,
+      transcript_characters: 27,
+      guidance: {
+        max_characters: 320,
+        min_sections: 1,
+        max_sections: 2,
+      },
+    };
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: {
+        segments: [
+          {
+            speaker_label: "Alice",
+            start_ms: 0,
+            end_ms: 10,
+            text: "First segment",
+            words: [{ text: "First", start_ms: 0, end_ms: 5 }],
+          },
+          {
+            speaker_label: "Alice",
+            start_ms: 10,
+            end_ms: 20,
+            text: "Second segment",
+            words: [{ text: "Second", start_ms: 10, end_ms: 15 }],
+          },
+        ],
+      },
+    });
+    mocks.summaryLengthPolicy.mockResolvedValue({
+      status: "ok",
+      data: lengthPolicy,
+    });
+
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      {
+        ...settingsValues,
+        summary_length: "crisp",
+        auto_summary_prompt: "  Use concise prose.  ",
+      },
+    );
+
+    expect(mocks.summaryLengthPolicy).toHaveBeenCalledWith({
+      transcript_texts: ["First segment", "Second segment"],
+      mode: "crisp",
+      custom_format: true,
+      template_section_count: 0,
+    });
+    expect(result.lengthPolicy).toEqual(lengthPolicy);
   });
 
   it("includes personalization dictionary terms for summary spelling", async () => {

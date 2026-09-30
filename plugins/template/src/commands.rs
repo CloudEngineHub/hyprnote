@@ -2,6 +2,35 @@ use crate::TemplatePluginExt;
 
 #[tauri::command]
 #[specta::specta]
+pub fn summary_length_policy(
+    request: anlg_summary::SummaryLengthPolicyRequest,
+) -> Result<Option<anlg_summary::SummaryLengthPolicy>, String> {
+    Ok(anlg_summary::summary_length_policy_for_texts(
+        &request.transcript_texts,
+        request.mode,
+        request.custom_format,
+        request.template_section_count as usize,
+    ))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn prepare_generated_summary(
+    request: anlg_summary::PrepareGeneratedSummaryRequest,
+) -> Result<Option<anlg_summary::PreparedGeneratedSummary>, String> {
+    Ok(anlg_summary::prepare_generated_summary(request))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn compose_generated_summary(
+    request: anlg_summary::ComposeGeneratedSummaryRequest,
+) -> Result<String, String> {
+    Ok(anlg_summary::compose_generated_summary(request))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn render<R: tauri::Runtime>(
     _app: tauri::AppHandle<R>,
     tpl: anlg_template_app::Template,

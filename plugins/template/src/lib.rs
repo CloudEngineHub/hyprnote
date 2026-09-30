@@ -12,6 +12,9 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
+            commands::summary_length_policy,
+            commands::prepare_generated_summary,
+            commands::compose_generated_summary,
             commands::render::<Wry>,
             commands::render_custom::<Wry>,
             commands::get_template_source::<Wry>,
