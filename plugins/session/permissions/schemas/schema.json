@@ -331,6 +331,30 @@
           "markdownDescription": "Denies the create_session_for_event command without any pre-configured scope."
         },
         {
+          "description": "Enables the move_session_contents command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-move-session-contents",
+          "markdownDescription": "Enables the move_session_contents command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the move_session_contents command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-move-session-contents",
+          "markdownDescription": "Denies the move_session_contents command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the persist_chat_session_proposal command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-persist-chat-session-proposal",
+          "markdownDescription": "Enables the persist_chat_session_proposal command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the persist_chat_session_proposal command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-persist-chat-session-proposal",
+          "markdownDescription": "Denies the persist_chat_session_proposal command without any pre-configured scope."
+        },
+        {
           "description": "Enables the remove_session_participant command without any pre-configured scope.",
           "type": "string",
           "const": "allow-remove-session-participant",
@@ -341,6 +365,30 @@
           "type": "string",
           "const": "deny-remove-session-participant",
           "markdownDescription": "Denies the remove_session_participant command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the resolve_session_conflict command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-resolve-session-conflict",
+          "markdownDescription": "Enables the resolve_session_conflict command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the resolve_session_conflict command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-resolve-session-conflict",
+          "markdownDescription": "Denies the resolve_session_conflict command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the resolve_session_conflicts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-resolve-session-conflicts",
+          "markdownDescription": "Enables the resolve_session_conflicts command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the resolve_session_conflicts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-resolve-session-conflicts",
+          "markdownDescription": "Denies the resolve_session_conflicts command without any pre-configured scope."
         },
         {
           "description": "Enables the restore_deleted_session command without any pre-configured scope.",
@@ -355,6 +403,18 @@
           "markdownDescription": "Denies the restore_deleted_session command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_session_proposal_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-session-proposal-status",
+          "markdownDescription": "Enables the set_session_proposal_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_session_proposal_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-session-proposal-status",
+          "markdownDescription": "Denies the set_session_proposal_status command without any pre-configured scope."
+        },
+        {
           "description": "Enables the soft_delete_session command without any pre-configured scope.",
           "type": "string",
           "const": "allow-soft-delete-session",
@@ -367,10 +427,10 @@
           "markdownDescription": "Denies the soft_delete_session command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-create-session`\n- `allow-create-session-for-event`\n- `allow-soft-delete-session`\n- `allow-restore-deleted-session`\n- `allow-add-session-participant`\n- `allow-remove-session-participant`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-create-session`\n- `allow-create-session-for-event`\n- `allow-soft-delete-session`\n- `allow-restore-deleted-session`\n- `allow-add-session-participant`\n- `allow-remove-session-participant`\n- `allow-persist-chat-session-proposal`\n- `allow-set-session-proposal-status`\n- `allow-resolve-session-conflicts`\n- `allow-resolve-session-conflict`\n- `allow-move-session-contents`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-create-session`\n- `allow-create-session-for-event`\n- `allow-soft-delete-session`\n- `allow-restore-deleted-session`\n- `allow-add-session-participant`\n- `allow-remove-session-participant`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-create-session`\n- `allow-create-session-for-event`\n- `allow-soft-delete-session`\n- `allow-restore-deleted-session`\n- `allow-add-session-participant`\n- `allow-remove-session-participant`\n- `allow-persist-chat-session-proposal`\n- `allow-set-session-proposal-status`\n- `allow-resolve-session-conflicts`\n- `allow-resolve-session-conflict`\n- `allow-move-session-contents`"
         }
       ]
     }

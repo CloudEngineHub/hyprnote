@@ -53,6 +53,46 @@ async removeSessionParticipant(request: RemoveSessionParticipantRequest) : Promi
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async persistChatSessionProposal(request: PersistChatSessionProposalRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|persist_chat_session_proposal", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setSessionProposalStatus(request: SetSessionProposalStatusRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|set_session_proposal_status", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async resolveSessionConflicts(request: ResolveSessionConflictsRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|resolve_session_conflicts", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async resolveSessionConflict(request: ResolveSessionConflictRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|resolve_session_conflict", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async moveSessionContents(request: MoveSessionContentsRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|move_session_contents", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -72,8 +112,13 @@ export type CreateSessionRequest = { title: string; user_id: string; event_json:
 export type DeletedSessionRow = { id: string; title: string }
 export type EventParticipantIdentity = { email: string; name: string; company_name: string | null }
 export type EventSessionResult = { session_id: string; created: boolean }
+export type MoveSessionContentsRequest = { source_session_id: string; target_session_id: string; rewrite_audio_ids: boolean; next_target_note: string | null; empty_source_note: string | null }
+export type PersistChatSessionProposalRequest = { id: string; session_id: string; kind: string; target_id: string; base_updated_at: string; current_markdown: string; proposed_markdown: string; source: string }
 export type RemoveSessionParticipantRequest = { mapping_id: string }
+export type ResolveSessionConflictRequest = { conflict_id: string }
+export type ResolveSessionConflictsRequest = { session_id: string }
 export type RestoreDeletedSessionOutcome = "restored" | "alive" | "not_deleted"
+export type SetSessionProposalStatusRequest = { proposal_id: string; status: string }
 export type TombstoneSessionRequest = { session_id: string; tombstone: string }
 
 /** tauri-specta globals **/

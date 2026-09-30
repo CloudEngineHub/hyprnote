@@ -1,9 +1,12 @@
 use tauri::Wry;
 
 mod commands;
+mod conflicts;
 mod creation;
 mod deletion;
+mod move_contents;
 mod participants;
+mod proposals;
 mod transaction_utils;
 
 #[cfg(test)]
@@ -21,6 +24,11 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::restore_deleted_session::<Wry>,
             commands::add_session_participant::<Wry>,
             commands::remove_session_participant::<Wry>,
+            commands::persist_chat_session_proposal::<Wry>,
+            commands::set_session_proposal_status::<Wry>,
+            commands::resolve_session_conflicts::<Wry>,
+            commands::resolve_session_conflict::<Wry>,
+            commands::move_session_contents::<Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

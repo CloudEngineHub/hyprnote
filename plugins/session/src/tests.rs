@@ -2,6 +2,7 @@ use anlg_db_core::Db;
 use sqlx::{Row, SqlitePool};
 
 use crate::{
+    conflicts::{resolve_session_conflict, resolve_session_conflicts},
     creation::{
         CreateEventSessionRequest, CreateSessionRequest, EventParticipantIdentity, create_session,
         create_session_for_event,
@@ -10,9 +11,14 @@ use crate::{
         RestoreDeletedSessionOutcome, TombstoneSessionRequest, restore_deleted_session,
         soft_delete_session,
     },
+    move_contents::{MoveSessionContentsRequest, move_session_contents},
     participants::{
         AddSessionParticipantRequest, RemoveSessionParticipantRequest, add_session_participant,
         remove_session_participant,
+    },
+    proposals::{
+        PersistChatSessionProposalRequest, SetSessionProposalStatusRequest,
+        persist_chat_session_proposal, set_session_proposal_status,
     },
 };
 
@@ -604,4 +610,235 @@ async fn remove_session_participant_tombstones_manual_and_excludes_auto() {
             .unwrap();
     assert_eq!(auto.get::<String, _>("source"), "excluded");
     assert_eq!(auto.get::<Option<String>, _>("deleted_at"), None);
+}
+
+#[tokio::test]
+async fn persist_chat_session_proposal_stores_passed_base_timestamp() {
+    let db = test_db().await;
+    insert_session(db.pool(), "session-1", "user-1").await;
+
+    persist_chat_session_proposal(
+        db.pool(),
+        PersistChatSessionProposalRequest {
+            id: "proposal-1".to_string(),
+            session_id: "session-1".to_string(),
+            kind: "summary_replace".to_string(),
+            target_id: "summary-1".to_string(),
+            base_updated_at: "2026-08-26T00:00:00.000Z".to_string(),
+            current_markdown: "Current".to_string(),
+            proposed_markdown: "Proposed".to_string(),
+            source: "chat".to_string(),
+        },
+    )
+    .await
+    .unwrap();
+
+    let proposal = sqlx::query(
+        "SELECT kind, target_id, base_updated_at, status, source FROM session_proposals WHERE id = 'proposal-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        proposal.get::<String, _>("base_updated_at"),
+        "2026-08-26T00:00:00.000Z"
+    );
+    assert_eq!(proposal.get::<String, _>("status"), "pending");
+    assert_eq!(proposal.get::<String, _>("source"), "chat");
+}
+
+#[tokio::test]
+async fn set_session_proposal_status_only_transitions_pending() {
+    let db = test_db().await;
+    insert_session(db.pool(), "session-1", "user-1").await;
+    sqlx::query(
+        "INSERT INTO session_proposals (id, session_id, status) VALUES ('p-1', 'session-1', 'pending'), ('p-2', 'session-1', 'applied')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    for proposal in ["p-1", "p-2"] {
+        set_session_proposal_status(
+            db.pool(),
+            SetSessionProposalStatusRequest {
+                proposal_id: proposal.to_string(),
+                status: "declined".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+    }
+
+    let first: String = sqlx::query_scalar("SELECT status FROM session_proposals WHERE id = 'p-1'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    let second: String =
+        sqlx::query_scalar("SELECT status FROM session_proposals WHERE id = 'p-2'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    let updated_at: String =
+        sqlx::query_scalar("SELECT updated_at FROM session_proposals WHERE id = 'p-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(first, "declined");
+    assert_eq!(second, "applied");
+    assert!(updated_at.ends_with('Z') && updated_at.contains('.'));
+}
+
+#[tokio::test]
+async fn resolve_session_conflicts_marks_note_conflicts_resolved() {
+    let db = test_db().await;
+    sqlx::query(
+        "INSERT INTO e2ee_field_conflicts (id, table_name, row_id, field_name) VALUES
+            ('c-body', 'session_documents', 'session-1', 'body'),
+            ('c-title', 'sessions', 'session-1', 'title'),
+            ('c-other', 'session_documents', 'session-1', 'title'),
+            ('c-other-session', 'session_documents', 'session-2', 'body')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    resolve_session_conflicts(
+        db.pool(),
+        crate::conflicts::ResolveSessionConflictsRequest {
+            session_id: "session-1".to_string(),
+        },
+    )
+    .await
+    .unwrap();
+    resolve_session_conflict(
+        db.pool(),
+        crate::conflicts::ResolveSessionConflictRequest {
+            conflict_id: "c-other-session".to_string(),
+        },
+    )
+    .await
+    .unwrap();
+
+    for (id, expected) in [
+        ("c-body", true),
+        ("c-title", true),
+        ("c-other", false),
+        ("c-other-session", true),
+    ] {
+        let resolved_at: Option<String> =
+            sqlx::query_scalar("SELECT resolved_at FROM e2ee_field_conflicts WHERE id = ?")
+                .bind(id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(resolved_at.is_some(), expected, "{id}");
+    }
+}
+
+#[tokio::test]
+async fn move_session_contents_moves_rows_and_rewrites_notes() {
+    let db = test_db().await;
+    insert_session(db.pool(), "source", "user-1").await;
+    insert_session(db.pool(), "target", "user-1").await;
+    sqlx::query(
+        "INSERT INTO transcripts (id, session_id, audio_attachment_id) VALUES
+            ('t-1', 'source', 'session-audio:source')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO session_documents (id, session_id, kind) VALUES
+            ('source', 'source', 'note'),
+            ('target', 'target', 'note'),
+            ('summary-1', 'source', 'summary')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO action_items (id, session_id) VALUES ('a-1', 'source')")
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+    move_session_contents(
+        db.pool(),
+        MoveSessionContentsRequest {
+            source_session_id: "source".to_string(),
+            target_session_id: "target".to_string(),
+            rewrite_audio_ids: true,
+            next_target_note: Some("{\"type\":\"doc\",\"content\":[]}".to_string()),
+            empty_source_note: Some("{\"type\":\"doc\",\"content\":[]}".to_string()),
+        },
+    )
+    .await
+    .unwrap();
+
+    let transcript =
+        sqlx::query("SELECT session_id, audio_attachment_id FROM transcripts WHERE id = 't-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(transcript.get::<String, _>("session_id"), "target");
+    assert_eq!(
+        transcript.get::<String, _>("audio_attachment_id"),
+        "session-audio:target"
+    );
+    let summary_session: String =
+        sqlx::query_scalar("SELECT session_id FROM session_documents WHERE id = 'summary-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    let action_session: String =
+        sqlx::query_scalar("SELECT session_id FROM action_items WHERE id = 'a-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(summary_session, "target");
+    assert_eq!(action_session, "target");
+    let source_note: String =
+        sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'source'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(source_note, "{\"type\":\"doc\",\"content\":[]}");
+}
+
+#[tokio::test]
+async fn move_session_contents_rolls_back_when_note_row_count_mismatches() {
+    let db = test_db().await;
+    insert_session(db.pool(), "source", "user-1").await;
+    insert_session(db.pool(), "target", "user-1").await;
+    sqlx::query("INSERT INTO transcripts (id, session_id) VALUES ('t-1', 'source')")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO session_documents (id, session_id, kind) VALUES ('source', 'source', 'note')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    let error = move_session_contents(
+        db.pool(),
+        MoveSessionContentsRequest {
+            source_session_id: "source".to_string(),
+            target_session_id: "target".to_string(),
+            rewrite_audio_ids: false,
+            next_target_note: Some("{}".to_string()),
+            empty_source_note: Some("{}".to_string()),
+        },
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(error, "transaction statement 5 affected 0 rows; expected 1");
+    let session_id: String =
+        sqlx::query_scalar("SELECT session_id FROM transcripts WHERE id = 't-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(session_id, "source");
 }

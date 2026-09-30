@@ -1,6 +1,6 @@
 use tauri::Manager;
 
-use crate::{creation, deletion, participants};
+use crate::{conflicts, creation, deletion, move_contents, participants, proposals};
 
 macro_rules! session_write_command {
     ($name:ident, $module:ident, $function:ident, $request:ty, $result:ty) => {
@@ -60,5 +60,40 @@ session_write_command!(
     participants,
     remove_session_participant,
     participants::RemoveSessionParticipantRequest,
+    ()
+);
+session_write_command!(
+    persist_chat_session_proposal,
+    proposals,
+    persist_chat_session_proposal,
+    proposals::PersistChatSessionProposalRequest,
+    ()
+);
+session_write_command!(
+    set_session_proposal_status,
+    proposals,
+    set_session_proposal_status,
+    proposals::SetSessionProposalStatusRequest,
+    ()
+);
+session_write_command!(
+    resolve_session_conflicts,
+    conflicts,
+    resolve_session_conflicts,
+    conflicts::ResolveSessionConflictsRequest,
+    ()
+);
+session_write_command!(
+    resolve_session_conflict,
+    conflicts,
+    resolve_session_conflict,
+    conflicts::ResolveSessionConflictRequest,
+    ()
+);
+session_write_command!(
+    move_session_contents,
+    move_contents,
+    move_session_contents,
+    move_contents::MoveSessionContentsRequest,
     ()
 );

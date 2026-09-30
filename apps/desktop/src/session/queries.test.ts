@@ -36,6 +36,12 @@ const mocks = vi.hoisted(() => ({
   removeSessionParticipant: vi.fn(() =>
     Promise.resolve({ status: "ok", data: null }),
   ),
+  persistChatSessionProposal: vi.fn(() =>
+    Promise.resolve({ status: "ok", data: null }),
+  ),
+  setSessionProposalStatus: vi.fn(() =>
+    Promise.resolve({ status: "ok", data: null }),
+  ),
 }));
 
 vi.mock("@anlg/plugin-analytics", () => ({
@@ -50,6 +56,8 @@ vi.mock("@anlg/plugin-session", () => ({
     restoreDeletedSession: mocks.restoreDeletedSession,
     addSessionParticipant: mocks.addSessionParticipant,
     removeSessionParticipant: mocks.removeSessionParticipant,
+    persistChatSessionProposal: mocks.persistChatSessionProposal,
+    setSessionProposalStatus: mocks.setSessionProposalStatus,
   },
 }));
 
@@ -69,7 +77,6 @@ vi.mock("~/db", () => ({
 import {
   applySessionProposal,
   declineSessionProposal,
-  persistChatSessionProposal,
   deleteEnhancedNote,
   getOrCreateSessionForEventId,
   isSessionDeleted,
@@ -413,34 +420,6 @@ describe("session SQLite operations", () => {
     await stuckExpectation;
   });
 
-  it("persists a chat proposal against the current document timestamp", async () => {
-    mocks.execute.mockResolvedValueOnce([
-      { updated_at: "2026-08-26T00:00:00Z" },
-    ]);
-
-    await persistChatSessionProposal({
-      id: "proposal-1",
-      sessionId: "session-1",
-      kind: "summary_replace",
-      targetId: "summary-1",
-      currentMarkdown: "Current",
-      proposedMarkdown: "Proposed",
-    });
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("INSERT INTO session_proposals");
-    expect(statement.params).toEqual([
-      "proposal-1",
-      "session-1",
-      "summary_replace",
-      "summary-1",
-      "2026-08-26T00:00:00Z",
-      "Current",
-      "Proposed",
-      "chat",
-    ]);
-  });
-
   it("applies a pending summary proposal and marks it applied", async () => {
     mocks.execute
       .mockResolvedValueOnce([
@@ -466,9 +445,10 @@ describe("session SQLite operations", () => {
       (call) => call[0] as Array<{ sql: string; params: unknown[] }>,
     );
     expect(writes[0][0].sql).toContain("UPDATE session_documents");
-    expect(writes[1][0].sql).toContain("UPDATE session_proposals");
-    expect(writes[1][0].params[0]).toBe("applied");
-    expect(writes[1][0].params[2]).toBe("proposal-1");
+    expect(mocks.setSessionProposalStatus).toHaveBeenCalledWith({
+      proposal_id: "proposal-1",
+      status: "applied",
+    });
   });
 
   it("rejects a stale proposal instead of writing the meeting", async () => {
@@ -494,6 +474,7 @@ describe("session SQLite operations", () => {
       "This proposal is stale. The meeting changed after it was created.",
     );
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
+    expect(mocks.setSessionProposalStatus).not.toHaveBeenCalled();
   });
 
   it("declines only pending proposals", async () => {
@@ -515,8 +496,9 @@ describe("session SQLite operations", () => {
 
     await declineSessionProposal("proposal-1");
 
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("UPDATE session_proposals");
-    expect(statement.params[0]).toBe("declined");
+    expect(mocks.setSessionProposalStatus).toHaveBeenCalledWith({
+      proposal_id: "proposal-1",
+      status: "declined",
+    });
   });
 });

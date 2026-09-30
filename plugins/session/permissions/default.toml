@@ -7,4 +7,9 @@ permissions = [
   "allow-restore-deleted-session",
   "allow-add-session-participant",
   "allow-remove-session-participant",
+  "allow-persist-chat-session-proposal",
+  "allow-set-session-proposal-status",
+  "allow-resolve-session-conflicts",
+  "allow-resolve-session-conflict",
+  "allow-move-session-contents",
 ]

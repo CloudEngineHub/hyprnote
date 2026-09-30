@@ -5,6 +5,11 @@ const COMMANDS: &[&str] = &[
     "restore_deleted_session",
     "add_session_participant",
     "remove_session_participant",
+    "persist_chat_session_proposal",
+    "set_session_proposal_status",
+    "resolve_session_conflicts",
+    "resolve_session_conflict",
+    "move_session_contents",
 ];
 
 fn main() {
