@@ -11,6 +11,7 @@ mod api;
 mod error;
 mod listener;
 mod listener2;
+mod live_journal;
 mod voiceprint;
 
 pub use anlg_transcription_core::listener::{
@@ -134,6 +135,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_mic_muted::<tauri::Wry>,
             listener::commands::set_mic_muted::<tauri::Wry>,
             listener::commands::start_capture::<tauri::Wry>,
+            listener::commands::flush_live_transcript::<tauri::Wry>,
+            listener::commands::release_live_transcript::<tauri::Wry>,
             listener::commands::stop_capture::<tauri::Wry>,
             listener::commands::stop_capture_for_session::<tauri::Wry>,
             listener::commands::update_capture_config::<tauri::Wry>,
@@ -167,6 +170,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             CaptureLifecycleEvent,
             CaptureStatusEvent,
             CaptureDataEvent,
+            LiveTranscriptPersistenceEvent,
             TranscriptionEvent
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
@@ -185,6 +189,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 app: app_handle.clone(),
             }));
             app.manage(state);
+            app.manage(live_journal::LiveJournalRegistry::default());
             let batch_registry = Arc::new(BatchSessionRegistry {
                 completed_dir: app
                     .path()

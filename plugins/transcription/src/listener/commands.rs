@@ -1,7 +1,9 @@
 use std::str::FromStr;
 
 use crate::listener::ListenerPluginExt;
-use crate::{CaptureConfigUpdate, CaptureParams, CaptureSnapshot, CaptureState};
+use crate::{
+    CaptureConfigUpdate, CaptureParams, CaptureSnapshot, CaptureState, LiveTranscriptPersistence,
+};
 use anlg_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
 use anlg_transcription_core::listener::actors::recorder::{self, RecoveryAudioChunk};
 use anlg_transcription_core::listener2 as listener2_core;
@@ -134,10 +136,58 @@ pub async fn start_capture<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     params: CaptureParams,
 ) -> Result<(), String> {
-    app.listener()
-        .start_capture(params)
-        .await
-        .map_err(|e| e.to_string())
+    use crate::live_journal::{LiveJournalRegistry, register_app_journal};
+    use tauri::Manager;
+
+    let session_id = params.session_id.clone();
+    let live_transcript = params.live_transcript.clone();
+    let registry = app.state::<LiveJournalRegistry>();
+    let registration = live_transcript
+        .map(|target| register_app_journal(&registry, app.clone(), session_id.clone(), target))
+        .transpose()?;
+
+    match (app.listener().start_capture(params).await, registration) {
+        (Ok(()), Some((_, Some(previous)))) => previous.release(),
+        (Ok(()), Some((_, None))) => {}
+        (Ok(()), None) => registry.release_session(&session_id)?,
+        (Err(error), Some((registered, previous))) => {
+            let _ = registry.rollback_registration(&session_id, &registered, previous);
+            return Err(error.to_string());
+        }
+        (Err(error), None) => return Err(error.to_string()),
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn flush_live_transcript<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<Option<LiveTranscriptPersistence>, String> {
+    use crate::live_journal::LiveJournalRegistry;
+    use tauri::Manager;
+
+    let registry = app.state::<LiveJournalRegistry>();
+    let Some(journal) = registry.get(&session_id)? else {
+        return Ok(None);
+    };
+    journal.flush().await.map(Some)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn release_live_transcript<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+    transcript_id: String,
+) -> Result<(), String> {
+    use crate::live_journal::LiveJournalRegistry;
+    use tauri::Manager;
+
+    app.state::<LiveJournalRegistry>()
+        .release(&session_id, &transcript_id)
 }
 
 #[tauri::command]

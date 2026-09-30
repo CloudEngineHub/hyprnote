@@ -14,7 +14,7 @@ import {
   buildRenderTranscriptRequestFromRows,
   resolveScopedWordHumanIds,
 } from "~/stt/render-transcript";
-import { coalesceLiveTranscriptDeltas } from "~/stt/transcript-persistence-worker";
+import { coalesceLiveTranscriptDeltas } from "~/stt/transcript-delta-coalescing";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   applyLiveTranscriptDelta,
@@ -55,6 +55,7 @@ type TranscriptMutationSqlRow = {
   speaker_hints_json: string;
   content_revision: number;
   pending_deltas_json: string;
+  max_read_sequence: number | null;
 };
 
 type TranscriptInsert = {
@@ -476,52 +477,6 @@ export async function transcriptExists(transcriptId: string): Promise<boolean> {
     [transcriptId],
   );
   return Boolean(rows[0]);
-}
-
-export function applyLiveTranscriptDeltaToDatabase(
-  transcriptId: string,
-  delta: LiveTranscriptDelta,
-): Promise<void> {
-  return enqueueDatabaseWrite(`transcript:${transcriptId}`, async () => {
-    const now = new Date().toISOString();
-    const journalId = `${transcriptId}:${crypto.randomUUID()}`;
-    const [, inserted = 0] = await executeTransaction([
-      {
-        sql: `
-          INSERT OR IGNORE INTO transcript_live_state (
-            transcript_id, next_sequence, updated_at
-          )
-          SELECT id, 0, ?
-          FROM transcripts
-          WHERE id = ? AND deleted_at IS NULL
-        `,
-        params: [now, transcriptId],
-      },
-      {
-        sql: `
-          INSERT INTO transcript_live_deltas (
-            id, transcript_id, sequence, delta_json, created_at
-          )
-          SELECT ?, transcript_id, next_sequence, ?, ?
-          FROM transcript_live_state
-          WHERE transcript_id = ?
-        `,
-        params: [journalId, JSON.stringify(delta), now, transcriptId],
-      },
-      {
-        sql: `
-          UPDATE transcript_live_state
-          SET next_sequence = next_sequence + 1, updated_at = ?
-          WHERE transcript_id = ?
-        `,
-        params: [now, transcriptId],
-      },
-    ]);
-
-    if (inserted !== 1) {
-      throw new Error(`Transcript ${transcriptId} does not exist`);
-    }
-  });
 }
 
 export function flushLiveTranscriptDeltasToDatabase(
@@ -1001,7 +956,12 @@ async function mutateTranscript(
                 WHERE delta.transcript_id = transcript.id
                 ORDER BY delta.sequence
               ) AS ordered_delta
-            ), '[]') AS pending_deltas_json
+            ), '[]') AS pending_deltas_json,
+            (
+              SELECT MAX(delta.sequence)
+              FROM transcript_live_deltas AS delta
+              WHERE delta.transcript_id = transcript.id
+            ) AS max_read_sequence
           FROM transcripts AS transcript
           WHERE transcript.id = ? AND transcript.deleted_at IS NULL
           LIMIT 1
@@ -1024,6 +984,10 @@ async function mutateTranscript(
         current.pending_deltas_json,
         transcriptId,
       );
+      const maxReadSequence =
+        current.max_read_sequence == null
+          ? null
+          : Number(current.max_read_sequence);
       if (!mutation && pendingDeltas.length === 0) return;
 
       const materialized = materializeTranscriptSnapshot(
@@ -1045,7 +1009,7 @@ async function mutateTranscript(
         : materialized;
       if (!shouldPersist) return;
       const now = new Date().toISOString();
-      const [updated = 0] = await executeTransaction([
+      const statements = [
         {
           sql: `
             UPDATE transcripts
@@ -1065,14 +1029,33 @@ async function mutateTranscript(
             Number(current.content_revision ?? 0),
           ],
         },
+        ...(maxReadSequence == null
+          ? []
+          : [
+              {
+                sql: `
+                  DELETE FROM transcript_live_deltas
+                  WHERE transcript_id = ?
+                    AND sequence <= ?
+                    AND changes() = 1
+                `,
+                params: [transcriptId, maxReadSequence],
+              },
+            ]),
         {
           sql: `
             DELETE FROM transcript_live_state
-            WHERE transcript_id = ? AND changes() = 1
+            WHERE transcript_id = ?
+              AND NOT EXISTS (
+                SELECT 1
+                FROM transcript_live_deltas
+                WHERE transcript_id = ?
+              )
           `,
-          params: [transcriptId],
+          params: [transcriptId, transcriptId],
         },
-      ]);
+      ];
+      const [updated = 0] = await executeTransaction(statements);
 
       if (updated === 1) return;
     }

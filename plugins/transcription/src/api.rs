@@ -29,8 +29,30 @@ pub struct CaptureSnapshot {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct LiveTranscriptTarget {
+    pub transcript_id: String,
+    pub owner_user_id: String,
+    pub created_at: String,
+    pub started_at_ms: i64,
+    pub memo: String,
+    pub provider: Option<String>,
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct LiveTranscriptPersistence {
+    pub session_id: String,
+    pub transcript_id: String,
+    pub transcript_created: bool,
+    pub persisted_through_ms: Option<i64>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct CaptureParams {
     pub session_id: String,
+    #[serde(default)]
+    pub live_transcript: Option<LiveTranscriptTarget>,
     #[serde(default)]
     pub retain_audio: Option<bool>,
     pub languages: Vec<anlg_language::Language>,
@@ -135,6 +157,11 @@ pub enum CaptureDataEvent {
         session_id: String,
         delta: Box<listener::LiveTranscriptSegmentDelta>,
     },
+}
+
+#[derive(serde::Serialize, Clone, specta::Type, tauri_specta::Event)]
+pub struct LiveTranscriptPersistenceEvent {
+    pub status: LiveTranscriptPersistence,
 }
 
 pub type TranscriptionErrorCode = listener2::BatchErrorCode;
@@ -426,6 +453,7 @@ mod tests {
     fn capture_params(transcription_mode: Option<TranscriptionMode>) -> CaptureParams {
         CaptureParams {
             session_id: "session-1".to_string(),
+            live_transcript: None,
             retain_audio: None,
             languages: vec![],
             onboarding: false,

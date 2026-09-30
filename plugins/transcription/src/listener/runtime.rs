@@ -1,5 +1,6 @@
 use anlg_transcription_core::listener::ListenerRuntime;
 use ractor::{ActorRef, call_t, registry};
+use tauri::Manager;
 use tauri_plugin_settings::SettingsPluginExt;
 use tauri_specta::Event;
 
@@ -157,6 +158,18 @@ impl ListenerRuntime for TauriRuntime {
 
     fn emit_data(&self, event: anlg_transcription_core::listener::SessionDataEvent) {
         match &event {
+            anlg_transcription_core::listener::SessionDataEvent::TranscriptDelta {
+                session_id,
+                delta,
+            } => {
+                if (!delta.new_words.is_empty() || !delta.replaced_ids.is_empty())
+                    && let Some(registry) = self
+                        .app
+                        .try_state::<crate::live_journal::LiveJournalRegistry>()
+                {
+                    registry.append(session_id, delta.as_ref().clone());
+                }
+            }
             anlg_transcription_core::listener::SessionDataEvent::TranscriptSegmentDelta {
                 session_id,
                 delta,

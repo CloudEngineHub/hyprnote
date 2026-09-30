@@ -6,6 +6,7 @@ import {
   type RecoveryAudioChunk,
   commands as transcriptionCommands,
   events as transcriptionEvents,
+  type LiveTranscriptTarget,
 } from "@anlg/plugin-transcription";
 import { toast } from "@anlg/ui/components/ui/toast";
 
@@ -20,9 +21,9 @@ import {
 import { useListener } from "./contexts";
 import { discardEmptyAutomaticCapture } from "./empty-automatic-capture";
 import { cancelMeetingRecordingDisclosure } from "./meeting-disclosure";
+import { createNativeTranscriptPersistence } from "./native-transcript-persistence";
 import { persistTranscriptWrite } from "./persist-retry";
 import { consumePrimaryDeviceYield } from "./primary-device";
-import { createTranscriptPersistenceWorker } from "./transcript-persistence-worker";
 import {
   canRunBatchTranscription,
   isStoppedTranscriptionError,
@@ -74,7 +75,6 @@ import {
 } from "~/stt/capture-lifecycle-storage";
 import { requestCaptureRecovery } from "~/stt/capture-recovery-requests";
 import {
-  applyLiveTranscriptDeltaToDatabase,
   appendRecoveredTranscriptWords,
   getTranscriptRecord,
   createLiveTranscript,
@@ -438,36 +438,18 @@ export function useCaptureLifecycle(sessionId: string) {
           }
         }
       };
-      const transcriptPersistence = createTranscriptPersistenceWorker(
-        (delta) =>
-          persistTranscriptWrite(async () => {
-            transcriptCreated ??= await transcriptExists(transcriptId);
-            if (!transcriptCreated) {
-              await createLiveTranscript(
-                {
-                  id: transcriptId,
-                  sessionId,
-                  ownerUserId,
-                  createdAt,
-                  startedAt,
-                  memo: memoMd,
-                  source: "live_capture",
-                  provider,
-                  model,
-                },
-                delta,
-              );
-              transcriptCreated = true;
-            } else {
-              await applyLiveTranscriptDeltaToDatabase(transcriptId, delta);
-            }
-            for (const word of delta.new_words)
-              if (word.state === "final")
-                audioRecovery.persistedThrough(word.end_ms);
-            if (!transcriptPersistence.hasPendingFailure())
-              transcriptWriteError = undefined;
-          }),
-        (error) => {
+      const transcriptPersistence = createNativeTranscriptPersistence({
+        sessionId,
+        transcriptId,
+        onPersisted: (status) => {
+          if (status.transcript_created) transcriptCreated = true;
+          if (status.transcript_created) transcriptTouched = true;
+          if (status.persisted_through_ms != null)
+            audioRecovery.persistedThrough(status.persisted_through_ms);
+          if (!transcriptPersistence.hasPendingFailure())
+            transcriptWriteError = undefined;
+        },
+        onError: (error) => {
           transcriptWriteError = error;
           audioRecovery.persistenceFailed();
           toast.error("Your transcript could not be saved", {
@@ -477,13 +459,11 @@ export function useCaptureLifecycle(sessionId: string) {
           });
           console.error("[listener] failed to persist transcript", error);
         },
-        {
-          afterFlush: () =>
-            persistTranscriptWrite(() =>
-              flushLiveTranscriptDeltasToDatabase(transcriptId),
-            ),
-        },
-      );
+        afterFlush: () =>
+          persistTranscriptWrite(() =>
+            flushLiveTranscriptDeltasToDatabase(transcriptId),
+          ),
+      });
       const earliestStartedAt = Math.min(
         startedAt,
         ...inheritedCaptures.map((capture) => capture.startedAt),
@@ -1330,13 +1310,21 @@ export function useCaptureLifecycle(sessionId: string) {
         }
 
         transcriptTouched = true;
-        transcriptPersistence.enqueue(delta);
       };
 
       return {
         acquireCloudsyncLease,
         deferCloudsync,
         handlePersist,
+        liveTranscript: {
+          transcript_id: transcriptId,
+          owner_user_id: ownerUserId,
+          created_at: createdAt,
+          started_at_ms: startedAt,
+          memo: memoMd,
+          provider: provider ?? null,
+          model: model ?? null,
+        } satisfies LiveTranscriptTarget,
         onStopped,
         recoverStopped,
         ready: Promise.all([

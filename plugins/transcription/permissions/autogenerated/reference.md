@@ -7,6 +7,8 @@ Default permissions for the plugin
 - `allow-list-microphone-devices`
 - `allow-get-current-microphone-device`
 - `allow-start-capture`
+- `allow-flush-live-transcript`
+- `allow-release-live-transcript`
 - `allow-stop-capture`
 - `allow-stop-capture-for-session`
 - `allow-get-mic-muted`
@@ -227,6 +229,32 @@ Enables the extract_voiceprint_candidates command without any pre-configured sco
 <td>
 
 Denies the extract_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-flush-live-transcript`
+
+</td>
+<td>
+
+Enables the flush_live_transcript command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-flush-live-transcript`
+
+</td>
+<td>
+
+Denies the flush_live_transcript command without any pre-configured scope.
 
 </td>
 </tr>
@@ -617,6 +645,32 @@ Enables the promote_voiceprint_candidates command without any pre-configured sco
 <td>
 
 Denies the promote_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-release-live-transcript`
+
+</td>
+<td>
+
+Enables the release_live_transcript command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-release-live-transcript`
+
+</td>
+<td>
+
+Denies the release_live_transcript command without any pre-configured scope.
 
 </td>
 </tr>

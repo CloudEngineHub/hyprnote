@@ -199,6 +199,7 @@ export function useStartListeningState(
           transcription_mode: liveTranscriptionConfig.transcriptionMode,
           participant_human_ids: remoteParticipantHumanIds,
           self_human_id: session?.user_id || null,
+          live_transcript: lifecycle.liveTranscript,
         },
         {
           handlePersist: lifecycle.handlePersist,

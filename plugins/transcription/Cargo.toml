@@ -11,6 +11,7 @@ description = ""
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
+anlg-db-core = { workspace = true }
 rodio = { workspace = true }
 specta-typescript = { workspace = true }
 
@@ -39,6 +40,7 @@ tauri-plugin-tray = { workspace = true }
 
 base64 = { workspace = true }
 chrono = { workspace = true }
+futures-util = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
