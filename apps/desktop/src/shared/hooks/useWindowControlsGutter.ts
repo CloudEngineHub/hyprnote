@@ -31,7 +31,7 @@ export function usesTitleBarSidebarActions() {
   return usesWindowsStyleTitleBar();
 }
 
-export function usesRoundedWindowFrame() {
+function usesRoundedWindowFrame() {
   return getRuntimePlatform() === "linux";
 }
 

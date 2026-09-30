@@ -23,10 +23,3 @@ export function compactControlsWidth(showsExpand: boolean) {
         FLOATING_BAR_COMPACT_ICON_SIZE
     : FLOATING_BAR_COMPACT_SOLO_STOP_WIDTH;
 }
-
-export function compactWidth(showsExpand: boolean) {
-  return (
-    compactControlsWidth(showsExpand) +
-    FLOATING_BAR_COMPACT_HORIZONTAL_PADDING * 2
-  );
-}

@@ -1,6 +1,5 @@
 import type { Transcript } from "@anlg/plugin-template";
 
-export { MIN_TRANSCRIPT_CHARACTERS_FOR_SUMMARY } from "@anlg/utils/summary-eligibility";
 const SHORT_TRANSCRIPT_CHARACTER_LIMIT = 1_200;
 export const MIN_SUMMARY_CHARACTERS = 320;
 const SECTION_GUIDANCE_CHARACTER_STEP = 2_000;
@@ -112,7 +111,7 @@ export function normalizeSummaryLengthMode(value: unknown): SummaryLengthMode {
     : DEFAULT_SUMMARY_LENGTH_MODE;
 }
 
-export function getRelativeLengthDescription(mode: SummaryLengthMode): string {
+function getRelativeLengthDescription(mode: SummaryLengthMode): string {
   if (mode === "crisp") {
     return "about half the length of a balanced summary";
   }

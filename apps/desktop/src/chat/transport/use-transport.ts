@@ -39,7 +39,7 @@ Web search guidance:
 - Do not use web_search for questions that only need local notes, contacts, or calendar events.
 `.trim();
 
-export function appendMeetingContextToolGuidance(
+function appendMeetingContextToolGuidance(
   prompt: string | undefined,
 ): string | undefined {
   if (prompt === undefined) {

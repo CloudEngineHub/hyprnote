@@ -54,10 +54,8 @@ import { listenerStore } from "~/store/zustand/listener/instance";
 import type { RenderLabelContext } from "~/stt/live-segment";
 
 export {
-  getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getFloatingTranscriptBubbles,
-  shouldShowFloatingLiveCaptionToggle,
 } from "./route-state";
 
 export function FloatingMeetingWindowHost() {
