@@ -553,8 +553,8 @@ export function useCaptureLifecycle(sessionId: string) {
                         startedAt: target.startedAt,
                         memo: target.memo,
                         source: "live_capture",
-                        provider: target.provider,
-                        model: target.model,
+                        provider: target.provider ?? undefined,
+                        model: target.model ?? undefined,
                       },
                       { new_words: [], replaced_ids: [], partials: [] },
                     );
@@ -815,7 +815,7 @@ export function useCaptureLifecycle(sessionId: string) {
             automatic,
             preserveExistingAudio: await existingAudioPromise,
             preserveExistingTranscript,
-            initialTitle,
+            initialTitle: initialTitle ?? undefined,
             transcriptTouched,
             transcriptionComplete:
               (!details.requestedLiveTranscription ||

@@ -12,6 +12,12 @@ Default permissions for the plugin
 - `allow-list-stopped-captures`
 - `allow-get-stopped-capture`
 - `allow-acknowledge-stopped-capture`
+- `allow-save-capture-lifecycle-marker`
+- `allow-clear-capture-lifecycle-marker`
+- `allow-get-capture-lifecycle-marker`
+- `allow-list-capture-lifecycle-markers`
+- `allow-mark-capture-audio-saved`
+- `allow-clear-capture-audio-saved`
 - `allow-stop-capture`
 - `allow-stop-capture-for-session`
 - `allow-get-mic-muted`
@@ -187,6 +193,58 @@ Denies the cleanup_expired_voiceprint_candidates command without any pre-configu
 <tr>
 <td>
 
+`transcription:allow-clear-capture-audio-saved`
+
+</td>
+<td>
+
+Enables the clear_capture_audio_saved command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-clear-capture-audio-saved`
+
+</td>
+<td>
+
+Denies the clear_capture_audio_saved command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-clear-capture-lifecycle-marker`
+
+</td>
+<td>
+
+Enables the clear_capture_lifecycle_marker command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-clear-capture-lifecycle-marker`
+
+</td>
+<td>
+
+Denies the clear_capture_lifecycle_marker command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `transcription:allow-delete-transcribed-capture-audio`
 
 </td>
@@ -310,6 +368,32 @@ Enables the get_capture_audio_cleanup_status command without any pre-configured 
 <td>
 
 Denies the get_capture_audio_cleanup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-get-capture-lifecycle-marker`
+
+</td>
+<td>
+
+Enables the get_capture_lifecycle_marker command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-capture-lifecycle-marker`
+
+</td>
+<td>
+
+Denies the get_capture_lifecycle_marker command without any pre-configured scope.
 
 </td>
 </tr>
@@ -551,6 +635,32 @@ Denies the list_capture_audio_chunks command without any pre-configured scope.
 <tr>
 <td>
 
+`transcription:allow-list-capture-lifecycle-markers`
+
+</td>
+<td>
+
+Enables the list_capture_lifecycle_markers command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-list-capture-lifecycle-markers`
+
+</td>
+<td>
+
+Denies the list_capture_lifecycle_markers command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `transcription:allow-list-documented-language-codes-batch`
 
 </td>
@@ -681,6 +791,32 @@ Denies the list_transcription_sessions command without any pre-configured scope.
 <tr>
 <td>
 
+`transcription:allow-mark-capture-audio-saved`
+
+</td>
+<td>
+
+Enables the mark_capture_audio_saved command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-mark-capture-audio-saved`
+
+</td>
+<td>
+
+Denies the mark_capture_audio_saved command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `transcription:allow-parse-subtitle`
 
 </td>
@@ -778,6 +914,32 @@ Enables the render_transcript_segments command without any pre-configured scope.
 <td>
 
 Denies the render_transcript_segments command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-save-capture-lifecycle-marker`
+
+</td>
+<td>
+
+Enables the save_capture_lifecycle_marker command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-save-capture-lifecycle-marker`
+
+</td>
+<td>
+
+Denies the save_capture_lifecycle_marker command without any pre-configured scope.
 
 </td>
 </tr>

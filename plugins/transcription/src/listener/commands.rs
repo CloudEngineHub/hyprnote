@@ -227,6 +227,79 @@ pub async fn acknowledge_stopped_capture<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn save_capture_lifecycle_marker<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    marker: crate::CaptureLifecycleMarker,
+    replace_transcript_id: Option<String>,
+) -> Result<(), String> {
+    let value_json = crate::capture_markers::serialize_marker(&marker)?;
+    let replace_transcript_id =
+        replace_transcript_id.unwrap_or_else(|| marker.transcript_id.clone());
+    if !crate::capture_markers::save_marker(
+        &app,
+        &marker.session_id,
+        &value_json,
+        &replace_transcript_id,
+    )
+    .await?
+    {
+        return Err("capture lifecycle marker belongs to a different capture".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn clear_capture_lifecycle_marker<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+    transcript_id: String,
+) -> Result<(), String> {
+    if !crate::capture_markers::clear_marker(&app, &session_id, &transcript_id).await? {
+        return Err(
+            "capture lifecycle marker was not found or belongs to a different capture".to_string(),
+        );
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_capture_lifecycle_marker<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<Option<crate::CaptureLifecycleMarker>, String> {
+    crate::capture_markers::get_marker(&app, &session_id).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_capture_lifecycle_markers<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<crate::CaptureLifecycleMarker>, String> {
+    crate::capture_markers::list_markers(&app).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_capture_audio_saved<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<(), String> {
+    crate::capture_markers::mark_audio_saved(&app, &session_id).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn clear_capture_audio_saved<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<(), String> {
+    crate::capture_markers::clear_audio_saved(&app, &session_id).await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn stop_capture<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
     use crate::Listener2PluginExt;
     if let Ok(snapshot) = app.listener().get_capture_snapshot().await

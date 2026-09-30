@@ -2,6 +2,7 @@
 
 mod calendar_ops;
 mod calendar_types;
+mod capture_lifecycle_ops;
 mod cloudsync;
 mod e2ee;
 mod event_ops;
@@ -20,6 +21,7 @@ mod webhook_types;
 
 pub use calendar_ops::*;
 pub use calendar_types::*;
+pub use capture_lifecycle_ops::*;
 pub use cloudsync::*;
 pub use e2ee::*;
 pub use event_ops::*;

@@ -8,6 +8,7 @@ use tokio::task::AbortHandle;
 use tokio_util::sync::CancellationToken;
 
 mod api;
+mod capture_markers;
 mod error;
 mod listener;
 mod listener2;
@@ -25,6 +26,7 @@ pub use anlg_transcription_core::listener2::{
     parse_subtitle_from_path, suggest_providers_for_languages_batch,
 };
 pub use api::*;
+pub use capture_markers::{CaptureLifecycleMarker, CapturePhase, InheritedCapture, SummaryMode};
 pub use error::{Error, Result};
 pub use listener::{Listener, ListenerPluginExt};
 pub use listener2::{Listener2, Listener2PluginExt};
@@ -142,6 +144,12 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::list_stopped_captures::<tauri::Wry>,
             listener::commands::get_stopped_capture::<tauri::Wry>,
             listener::commands::acknowledge_stopped_capture::<tauri::Wry>,
+            listener::commands::save_capture_lifecycle_marker::<tauri::Wry>,
+            listener::commands::clear_capture_lifecycle_marker::<tauri::Wry>,
+            listener::commands::get_capture_lifecycle_marker::<tauri::Wry>,
+            listener::commands::list_capture_lifecycle_markers::<tauri::Wry>,
+            listener::commands::mark_capture_audio_saved::<tauri::Wry>,
+            listener::commands::clear_capture_audio_saved::<tauri::Wry>,
             listener::commands::stop_capture::<tauri::Wry>,
             listener::commands::stop_capture_for_session::<tauri::Wry>,
             listener::commands::update_capture_config::<tauri::Wry>,

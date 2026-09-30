@@ -86,6 +86,54 @@ async acknowledgeStoppedCapture(sessionId: string, stoppedAtMs: number) : Promis
     else return { status: "error", error: e  as any };
 }
 },
+async saveCaptureLifecycleMarker(marker: CaptureLifecycleMarker, replaceTranscriptId: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|save_capture_lifecycle_marker", { marker, replaceTranscriptId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async clearCaptureLifecycleMarker(sessionId: string, transcriptId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|clear_capture_lifecycle_marker", { sessionId, transcriptId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getCaptureLifecycleMarker(sessionId: string) : Promise<Result<CaptureLifecycleMarker | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|get_capture_lifecycle_marker", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listCaptureLifecycleMarkers() : Promise<Result<CaptureLifecycleMarker[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|list_capture_lifecycle_markers") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async markCaptureAudioSaved(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|mark_capture_audio_saved", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async clearCaptureAudioSaved(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|clear_capture_audio_saved", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async stopCapture() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|stop_capture") };
@@ -347,7 +395,9 @@ export type BatchWord = { word: string; start: number; end: number; confidence: 
 export type CaptureConfigUpdate = { session_id: string; languages: string[]; participant_human_ids?: string[]; self_human_id?: string | null; speaker_assignments?: IdentityAssignment[] }
 export type CaptureDataEvent = { type: "audio_amplitude"; session_id: string; mic: number; speaker: number } | { type: "mic_muted"; session_id: string; value: boolean } | { type: "mic_isolated"; session_id: string; value: boolean } | { type: "mic_dropouts"; session_id: string; ratio: number } | { type: "transcript_delta"; session_id: string; delta: LiveTranscriptDelta } | { type: "transcript_segment_delta"; session_id: string; delta: LiveTranscriptSegmentDelta }
 export type CaptureLifecycleEvent = { type: "started"; session_id: string; requested_live_transcription: boolean; live_transcription_active: boolean; degraded: DegradedError | null } | { type: "finalizing"; session_id: string } | { type: "stopped"; session_id: string; stopped_at_ms: number; chunked_audio?: boolean; audio_path: string | null; requested_live_transcription: boolean; live_transcription_active: boolean; error: string | null }
+export type CaptureLifecycleMarker = { version: number; chunkedAudio?: boolean | null; retainAudio?: boolean | null; phase?: CapturePhase | null; sessionId: string; transcriptId: string; startedAt: number; createdAt: string; audioOffsetMs: number; preserveExistingTranscript: boolean; automatic?: boolean | null; preserveExistingAudio?: boolean | null; initialTitle?: string | null; ownerUserId: string; memo: string; provider?: string | null; model?: string | null; summaryMode?: SummaryMode | null; refreshSummaryAfterRepair?: boolean | null; inheritedCaptures?: InheritedCapture[] | null; inheritedOnly?: boolean | null }
 export type CaptureParams = { session_id: string; live_transcript?: LiveTranscriptTarget | null; retain_audio?: boolean | null; languages: string[]; onboarding: boolean; model: string; base_url: string; api_key: string; keywords: string[]; mic_device?: string | null; transcription_mode?: TranscriptionMode | null; participant_human_ids?: string[]; self_human_id?: string | null }
+export type CapturePhase = "capturing" | "finalizing"
 export type CaptureSnapshot = { state: CaptureState; activeSessionId: string | null; finalizingSessionIds: string[]; requestedLiveTranscription: boolean | null; liveTranscriptionActive: boolean | null; liveSegmentsSessionId?: string | null; liveSegments?: LiveTranscriptSegment[] | null; startedAtMs?: number | null; micMuted?: boolean | null; degraded?: DegradedError | null }
 export type CaptureState = "active" | "finalizing" | "inactive"
 export type CaptureStatusEvent = { type: "audio_initializing"; session_id: string } | { type: "audio_ready"; session_id: string; device: string | null } | { type: "connecting"; session_id: string } | { type: "connected"; session_id: string; adapter: string } | { type: "audio_error"; session_id: string; error: string; device: string | null; is_fatal: boolean } | { type: "connection_error"; session_id: string; error: string }
@@ -357,6 +407,7 @@ export type DegradedError = { type: "authentication_failed"; provider: string } 
 export type FinalizedWord = { id: string; text: string; start_ms: number; end_ms: number; channel: number; state: WordState; speaker_index?: number | null }
 export type IdentityAssignment = { human_id: string; scope: IdentityScope }
 export type IdentityScope = { kind: "channel"; channel: ChannelProfile } | { kind: "channel_speaker"; channel: ChannelProfile; speaker_index: number } | { kind: "words"; word_ids: string[] }
+export type InheritedCapture = { transcriptId: string; startedAt: number; createdAt: string; ownerUserId: string; memo: string; retainAudio?: boolean | null; provider?: string | null; model?: string | null }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type LiveTranscriptDelta = { new_words: FinalizedWord[]; replaced_ids: string[]; partials: PartialWord[] }
 export type LiveTranscriptPersistence = { session_id: string; transcript_id: string; transcript_created: boolean; persisted_through_ms: number | null; error: string | null }
@@ -386,6 +437,7 @@ export type StreamModelInfo = { name: string; version: string; arch: string }
 export type StreamResponse = { type: "Results"; start: number; duration: number; is_final: boolean; speech_final: boolean; from_finalize: boolean; channel: StreamChannel; metadata: StreamMetadata; channel_index: number[] } | { type: "Metadata"; request_id: string; created: string; duration: number; channels: number } | { type: "SpeechStarted"; channel: number[]; timestamp: number } | { type: "UtteranceEnd"; channel: number[]; last_word_end: number } | { type: "Error"; error_code: number | null; error_message: string; provider: string }
 export type StreamWord = { word: string; start: number; end: number; confidence: number; speaker: number | null; punctuated_word: string | null; language: string | null }
 export type Subtitle = { tokens: Token[] }
+export type SummaryMode = "regenerate" | "if_empty" | "refresh"
 export type Token = { text: string; start_time: number; end_time: number; speaker: string | null }
 export type TranscriptionEvent = { type: "started"; session_id: string } | { type: "progress"; session_id: string; event: BatchStreamEvent } | { type: "completed"; session_id: string; response: BatchResponse; mode: BatchRunMode } | { type: "stopped"; session_id: string } | { type: "failed"; session_id: string; code: BatchErrorCode; error: string }
 export type TranscriptionMode = "live" | "batch"
@@ -394,7 +446,7 @@ export type TranscriptionSession = { session_id: string; file_path: string; prov
 export type VttWord = { text: string; start_ms: number; end_ms: number; speaker: string | null }
 /**
  * Whether a finalized word is stable or awaiting correction.
- * 
+ *
  * A word is `Pending` when it has been confirmed by the STT model but a
  * correction source (cloud STT fallback, LLM postprocessor, etc.) is still
  * processing it. The word has an ID and is persisted, but its text may be
