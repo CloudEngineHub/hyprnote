@@ -5,7 +5,7 @@ mod ignored;
 mod inventory;
 mod participants;
 mod selection;
-mod transaction_utils;
+pub(crate) mod transaction_utils;
 
 pub use connection::{TombstoneCalendarConnectionRequest, tombstone_calendar_connection};
 pub use connection_sync::{SyncCalendarConnectionEventsRequest, sync_calendar_connection_events};

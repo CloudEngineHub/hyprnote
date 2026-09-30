@@ -16,6 +16,18 @@ Default permissions for the plugin
 - `allow-set-calendar-enabled`
 - `allow-sync-calendar-connection-events`
 - `allow-update-ignored-calendar-item`
+- `allow-create-human`
+- `allow-create-organization`
+- `allow-save-personal-contact`
+- `allow-update-human`
+- `allow-update-organization`
+- `allow-soft-delete-contact`
+- `allow-update-contact-avatar`
+- `allow-update-human-contact-summary`
+- `allow-toggle-contact-pin`
+- `allow-reorder-pinned-contacts`
+- `allow-merge-humans`
+- `allow-apply-contact-enhancement`
 
 ## Permission Table
 
@@ -48,6 +60,32 @@ Enables the apply_calendar_inventory command without any pre-configured scope.
 <td>
 
 Denies the apply_calendar_inventory command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-apply-contact-enhancement`
+
+</td>
+<td>
+
+Enables the apply_contact_enhancement command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-apply-contact-enhancement`
+
+</td>
+<td>
+
+Denies the apply_contact_enhancement command without any pre-configured scope.
 
 </td>
 </tr>
@@ -100,6 +138,58 @@ Enables the create_event command without any pre-configured scope.
 <td>
 
 Denies the create_event command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-create-human`
+
+</td>
+<td>
+
+Enables the create_human command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-create-human`
+
+</td>
+<td>
+
+Denies the create_human command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-create-organization`
+
+</td>
+<td>
+
+Enables the create_organization command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-create-organization`
+
+</td>
+<td>
+
+Denies the create_organization command without any pre-configured scope.
 
 </td>
 </tr>
@@ -211,6 +301,32 @@ Denies the list_events command without any pre-configured scope.
 <tr>
 <td>
 
+`calendar:allow-merge-humans`
+
+</td>
+<td>
+
+Enables the merge_humans command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-merge-humans`
+
+</td>
+<td>
+
+Denies the merge_humans command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `calendar:allow-open-calendar`
 
 </td>
@@ -230,6 +346,58 @@ Enables the open_calendar command without any pre-configured scope.
 <td>
 
 Denies the open_calendar command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-reorder-pinned-contacts`
+
+</td>
+<td>
+
+Enables the reorder_pinned_contacts command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-reorder-pinned-contacts`
+
+</td>
+<td>
+
+Denies the reorder_pinned_contacts command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-save-personal-contact`
+
+</td>
+<td>
+
+Enables the save_personal_contact command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-save-personal-contact`
+
+</td>
+<td>
+
+Denies the save_personal_contact command without any pre-configured scope.
 
 </td>
 </tr>
@@ -263,6 +431,32 @@ Denies the set_calendar_enabled command without any pre-configured scope.
 <tr>
 <td>
 
+`calendar:allow-soft-delete-contact`
+
+</td>
+<td>
+
+Enables the soft_delete_contact command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-soft-delete-contact`
+
+</td>
+<td>
+
+Denies the soft_delete_contact command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `calendar:allow-sync-calendar-connection-events`
 
 </td>
@@ -282,6 +476,32 @@ Enables the sync_calendar_connection_events command without any pre-configured s
 <td>
 
 Denies the sync_calendar_connection_events command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-toggle-contact-pin`
+
+</td>
+<td>
+
+Enables the toggle_contact_pin command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-toggle-contact-pin`
+
+</td>
+<td>
+
+Denies the toggle_contact_pin command without any pre-configured scope.
 
 </td>
 </tr>
@@ -315,6 +535,84 @@ Denies the tombstone_calendar_connection command without any pre-configured scop
 <tr>
 <td>
 
+`calendar:allow-update-contact-avatar`
+
+</td>
+<td>
+
+Enables the update_contact_avatar command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-update-contact-avatar`
+
+</td>
+<td>
+
+Denies the update_contact_avatar command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-update-human`
+
+</td>
+<td>
+
+Enables the update_human command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-update-human`
+
+</td>
+<td>
+
+Denies the update_human command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-update-human-contact-summary`
+
+</td>
+<td>
+
+Enables the update_human_contact_summary command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-update-human-contact-summary`
+
+</td>
+<td>
+
+Denies the update_human_contact_summary command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `calendar:allow-update-ignored-calendar-item`
 
 </td>
@@ -334,6 +632,32 @@ Enables the update_ignored_calendar_item command without any pre-configured scop
 <td>
 
 Denies the update_ignored_calendar_item command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-update-organization`
+
+</td>
+<td>
+
+Enables the update_organization command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-update-organization`
+
+</td>
+<td>
+
+Denies the update_organization command without any pre-configured scope.
 
 </td>
 </tr>
