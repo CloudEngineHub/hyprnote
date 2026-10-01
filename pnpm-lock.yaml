@@ -207,6 +207,9 @@ importers:
       '@anlg/plugin-todo':
         specifier: workspace:*
         version: link:../../plugins/todo
+      '@anlg/plugin-tracing':
+        specifier: workspace:*
+        version: link:../../plugins/tracing
       '@anlg/plugin-transcription':
         specifier: workspace:*
         version: link:../../plugins/transcription
