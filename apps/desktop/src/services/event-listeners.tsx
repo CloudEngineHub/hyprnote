@@ -10,6 +10,7 @@ import {
   events as updaterEvents,
 } from "@anlg/plugin-updater2";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { getCalendarEventStartedAt } from "~/calendar/queries";
 import { liveQueryClient } from "~/db";
@@ -18,7 +19,6 @@ import { setSettingValue } from "~/settings/queries";
 import { isAppStoreBuild } from "~/shared/app-store";
 import { useConfigValue, useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import {

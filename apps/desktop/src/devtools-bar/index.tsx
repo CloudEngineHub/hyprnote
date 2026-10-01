@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import {
@@ -41,7 +42,6 @@ import {
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { commands } from "~/types/tauri.gen";
 
 type BuildChannel = "dev" | "staging" | "nightly" | "stable";

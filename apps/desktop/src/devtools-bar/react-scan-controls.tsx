@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import {
   setReactInspecting,
   setReactOutlinesEnabled,
@@ -8,8 +10,6 @@ import {
 } from "./react-tools";
 import { setRenderOutlinesEnabled } from "./render-tracker";
 import { ScanPanel } from "./scan-panel";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function ReactScanControls() {
   const state = useReactToolsState();
