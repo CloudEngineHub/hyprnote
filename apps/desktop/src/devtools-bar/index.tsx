@@ -108,7 +108,6 @@ export function DevtoolsStatusBar(props: Record<never, never>) {
 
 function DevtoolsStatusBarContent(props: Record<never, never>) {
   ignoreRenderTracking(props);
-  useMountEffect(() => startDevtoolsMetrics());
 
   const build = useBuildInfo();
   const { dialogs, run } = useDevtoolsActions();
@@ -227,9 +226,9 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
 
 function readCollapsed(): boolean {
   try {
-    return localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
+    return localStorage.getItem(COLLAPSED_STORAGE_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -275,6 +274,8 @@ function PlanBadge() {
 // Isolated so the once-per-second metrics tick only re-renders the metrics,
 // not the menu and dialogs above.
 function LiveMetrics() {
+  useMountEffect(() => startDevtoolsMetrics());
+
   const metrics = useDevtoolsMetrics();
   const [, refresh] = useReducer((tick: number) => tick + 1, 0);
 
