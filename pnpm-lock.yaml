@@ -1415,12 +1415,6 @@ importers:
         specifier: ^2.10.1
         version: 2.10.1
 
-  plugins/git:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
-
   plugins/hooks:
     dependencies:
       '@tauri-apps/api':
@@ -1524,12 +1518,6 @@ importers:
         version: 2.10.1
 
   plugins/relay: {}
-
-  plugins/screen:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
 
   plugins/session:
     dependencies:
