@@ -60,6 +60,7 @@ import {
   flushLiveTranscriptDeltasToDatabase,
   getSessionParticipantHumanIds,
   getSessionTranscriptRecords,
+  getTranscriptHumans,
   mergeTranscriptSegments,
   removeHumanSpeakerAssignments,
   splitTranscriptSpeaker,
@@ -327,6 +328,23 @@ describe("transcript SQLite queries", () => {
     expect(mocks.execute).toHaveBeenCalledWith(
       expect.stringContaining("source <> 'excluded'"),
       ["session-1"],
+    );
+  });
+
+  it("returns no named humans without querying when there are no ids", async () => {
+    await expect(getTranscriptHumans([])).resolves.toEqual([]);
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+
+  it("loads named humans with unique sorted ids", async () => {
+    mocks.execute.mockResolvedValueOnce([{ id: "human-1", name: "Alice" }]);
+
+    await expect(
+      getTranscriptHumans(["human-2", "human-1", "human-2", ""]),
+    ).resolves.toEqual([{ human_id: "human-1", name: "Alice" }]);
+    expect(mocks.execute).toHaveBeenCalledWith(
+      expect.stringContaining("WHERE id IN (?, ?)"),
+      ["human-1", "human-2"],
     );
   });
 
