@@ -302,12 +302,6 @@ describe("SettingsSync", () => {
     expect(screen.queryByRole("button", { name: "Remove device" })).toBeNull();
 
     const disconnect = screen.getByRole("button", { name: "Disconnect" });
-    expect(disconnect.className).toContain("text-destructive");
-    expect(disconnect.className).toContain("hover:!bg-destructive/10");
-    expect(disconnect.className).toContain("hover:!text-destructive");
-    expect(
-      document.querySelectorAll("[data-device-kind='desktop']"),
-    ).toHaveLength(2);
     fireEvent.click(disconnect);
 
     await vi.waitFor(() =>

@@ -41,6 +41,7 @@ import { toast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { E2eeSetupDialog } from "../general/e2ee-setup";
+import { resolveDeviceKind } from "./device-kind";
 import { SyncHealthSection } from "./health";
 
 import { trackAnalyticsEvent } from "~/analytics";
@@ -59,7 +60,6 @@ import {
   removeSyncDevice,
   renameSyncDevice,
   requestSyncDevices,
-  type SyncDeviceKind,
 } from "~/auth/sync-devices";
 import { captureOperationalError } from "~/error-reporting";
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -218,20 +218,18 @@ const DEVICE_KIND_ICONS = {
   watch: Watch,
 } as const;
 
-function resolveDeviceKind(kind: unknown): SyncDeviceKind {
-  if (kind === "mobile" || kind === "watch") {
-    return kind;
-  }
-  return "desktop";
-}
-
-function DeviceKindIcon({ kind }: { kind?: string | null }) {
-  const resolved = resolveDeviceKind(kind);
+function DeviceKindIcon({
+  kind,
+  name,
+}: {
+  kind?: string | null;
+  name: string | null;
+}) {
+  const resolved = resolveDeviceKind(kind, name);
   const Icon = DEVICE_KIND_ICONS[resolved];
   return (
     <Icon
       aria-hidden="true"
-      data-device-kind={resolved}
       className="text-muted-foreground size-4 shrink-0"
     />
   );
@@ -1071,7 +1069,10 @@ export function SettingsSync() {
                 key={device.deviceFingerprint}
                 className="flex items-center gap-3 px-4 py-3"
               >
-                <DeviceKindIcon kind={device.deviceKind} />
+                <DeviceKindIcon
+                  kind={device.deviceKind}
+                  name={device.deviceName}
+                />
                 <div className="min-w-0 flex-1">
                   <DeviceTitle
                     name={device.deviceName}
@@ -1131,7 +1132,10 @@ export function SettingsSync() {
                 key={device.requestId}
                 className="flex items-center gap-3 px-4 py-3"
               >
-                <DeviceKindIcon kind={device.deviceKind} />
+                <DeviceKindIcon
+                  kind={device.deviceKind}
+                  name={device.deviceName}
+                />
                 <div className="min-w-0 flex-1">
                   <DeviceTitle
                     name={device.deviceName}
