@@ -374,7 +374,6 @@ function getTranscriptHumansQuery(humanIds: readonly string[]) {
       FROM humans
       WHERE id IN (${placeholders || "NULL"})
         AND name <> ''
-        AND deleted_at IS NULL
       ORDER BY id
     `,
   };
