@@ -3838,6 +3838,7 @@ msgstr ""
 msgid "Not available"
 msgstr ""
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/crm/index.tsx
 msgid "Not connected"
 msgstr ""
@@ -4808,6 +4809,7 @@ msgstr ""
 msgid "Save visible chat from supported meetings using Accessibility."
 msgstr ""
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Saved"
 msgstr ""

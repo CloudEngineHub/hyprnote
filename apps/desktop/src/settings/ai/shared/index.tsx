@@ -9,6 +9,7 @@ import {
   ProviderCredentialError,
   providerCredentialIdentity,
   verifyProviderCredentials,
+  usesDeferredProviderAuthentication,
 } from "@anlg/provider-validation";
 import type { AIProvider } from "@anlg/store";
 import { aiProviderSchema } from "@anlg/store";
@@ -129,19 +130,22 @@ export function ProviderBrandImage({
   src,
   alt,
   className,
+  preserveColor = false,
 }: {
   src: string;
   alt: string;
   className?: string;
+  preserveColor?: boolean;
 }) {
   return (
     <img
       src={staticAssetUrl(src)}
       onError={fallbackToLocalAsset(src)}
       alt={alt}
-      data-slot="provider-brand-icon"
+      data-slot={preserveColor ? "provider-color-icon" : "provider-brand-icon"}
       className={cn([
-        "object-contain object-center [filter:var(--provider-brand-filter)]",
+        "object-contain object-center",
+        !preserveColor && "[filter:var(--provider-brand-filter)]",
         className,
       ])}
     />
@@ -559,6 +563,12 @@ export function NonAnarlogProviderCard({
         ])}
       >
         {providerContext}
+        {hasStoredConfig &&
+          usesDeferredProviderAuthentication(providerType, config.id) && (
+            <p className="text-muted-foreground mb-3 text-xs">
+              <Trans>Saved</Trans> · <Trans>Not connected</Trans>
+            </p>
+          )}
 
         {isSubscription ? (
           <div className="mb-3 flex items-center gap-2">

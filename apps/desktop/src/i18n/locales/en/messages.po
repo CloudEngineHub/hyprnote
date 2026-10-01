@@ -3838,6 +3838,7 @@ msgstr "No upcoming bots."
 msgid "Not available"
 msgstr "Not available"
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/crm/index.tsx
 msgid "Not connected"
 msgstr "Not connected"
@@ -4808,6 +4809,7 @@ msgstr "Save to Google Drive"
 msgid "Save visible chat from supported meetings using Accessibility."
 msgstr "Save visible chat from supported meetings using Accessibility."
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Saved"
 msgstr "Saved"
