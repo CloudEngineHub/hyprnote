@@ -54,6 +54,7 @@ import {
   useSetAiProvider,
 } from "~/settings/providers";
 import { setSettingValues } from "~/settings/queries";
+import { staticAssetUrl, fallbackToLocalAsset } from "~/shared/static-assets";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
 export * from "./model-combobox";
@@ -84,7 +85,8 @@ const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
 export function AnarlogProviderIcon() {
   return (
     <img
-      src={ANARLOG_ICON_SRC}
+      src={staticAssetUrl(ANARLOG_ICON_SRC)}
+      onError={fallbackToLocalAsset(ANARLOG_ICON_SRC)}
       alt="Anarlog"
       data-slot="provider-logo"
       className="size-full object-contain object-center"
@@ -134,7 +136,8 @@ export function ProviderBrandImage({
 }) {
   return (
     <img
-      src={src}
+      src={staticAssetUrl(src)}
+      onError={fallbackToLocalAsset(src)}
       alt={alt}
       data-slot="provider-brand-icon"
       className={cn([
