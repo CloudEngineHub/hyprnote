@@ -110,7 +110,6 @@ async function transformArgs(
   const policyResult = await templateCommands.summaryLengthPolicy({
     transcript_texts: transcriptTexts,
     mode: summaryLength,
-    custom_format: Boolean(formatOverride.trim()) || templateSectionCount > 0,
     template_section_count: templateSectionCount,
   });
   if (policyResult.status === "error") {
