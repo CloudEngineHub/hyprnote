@@ -14,6 +14,14 @@ async summaryLengthPolicy(request: SummaryLengthPolicyRequest) : Promise<Result<
     else return { status: "error", error: e  as any };
 }
 },
+async dominantLanguage(request: DominantLanguageRequest) : Promise<Result<string | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:template|dominant_language", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async prepareGeneratedSummary(request: PrepareGeneratedSummaryRequest) : Promise<Result<PreparedGeneratedSummary | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:template|prepare_generated_summary", { request }) };
@@ -100,6 +108,7 @@ export type DailySummaryAppStat = { appName: string; count: number }
 export type DailySummaryStats = { signalCount: number; screenshotCount: number; analysisCount: number; uniqueAppCount: number; firstSignal: string | null; lastSignal: string | null }
 export type DailySummarySystem = { language: string | null }
 export type DailySummaryUser = { date: string; timezone: string | null; stats: DailySummaryStats; topApps: DailySummaryAppStat[]; analyses: DailySummaryAnalysis[]; totalAnalysisCount: number; existingSummary: string | null }
+export type DominantLanguageRequest = { texts: string[]; candidates: string[] }
 export type EditableTemplate = "enhanceFormat" | "enhanceUser" | "titleUser"
 export type EnhanceSystem = { language: string | null; formatOverride: string }
 export type EnhanceTemplate = { title: string; description: string | null; sections: TemplateSection[] }
