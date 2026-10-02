@@ -408,7 +408,7 @@ async fn confirmed_prefix_retry_sends_the_tail_without_recording_a_sync_failure(
             state.last_error.clone(),
             state.consecutive_failures,
             state.last_sync_at_ms,
-            state.activity_log.back().unwrap().status,
+            state.last_logged_activity,
         )
     };
     assert!(last_error.is_none(), "{last_error:?}");
@@ -416,7 +416,7 @@ async fn confirmed_prefix_retry_sends_the_tail_without_recording_a_sync_failure(
     assert!(settled_at.is_none());
     assert_eq!(
         activity,
-        crate::cloudsync::CloudsyncActivityStatus::Progress
+        Some(crate::cloudsync::types::CloudsyncActivityStatus::Progress)
     );
     let tail = guarded_interruptible_network_send_changes(
         &mut connection,
