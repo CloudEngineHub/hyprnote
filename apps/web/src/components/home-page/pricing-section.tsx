@@ -141,7 +141,7 @@ function getPlanActionLabel(plan: MarketingPlanData) {
     case "free":
       return "Download for free";
     case "pro":
-      return "Start your 3-week Pro trial";
+      return "Start your 2-week Pro trial";
     case "team":
       return "Create a Team workspace";
     case "enterprise":

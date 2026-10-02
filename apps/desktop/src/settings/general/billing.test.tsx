@@ -178,6 +178,8 @@ describe("SettingsBilling", () => {
       mocks.getWorkspaceAccess.mockResolvedValue({
         tier: "team",
         capabilities: ["team.shared_notes"],
+        seatLimit: 5,
+        usedSeats: 2,
       });
 
       renderBilling();
@@ -191,6 +193,7 @@ describe("SettingsBilling", () => {
         screen.queryByRole("button", { name: "Manage billing" }),
       ).toBeNull();
       expect(screen.getAllByText("Current")).toHaveLength(1);
+      expect(await screen.findByText("2 of 5 used")).toBeTruthy();
     },
   );
 
@@ -354,7 +357,7 @@ describe("SettingsBilling", () => {
     expect(screen.queryByRole("button", { name: /Current/ })).toBeNull();
   });
 
-  it("shows trial and team seat usage in plan limits", async () => {
+  it("preserves existing trial days beyond the new trial duration in plan limits", async () => {
     mocks.billing = {
       canStartTrial: { data: false, isPending: false },
       hasPaymentMethod: true,
@@ -362,31 +365,16 @@ describe("SettingsBilling", () => {
       isTrialing: true,
       isPaused: false,
       plan: "trial",
-      trialDaysRemaining: 3,
+      trialDaysRemaining: 18,
       trialEnd: new Date("2025-10-01T00:00:00Z"),
     };
-    mocks.workspaces.data = [
-      {
-        workspaceId: "00000000-0000-4000-8000-000000000001",
-        name: "Acme",
-      },
-    ];
-    mocks.getWorkspaceAccess.mockResolvedValue({
-      tier: "team",
-      capabilities: [],
-      seatLimit: 5,
-      usedSeats: 2,
-    });
 
     renderBilling();
 
-    expect(await screen.findByText("Team seats")).toBeTruthy();
-    expect(screen.getByText("Plan limits")).toBeTruthy();
+    expect(await screen.findByText("Plan limits")).toBeTruthy();
     expect(screen.getByText("Pro trial")).toBeTruthy();
-    expect(screen.getByText("3 days left")).toBeTruthy();
+    expect(screen.getByText("18 days left")).toBeTruthy();
     expect(screen.getByText("Ends Oct 1, 2025")).toBeTruthy();
-    expect(screen.getByText("Acme")).toBeTruthy();
-    expect(screen.getByText("2 of 5 used")).toBeTruthy();
   });
 
   it("shows synced device usage for Pro users", async () => {

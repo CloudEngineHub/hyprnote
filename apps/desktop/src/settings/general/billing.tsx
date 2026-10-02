@@ -14,7 +14,6 @@ import {
   type MarketingPlanTier,
   PlanFeatureList,
   PLAN_TIERS,
-  PRO_TRIAL_DAYS,
   type TierAction,
 } from "@anlg/pricing";
 import { ArrowsClockwise } from "@anlg/ui/components/icons";
@@ -506,10 +505,7 @@ function PlanLimitsSection({
   const rows: ReactNode[] = [];
 
   if (billing.isTrialing && billing.trialDaysRemaining != null) {
-    const remaining = Math.min(
-      Math.max(billing.trialDaysRemaining, 0),
-      PRO_TRIAL_DAYS,
-    );
+    const remaining = Math.max(billing.trialDaysRemaining, 0);
     rows.push(
       <UsageLimitRow
         key="trial"
@@ -522,7 +518,7 @@ function PlanLimitsSection({
           ) : null
         }
         metric={remaining === 1 ? t`1 day left` : t`${remaining} days left`}
-        fraction={remaining / PRO_TRIAL_DAYS}
+        fraction={null}
       />,
     );
   }
