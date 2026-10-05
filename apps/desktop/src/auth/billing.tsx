@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { arch, platform } from "@tauri-apps/plugin-os";
 import {
   type ReactNode,
@@ -32,6 +32,8 @@ import { useAuth } from "./auth-context";
 import { type BillingAccess, BillingContext } from "./billing-context";
 
 import { setSettingValues } from "~/settings/queries";
+import { getWorkspaceAccess, requireTeamContext } from "~/settings/team/client";
+import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 import { useConfigValues } from "~/shared/config";
 import { getUnsupportedDesktopLocalSttRepair } from "~/stt/capabilities";
 
@@ -97,10 +99,35 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const isReady = !claimsQuery.isPending && !claimsQuery.isError;
   const claimsAreCurrent =
     !claimsQuery.isFetching && !claimsQuery.isPlaceholderData;
+  const workspaces = useMyWorkspacesWithMirror();
+  const workspaceAccess = useQueries({
+    // Auth supplies request credentials; scope cached access by user identity.
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queries: (workspaces.data ?? []).map((workspace) => ({
+      queryKey: ["team-access", workspace.workspaceId, auth.session?.user.id],
+      enabled: !!auth.session,
+      queryFn: () =>
+        getWorkspaceAccess(requireTeamContext(auth), workspace.workspaceId),
+      retry: false,
+    })),
+  });
+  const canShowPersonalTrialDialogs =
+    !!auth.session &&
+    isReady &&
+    claimsAreCurrent &&
+    workspaces.isSuccess &&
+    workspaceAccess.every(
+      (query) => query.isSuccess && query.data.tier === "free",
+    );
+  const canUsePersonalTrial =
+    canShowPersonalTrialDialogs &&
+    workspaces.fetchStatus === "idle" &&
+    workspaceAccess.every((query) => query.fetchStatus === "idle");
 
   // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Auth supplies request headers; the user ID is the eligibility identity.
   const canTrialQuery = useQuery({
-    enabled: !!auth?.session && auth?.isFingerprintSettled && !billing.isPaid,
+    enabled:
+      canUsePersonalTrial && auth?.isFingerprintSettled && !billing.isPaid,
     queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],
     queryFn: async () => {
       const headers = auth?.getHeaders();
@@ -121,13 +148,15 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const canStartTrial = useMemo(
     () => ({
-      data: billing.isPaid
-        ? false
-        : (canTrialQuery.data?.canStartTrial ?? false),
+      data:
+        billing.isPaid || !canUsePersonalTrial
+          ? false
+          : (canTrialQuery.data?.canStartTrial ?? false),
       isPending: canTrialQuery.isPending,
     }),
     [
       billing.isPaid,
+      canUsePersonalTrial,
       canTrialQuery.data?.canStartTrial,
       canTrialQuery.isPending,
     ],
@@ -140,6 +169,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       auth?.isFingerprintSettled &&
       isReady &&
       claimsAreCurrent &&
+      canUsePersonalTrial &&
       !billing.isPaid &&
       canTrialQuery.data?.canStartTrial === true,
     queryKey: [auth?.session?.user.id ?? "", "startEligibleTrial"],
@@ -303,7 +333,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const userId = auth?.session?.user.id;
-    if (!userId || !isReady) {
+    if (!userId || !canUsePersonalTrial) {
       return;
     }
 
@@ -378,7 +408,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     billing.hasPaymentMethod,
     hasTrial,
     billing.isPaid,
-    isReady,
+    canUsePersonalTrial,
     canTrialQuery.data?.reason,
     canTrialQuery.isPending,
     trialEligibilityRefreshedUserId,
@@ -400,13 +430,13 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     <BillingContext.Provider value={value}>
       {children}
       <TrialStartedDialog
-        open={trialStartedOpen}
+        open={canShowPersonalTrialDialogs && trialStartedOpen}
         onOpenChange={setTrialStartedOpen}
         trialDaysRemaining={billing.trialDaysRemaining}
         hasPaymentMethod={billing.hasPaymentMethod}
       />
       <TrialPaymentReminderDialog
-        open={trialPaymentReminderOpen}
+        open={canShowPersonalTrialDialogs && trialPaymentReminderOpen}
         onOpenChange={setTrialPaymentReminderOpen}
         daysRemaining={billing.trialDaysRemaining ?? 0}
         onAddPaymentMethod={() => {
@@ -419,7 +449,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         }}
       />
       <TrialEndedDialog
-        open={trialEndedOpen}
+        open={canShowPersonalTrialDialogs && !billing.isPaid && trialEndedOpen}
         onOpenChange={setTrialEndedOpen}
         onUpgrade={() => void openUpgrade("trial_ended")}
       />
