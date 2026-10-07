@@ -31,6 +31,7 @@ test("the webhook route completes once its database recovers", async () => {
       ["new-customer-alert", ["sendNewCustomerAlert"]],
       ["personal-plan-transition", ["scheduleReplacedPersonalPlanCancellation"]],
       ["referral-rewards", ["issueReferralReward"]],
+      ["referral-month-worker", ["recordReferralTrial"]],
       ["subscription-welcome-email", ["sendSubscriptionWelcomeEmail"]],
       ["trial-emails", ["sendTrialEndingEmail"]],
     ]) mock.module("./src/" + path, () => Object.fromEntries(names.map(name => [name, async () => {}])));

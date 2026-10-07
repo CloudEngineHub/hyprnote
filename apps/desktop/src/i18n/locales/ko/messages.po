@@ -261,6 +261,14 @@ msgstr ""
 msgid "Accept workspace ownership?"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Accepted"
+msgstr "수락한 인원"
+
+#: src/settings/referrals.tsx
+msgid "Accepted · Waiting for trial to start"
+msgstr "수락 완료 · 체험 시작 대기"
+
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
 msgstr ""
@@ -507,6 +515,10 @@ msgstr ""
 #: src/contacts/details.tsx
 msgid "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "All 3 invites have been accepted."
+msgstr "초대 3개가 모두 수락되었습니다."
 
 #: src/settings/developers/webhooks.tsx
 msgid "All events"
@@ -831,7 +843,7 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Available"
-msgstr ""
+msgstr "사용 가능"
 
 #: src/settings/stats/insights.tsx
 msgid "Average across the capture days counted above."
@@ -1658,6 +1670,7 @@ msgid "Conversations: {total}"
 msgstr ""
 
 #: src/settings/dictation.tsx
+#: src/settings/referrals.tsx
 msgid "Copied"
 msgstr ""
 
@@ -1683,8 +1696,9 @@ msgstr ""
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
+#: src/settings/referrals.tsx
 msgid "Copy link"
-msgstr ""
+msgstr "링크 복사"
 
 #: src/chat/components/message/normal.tsx
 msgid "Copy message"
@@ -1881,6 +1895,10 @@ msgstr ""
 msgid "Couldn’t check availability. You can still try Save."
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Couldn't copy the invite link. Try again."
+msgstr "초대 링크를 복사하지 못했어요. 다시 시도해 주세요."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't load your badges. Reopen this page to try again."
 msgstr ""
@@ -1900,6 +1918,10 @@ msgstr ""
 #: src/settings/sync/index.tsx
 msgid "Couldn't open device add-ons. Try again."
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Couldn't open sign-in. Try again."
+msgstr "로그인 화면을 열지 못했어요. 다시 시도해 주세요."
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
@@ -2332,6 +2354,10 @@ msgstr ""
 msgid "Email unavailable. Invite link copied instead."
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Email us"
+msgstr "이메일로 문의하기"
+
 #: src/templates/template-icon-picker.tsx
 msgid "Emojis"
 msgstr ""
@@ -2509,6 +2535,10 @@ msgstr ""
 msgid "Exporting..."
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Extended through {end} when this reward was applied."
+msgstr "이 보상 적용 당시 이용 기간이 {end}까지 연장되었습니다."
+
 #: src/onboarding/calendar.tsx
 msgid "Failed to load Google Calendar"
 msgstr ""
@@ -2576,6 +2606,7 @@ msgid "Finish checkout in your browser to unlock more, then return to Anarlog."
 msgstr ""
 
 #: src/settings/general/account.tsx
+#: src/settings/referrals.tsx
 msgid "Finish in your browser, then return to Anarlog."
 msgstr ""
 
@@ -2649,6 +2680,10 @@ msgstr ""
 msgid "Free"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Free months earned"
+msgstr "받은 무료 개월 수"
+
 #: src/templates/template-icon-picker.tsx
 msgid "Frequently used"
 msgstr ""
@@ -2691,6 +2726,10 @@ msgstr ""
 #: src/settings/sync/index.tsx
 msgid "Get more slots"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Get one free month when a friend signs up through your link and starts their free trial. Invite up to 3 friends. Each friend gets 30 days of Pro free."
+msgstr "친구가 내 링크로 가입해 무료 체험을 시작하면 내 이용 기간이 한 달 연장됩니다. 최대 3명까지 초대할 수 있으며, 친구도 Pro를 30일 동안 무료로 이용할 수 있어요."
 
 #: src/session/components/note-input/enhanced/config-error.tsx
 #: src/settings/general/billing.tsx
@@ -2891,6 +2930,10 @@ msgstr ""
 msgid "If Anarlog stays closed, paste the link in the sign-in window."
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "If your friend signed up through your link and started their free trial, but your free month hasn't appeared, email us and we'll help."
+msgstr "친구가 내 링크로 가입하고 무료 체험을 시작했는데도 무료 이용 기간이 추가되지 않았다면 이메일로 문의해 주세요."
+
 #: src/onboarding/index.tsx
 msgid "Import notes and transcripts from the meeting apps you already use."
 msgstr ""
@@ -3014,6 +3057,20 @@ msgstr ""
 msgid "Invite"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Invite {slot}"
+msgstr "초대권 {slot}"
+
+#: src/billing/trial-payment-reminder-dialog.tsx
+#: src/settings/referrals.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "Invite friends"
+msgstr "친구 초대"
+
+#: src/settings/referrals.tsx
+msgid "Invite link copied"
+msgstr "초대 링크를 복사했어요"
+
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Invite people"
@@ -3046,6 +3103,10 @@ msgstr ""
 #: src/settings/team/index.tsx
 msgid "Invited to join"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Invites remaining"
+msgstr "남은 초대 횟수"
 
 #: src/crm/enrich-contact.tsx
 msgid "job title"
@@ -3304,6 +3365,10 @@ msgstr ""
 msgid "Loading teams…"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Loading your account..."
+msgstr "계정을 불러오는 중..."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Loading your badges…"
 msgstr ""
@@ -3311,6 +3376,10 @@ msgstr ""
 #: src/settings/stats/index.tsx
 msgid "Loading your insights…"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Loading your invites..."
+msgstr "초대권을 불러오는 중..."
 
 #: src/changelog/index.tsx
 #: src/contacts/details.tsx
@@ -3557,6 +3626,10 @@ msgstr ""
 msgid "Minimize"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Missing a referral reward?"
+msgstr "리퍼럴 보상을 받지 못하셨나요?"
+
 #: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Model being used"
@@ -3623,6 +3696,10 @@ msgstr ""
 msgid "Name"
 msgstr ""
 
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "Need more time? Refer a friend."
+msgstr "시간이 더 필요하신가요? 친구를 초대하세요."
+
 #: src/settings/automations/workflow-builder.tsx
 msgid "Needs setup"
 msgstr ""
@@ -3653,6 +3730,10 @@ msgstr ""
 msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "New referral invites are available with an active personal Pro trial or paid subscription. Team-only subscriptions aren't eligible."
+msgstr "개인 Pro 체험 또는 유료 구독을 이용 중이면 친구를 초대할 수 있어요. 팀 구독만 이용 중인 계정은 대상이 아니에요."
+
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr ""
@@ -3678,6 +3759,10 @@ msgstr ""
 #: src/calendar/components/event-chip.tsx
 msgid "No"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "No accepted invites yet. Copying your link doesn't count as an accepted invite."
+msgstr "아직 수락한 사람이 없어요. 링크를 복사하는 것만으로는 초대 횟수가 차감되지 않습니다."
 
 #: src/imports/screen.tsx
 #: src/settings/general/notification.tsx
@@ -4133,6 +4218,10 @@ msgstr ""
 msgid "Organization name"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Original offer: {amount} off your subscription after your friend's first payment."
+msgstr "기존 혜택: 친구의 첫 결제 후 내 구독료에서 {amount} 할인."
+
 #: src/session/components/version-history-dialog.tsx
 msgid "Other device's version"
 msgstr ""
@@ -4328,11 +4417,23 @@ msgstr ""
 #: src/settings/automations/index.tsx
 #: src/settings/general/notification.tsx
 msgid "Preview"
-msgstr ""
+msgstr "미리보기"
 
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Previous referral offer · Reward applied"
+msgstr "기존 초대 혜택 · 보상 완료"
+
+#: src/settings/referrals.tsx
+msgid "Previous referral offer · Waiting for first payment"
+msgstr "기존 초대 혜택 · 첫 결제 대기"
+
+#: src/settings/referrals.tsx
+msgid "Previous referrals keep their original reward terms and count toward your 3-invite limit."
+msgstr "기존 초대는 원래 보상 조건이 유지되며, 총 3명의 초대 한도에 포함됩니다."
 
 #: src/settings/team/index.tsx
 msgid "Primary owner"
@@ -4487,6 +4588,14 @@ msgstr ""
 
 #: src/main/windows-title-bar.tsx
 msgid "Redo"
+msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Refer friends, get a month free"
+msgstr "친구를 초대하고 한 달 무료로 이용하세요"
+
+#: src/settings/referrals.tsx
+msgid "Refresh"
 msgstr ""
 
 #: src/settings/general/billing.tsx
@@ -4778,6 +4887,14 @@ msgstr ""
 #: src/settings/developers/api-key-row.tsx
 msgid "Revoke"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Reward applied · 1 free month added"
+msgstr "보상 완료 · 무료 한 달 추가됨"
+
+#: src/settings/referrals.tsx
+msgid "Reward pending · Contact us for help"
+msgstr "보상 대기 · 도움이 필요하면 문의해 주세요"
 
 #: src/settings/dictation-shortcut.tsx
 msgid "Right Command"
@@ -5313,6 +5430,7 @@ msgstr ""
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
+#: src/settings/referrals.tsx
 #: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -5369,6 +5487,10 @@ msgstr ""
 #: src/sidebar/toast/registry.tsx
 msgid "Sign in to get the most out of Anarlog"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Sign in to see your referral invites."
+msgstr "로그인하고 내 초대권을 확인하세요."
 
 #: src/session-sharing/index.tsx
 msgid "Sign in to share"
@@ -5885,6 +6007,10 @@ msgstr ""
 msgid "The link may have expired or its access may have changed."
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "The new referral offer is not available yet. Your previous referrals are shown below."
+msgstr "새 리퍼럴 혜택은 아직 시작되지 않았습니다. 아래에서 기존 초대 내역을 확인하세요."
+
 #: src/shared-notes/index.tsx
 msgid "The note may have been unshared or moved out of a workspace you can access."
 msgstr ""
@@ -6054,6 +6180,10 @@ msgstr ""
 msgid "Trial activated - {trialDays} days of Pro"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Trial started · Applying your free month"
+msgstr "체험 시작 · 무료 한 달 적용 중"
+
 #: src/settings/automations/index.tsx
 #: src/settings/automations/workflow-builder.tsx
 msgid "Trigger"
@@ -6063,6 +6193,7 @@ msgstr ""
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
+#: src/settings/referrals.tsx
 #: src/settings/stats/badge-collection.tsx
 #: src/settings/team/index.tsx
 msgid "Try again"
@@ -6359,6 +6490,10 @@ msgstr ""
 msgid "View Anarlog"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "View billing"
+msgstr "구독 관리"
+
 #: src/contacts/organization-details.tsx
 msgid "View LinkedIn profile"
 msgstr ""
@@ -6398,6 +6533,10 @@ msgstr ""
 #: src/settings/appearance/app-icon.tsx
 msgid "Walnut"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "We couldn't load your invites. Please try again."
+msgstr "초대권을 불러오지 못했어요. 다시 시도해 주세요."
 
 #: src/settings/developers/webhooks.tsx
 msgid "Webhooks"
@@ -6439,6 +6578,10 @@ msgstr ""
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
 msgstr ""
+
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "When they start their free trial, yours gets one more month. Up to 3 friends."
+msgstr "친구가 무료 체험을 시작하면 내 체험이 한 달 더 연장돼요. 최대 3명까지 초대할 수 있어요."
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "When this happens"
@@ -6635,6 +6778,10 @@ msgstr ""
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Your referrals"
+msgstr "내 초대 내역"
+
 #: src/services/enhancer/summary-notification.ts
 msgid "Your summary is ready."
 msgstr ""
@@ -6642,6 +6789,10 @@ msgstr ""
 #: src/store/zustand/listener/general-batch.ts
 msgid "Your transcript is ready."
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Your trial or paid subscription is extended by one month. No payment from your friend is required."
+msgstr "내 체험 또는 유료 구독 기간이 한 달 연장돼요. 친구가 결제할 필요는 없어요."
 
 #: src/settings/stats/insights.tsx
 msgid "Your week at a glance"
