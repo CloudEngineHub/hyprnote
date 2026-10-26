@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 
+use crate::session_content::TitleCorrection;
 use crate::transaction_utils::{js_iso8601_timestamp, rollback_row_count_mismatch};
 use anlg_db_app::{
     GeneratedSummaryBodyUpdate, PendingAutoEnhanceMatch, delete_pending_auto_enhance,
-    update_generated_summary_body, upsert_session_tag, upsert_tag,
+    update_generated_summary_body, update_session_title, upsert_session_tag, upsert_tag,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -28,7 +29,62 @@ pub struct SaveGeneratedSummaryRequest {
     pub current_body_format: String,
     pub next_body: String,
     pub tag_names: Vec<String>,
+    pub title: Option<TitleCorrection>,
     pub pending_auto_enhance: Option<PendingAutoEnhanceGuard>,
+}
+
+fn retitle_summary(
+    body: &str,
+    format: &str,
+    title: &str,
+    previous_title: &str,
+) -> Result<String, String> {
+    if format == "markdown" {
+        let rest = body
+            .strip_prefix("# ")
+            .filter(|text| {
+                let heading = text.lines().next().unwrap_or("").trim();
+                heading.is_empty() || heading == title.trim() || heading == previous_title.trim()
+            })
+            .map(|text| text.split_once('\n').map(|(_, rest)| rest).unwrap_or(""))
+            .unwrap_or(body);
+        return Ok(format!("# {title}\n\n{}", rest.trim_start_matches('\n')));
+    }
+    let mut document: serde_json::Value =
+        serde_json::from_str(body).map_err(|error| error.to_string())?;
+    let content = document
+        .get_mut("content")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or("Invalid summary document")?;
+    let text = if title.is_empty() {
+        vec![]
+    } else {
+        vec![serde_json::json!({"type": "text", "text": title})]
+    };
+    let heading = serde_json::json!({"type": "heading", "attrs": {"level": 1}, "content": text});
+    if content.first().is_some_and(|node| {
+        let text = node_text(node);
+        node["type"] == "heading"
+            && node["attrs"]["level"] == 1
+            && (text.trim().is_empty()
+                || text.trim() == title.trim()
+                || text.trim() == previous_title.trim())
+    }) {
+        content[0] = heading;
+    } else {
+        content.insert(0, heading);
+    }
+    serde_json::to_string(&document).map_err(|error| error.to_string())
+}
+
+fn node_text(node: &serde_json::Value) -> String {
+    if let Some(text) = node.get("text").and_then(serde_json::Value::as_str) {
+        return text.to_owned();
+    }
+    node.get("content")
+        .and_then(serde_json::Value::as_array)
+        .map(|children| children.iter().map(node_text).collect())
+        .unwrap_or_default()
 }
 
 pub async fn save_generated_summary(
@@ -41,8 +97,9 @@ pub async fn save_generated_summary(
         note_id,
         current_body,
         current_body_format,
-        next_body,
+        mut next_body,
         tag_names,
+        title,
         pending_auto_enhance,
     } = request;
 
@@ -72,6 +129,41 @@ pub async fn save_generated_summary(
         .begin_with("BEGIN IMMEDIATE")
         .await
         .map_err(|error| error.to_string())?;
+
+    if let Some(title) = title {
+        let updated = update_session_title(
+            &mut transaction,
+            &session_id,
+            &title.current_title,
+            &title.next_title,
+            &timestamp,
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+        let actual_title: String =
+            sqlx::query_scalar("SELECT title FROM sessions WHERE id = ? AND deleted_at IS NULL")
+                .bind(&session_id)
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(|error| error.to_string())?;
+        next_body = retitle_summary(
+            &next_body,
+            "prosemirror_json",
+            &actual_title,
+            &title.next_title,
+        )?;
+        if updated == 1 {
+            let documents: Vec<(String, String, String)> = sqlx::query_as(
+                "SELECT id, body, body_format FROM session_documents WHERE session_id = ? AND id <> ? AND kind IN ('summary', 'template_output') AND deleted_at IS NULL AND trim(body) <> ''"
+            ).bind(&session_id).bind(&note_id).fetch_all(&mut *transaction).await.map_err(|error| error.to_string())?;
+            for (id, body, format) in documents {
+                let titled = retitle_summary(&body, &format, &actual_title, &title.current_title)?;
+                sqlx::query("UPDATE session_documents SET body = ?, updated_at = ? WHERE id = ? AND body = ? AND body_format = ? AND deleted_at IS NULL")
+                    .bind(titled).bind(&timestamp).bind(id).bind(body).bind(format)
+                    .execute(&mut *transaction).await.map_err(|error| error.to_string())?;
+            }
+        }
+    }
 
     let updated = update_generated_summary_body(
         &mut transaction,
@@ -104,7 +196,7 @@ pub async fn save_generated_summary(
         return Err(rollback_row_count_mismatch(transaction, 1, deleted, 1).await);
     }
 
-    let mut statement_index = 2;
+    let mut statement_index = 3;
     for tag_name in tag_names {
         let tag_rows = upsert_tag(&mut transaction, user_id, &tag_name, &timestamp)
             .await
@@ -184,6 +276,7 @@ mod tests {
             next_body: r#"{"type":"doc","content":[]}"#.to_string(),
             tag_names: tag_names.into_iter().map(str::to_string).collect(),
             pending_auto_enhance: None,
+            title: None,
         }
     }
 
@@ -194,6 +287,63 @@ mod tests {
             .execute(db.pool())
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn generated_title_and_summary_commit_together_or_preserve_a_concurrent_rename() {
+        for existing_title in ["", "Manual title"] {
+            let db = test_db().await;
+            sqlx::query("UPDATE sessions SET title = ? WHERE id = 'session-1'")
+                .bind(existing_title)
+                .execute(db.pool())
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO session_documents (id, session_id, workspace_id, kind, body, body_format) SELECT 'note-2', id, workspace_id, 'summary', '# Old heading\n\nKeep this body', 'markdown' FROM sessions WHERE id = 'session-1'")
+                .execute(db.pool()).await.unwrap();
+            let mut request = request(vec!["launch"]);
+            request.next_body = serde_json::json!({"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Decisions"}]},{"type":"paragraph","content":[{"type":"text","text":"Ship Friday"}]}]}).to_string();
+            request.title = Some(TitleCorrection {
+                current_title: String::new(),
+                next_title: "DEFCON 1".to_string(),
+            });
+            let next_body = retitle_summary(
+                &request.next_body,
+                "prosemirror_json",
+                if existing_title.is_empty() {
+                    "DEFCON 1"
+                } else {
+                    existing_title
+                },
+                "DEFCON 1",
+            )
+            .unwrap();
+            let result = save_generated_summary(db.pool(), request).await;
+            let (title, body): (String, String) = sqlx::query_as(
+                "SELECT s.title, d.body FROM sessions s
+                 JOIN session_documents d ON d.session_id = s.id WHERE d.id = 'note-1'",
+            )
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+            let document: serde_json::Value = serde_json::from_str(&body).unwrap();
+            assert_eq!(document["content"][1]["content"][0]["text"], "Decisions");
+            assert_eq!(document["content"][2]["content"][0]["text"], "Ship Friday");
+            if existing_title.is_empty() {
+                result.unwrap();
+                assert_eq!(title, "DEFCON 1");
+                assert_eq!(body, next_body);
+                let other: String =
+                    sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'note-2'")
+                        .fetch_one(db.pool())
+                        .await
+                        .unwrap();
+                assert_eq!(other, "# DEFCON 1\n\n# Old heading\n\nKeep this body");
+            } else {
+                result.unwrap();
+                assert_eq!(title, existing_title);
+                assert_eq!(body, next_body);
+            }
+        }
     }
 
     #[tokio::test]
