@@ -18,7 +18,10 @@ import {
   type RecorderPhase,
 } from "@/audio/recorder-status";
 import { SessionWavWriter } from "@/audio/session-wav-writer";
-import { catalogSessionAudio } from "@/data/audio-catalog";
+import {
+  catalogSessionAudio,
+  recordSessionCaptureStart,
+} from "@/data/audio-catalog";
 import {
   SessionLiveTranscription,
   markSessionAudioTranscribed,
@@ -243,6 +246,8 @@ export function useSessionRecorder(
       });
       if (!isCurrent()) return;
       writerRef.current = new SessionWavWriter(sessionId);
+      await recordSessionCaptureStart(sessionId);
+      if (!isCurrent()) return;
       await stream.start();
       if (!isCurrent()) {
         phaseRef.current = "recording";
@@ -384,6 +389,7 @@ export function useSessionRecorder(
       const live = liveRef.current;
       writer.finalize();
       await catalogSessionAudio(sessionId, {
+        source: "recording",
         filename: "audio.wav",
         contentType: "audio/wav",
       });
