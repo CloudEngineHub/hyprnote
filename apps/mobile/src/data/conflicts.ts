@@ -21,29 +21,29 @@ export type RestoredNote = {
   bodyFormat: "prosemirror_json" | "markdown" | null;
 };
 
-// The note document id equals the session id, so both a body conflict on
-// session_documents and a title conflict on sessions carry the session id.
 const NOTE_CONFLICT_PREDICATE = `
   resolved_at IS NULL
-  AND row_id = ?
   AND (
-    (table_name = 'session_documents' AND field_name = 'body')
-    OR (table_name = 'sessions' AND field_name = 'title')
+    (table_name = 'session_documents' AND field_name = 'body'
+      AND row_id IN (SELECT id FROM session_documents WHERE session_id = ? AND kind = 'note'))
+    OR (table_name = 'sessions' AND field_name = 'title' AND row_id = ?)
   )
 `;
 
 const SESSION_CONFLICTS_SQL = `
 SELECT id, row_id, table_name, field_name, lost_side, edited_at_ms, value_json,
-  created_at
+  created_at, CASE WHEN table_name = 'session_documents' THEN
+    (SELECT session_id FROM session_documents WHERE id = row_id)
+    ELSE row_id END AS session_id
 FROM e2ee_field_conflicts
 WHERE ${NOTE_CONFLICT_PREDICATE}
 ORDER BY created_at DESC, id DESC
 `;
 
 const SESSION_VERSIONS_SQL = `
-SELECT id, body, body_format, source, created_at
+SELECT id, document_id, body, body_format, source, created_at
 FROM session_document_versions
-WHERE document_id = ?
+WHERE document_id IN (SELECT id FROM session_documents WHERE session_id = ? AND kind = 'note')
 ORDER BY created_at DESC, id DESC
 `;
 
@@ -83,7 +83,7 @@ export function useSessionConflicts(sessionId: string) {
     SessionConflict[]
   >({
     sql: SESSION_CONFLICTS_SQL,
-    params: [sessionId],
+    params: [sessionId, sessionId],
     mapRows: mapConflictRows,
   });
   return { data: data ?? [], error, isLoading };
@@ -127,7 +127,7 @@ export function useSyncHealth() {
 
 export async function resolveSessionConflicts(sessionId: string) {
   await executeTransaction([
-    { sql: RESOLVE_SESSION_CONFLICTS_SQL, params: [sessionId] },
+    { sql: RESOLVE_SESSION_CONFLICTS_SQL, params: [sessionId, sessionId] },
   ]);
 }
 
@@ -156,11 +156,22 @@ async function restoreNoteBody(
     bodyFormat === "markdown" ? stripMarkdownTitle(body) : docToPlainText(body);
   // A body without its own heading keeps the title the note has now.
   const title = document.title.trim() || (await currentTitle(sessionId));
-  await saveSessionNote(sessionId, {
+  const [base] = await execute<{
+    id: string;
+    body: string;
+    bodyFormat: string;
+  }>(
+    "SELECT id, body, body_format AS bodyFormat FROM session_documents WHERE session_id = ? AND kind = 'note' AND deleted_at IS NULL ORDER BY (id = ?) DESC, created_at, id LIMIT 1",
+    [sessionId, sessionId],
+  );
+  const saved = await saveSessionNote(sessionId, {
     title,
     bodyText: document.text,
     bodyFormat,
+    ...(base ? { base, baseTitle: await currentTitle(sessionId) } : {}),
   });
+  if (saved === null)
+    throw new Error("This note changed while restoring. Please try again.");
   return { title, bodyText: document.text, bodyFormat };
 }
 
