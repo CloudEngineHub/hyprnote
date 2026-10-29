@@ -425,7 +425,7 @@ export function useDevtoolsActions() {
       options: null,
       footer: {
         text: "Ignore Zoom and Chrome?",
-        actionLabel: "Yes",
+        actionLabel: "Ignore them",
         icon: { type: "bundle_id", bundle_id: "us.zoom.xos" },
       },
       icon: null,
